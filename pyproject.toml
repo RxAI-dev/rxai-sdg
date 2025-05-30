@@ -1,0 +1,30 @@
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "rxai-sdg"
+version = "0.1.1"
+description = "Reactive AI - Synthetic Datasets Generator"
+
+license = "Apache-2.0"
+
+authors = [
+    "Adam Filipek <adamfilipek@rxai.dev>"
+]
+
+repository = "https://github.com/RxAI-dev/rxai-sdg"
+homepage = "https://rxai.dev/rxai-sdg"
+
+# README file(s) are used as the package description
+readme = ["README.md", "LICENSE"]
+
+# Keywords (translated to tags on the package index)
+keywords = ["deep-learning", "ai", "machine-learning"]
+
+[tool.poetry.dependencies]
+python = ">=3.10"
+datasets = "^3.5.0"
+huggingface-hub = "^0.30.0"
+openai = '^1.82.1'
+
