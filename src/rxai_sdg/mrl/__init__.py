@@ -2372,8 +2372,8 @@ class MrlPromptCreator:
               [
                   ("[Follow-up 1: **topic two**]", "[Answer 1: **topic two**]"),
                   ("[Follow-up 2: **topic two**]", "[Answer 2: **topic two**]"),
-                  # ... {steps - 1} total: **topic two**
-                  ("[Final follow-up {steps}: **topic one**]", "[Final answer {steps}: **topic one**]"),
+                  # ... {steps - 1} examples for **topic two**
+                  ("[Follow-up {steps}: **topic one** (final)]", "[Answer {steps}: **topic one**  (final)]"),
               ]
         """
         elif steps == 1:
@@ -2456,7 +2456,7 @@ class MrlPromptCreator:
     ```
     """
 
-    def get_critical_rules(self, prior_steps: int, mode: str = 'multi'):
+    def get_critical_rules(self, steps: int, prior_steps: int, mode: str = 'multi'):
         if mode == 'multi':
             return f"""
         ## CRITICAL RULES
@@ -2510,6 +2510,12 @@ class MrlPromptCreator:
           - don't generate examples in same topics as in FEW SHOT EXAMPLES, like Mount Everest, Nile description, Amazon forest, Grand Canyon, Coral Reef, Sequoia Trees or Great Wall
           - be creative for topics
           - try a lot different topics
+        6. **CRUCIAL/CRITICAL** !! - Long-Range Strategy
+          - first, initial QA pair is connected to **topic one**
+          - ensure that there is exactly {steps} follow-up QAs/interactions with two different **topics**
+          - first {steps - 1} follow-ups are all exploring **topic two**
+          - ensure that exactly the last, {steps} QA pair (interaction) is going back to **topic one**
+          - ensure that the last {steps} interaction is not connected to **topic two**
       """
 
     def get_examples(self, steps: int, mode: str = 'multi'):
@@ -2562,15 +2568,17 @@ class MrlPromptCreator:
         2. Design {steps - 1} follow-ups requiring cumulative understanding for **topic two**
         3. Ensure final query is switching back to **topic one** and final answer is including data from initial QA pair
         4. Validate all factual accuracy
+        5. All follow-ups should have {steps} elements: {steps - 1} for **topic two** and last 1 for switching back to **topic one**
         ## OUTPUT VALIDATION
         - No placeholder text ("...")
         - All facts consistent
-        - {steps} follow-ups per entry
+        - exactly {steps} follow-ups per entry: {steps - 1} for **topic two** and last 1 for **topic one**
         - Final answer combines 3-4+ facts from first initial interaction
         - Output only the final list - without wrapping it with '```python' and '```'
         - Output is a single list of tuples in same format as examples
         - Output contains {num_examples} elements with the same format as examples
         - Do not generate separate list for each example, only single list of tuples
+        - Ensure, that after {steps - 1} follow-up QAs (interactions) for **topic two**, there's also final {steps} (last) query and answer for **topic one**
         
         Generate {num_examples} entries following EXACTLY this structure.
         """
@@ -2604,7 +2612,7 @@ class MrlPromptCreator:
                  include_no_think: bool = True):
         prior_steps = self.get_prior_steps(steps)
         return (self.get_description(steps, num_examples, prior_steps, mode=mode) +
-                self.get_critical_rules(prior_steps, mode=mode) +
+                self.get_critical_rules(steps, prior_steps, mode=mode) +
                 self.get_examples(steps, mode=mode) + self.get_topics(num_topics, mode=mode) +
                 self.get_final_instructions(steps, num_examples, include_no_think=include_no_think, mode=mode))
 
@@ -2613,7 +2621,7 @@ class MrlSyntheticDatasetGenerator:
     def __init__(
             self, max_items: int = None, model_name: str = "qwen/qwen3-4b-fp8",
             api_url: str = "https://api.novita.ai/v3/openai",
-            api_key: str = "sk_QnQVgESsna-bHJPSRR-UbYVfSYtoa77E7T4KdFtnTag"
+            api_key: str = None
     ):
         self.failed_count = 0
         self.items = self._init_items()
@@ -2625,7 +2633,7 @@ class MrlSyntheticDatasetGenerator:
         self.model_name = model_name
 
     def _init_items(self):
-        return { 'query': [], 'answer': [], 'interactions': [] }
+        return {'query': [], 'answer': [], 'interactions': []}
 
     def generate_items(
             self, prompt: str, stream: bool = False, temperature: float = 0.7,
@@ -2682,10 +2690,72 @@ class MrlSyntheticDatasetGenerator:
             print('API Error', e)
             return '[]'
 
-    def process_interactions(self, interactions: list[tuple[str, str]]):
+    def filter_incorrect_long_range(self, query: str, answer: str,
+                                    interactions: list[tuple[str, str]]) -> bool:
+        from nltk.translate.bleu_score import sentence_bleu
+        initial = f'[Q] {query.strip()} [A] {answer.strip()}'
+        follow_up = [f"[Q] {query.strip()} [A] {answer.strip()}" for query, answer in interactions]
+        topic_two_follow_ups, last_follow_up = follow_up[:-1], follow_up[-1]
+
+        bleu_initial_last = (sentence_bleu([last_follow_up], initial, weights=(0.25, 0.25, 0.25, 0.25)) + sentence_bleu(
+            [last_follow_up], initial, weights=(0.25, 0.25, 0.25, 0.25))) / 2
+
+        has_one_middle_incorrect = False
+
+        middle_init_bleus = []
+        for item in topic_two_follow_ups:
+            score = sentence_bleu([initial], item, weights=(0.25, 0.25, 0.25, 0.25))
+            if score > bleu_initial_last:
+                has_one_middle_incorrect = True
+            middle_init_bleus.append(score)
+        bleu_initial_follow_ups = sum(middle_init_bleus) / len(topic_two_follow_ups)
+
+        middle_last_bleus = []
+        for item in topic_two_follow_ups:
+            score = sentence_bleu([last_follow_up], item, weights=(0.25, 0.25, 0.25, 0.25))
+            if score > bleu_initial_last:
+                has_one_middle_incorrect = True
+
+            middle_last_bleus.append(score)
+
+        bleu_last_follow_ups = sum(sentence_bleu([last_follow_up], item, weights=(0.25, 0.25, 0.25, 0.25)) for item in
+                                   topic_two_follow_ups) / len(topic_two_follow_ups)
+
+        if bleu_initial_last > bleu_initial_follow_ups and bleu_initial_last > bleu_last_follow_ups:
+            if bleu_last_follow_ups > 0.45 and bleu_initial_follow_ups > 0.45:
+                print(
+                    f"Incorrect items - mixed last/initial with middle. Initial vs last: {bleu_initial_last} | Initial vs middle: {bleu_initial_follow_ups} | Last vs middle: {bleu_last_follow_ups}")
+                return False
+            elif bleu_last_follow_ups > 0.45:
+                print(
+                    f"Incorrect items - mixed last with middle. Initial vs last: {bleu_initial_last} | Initial vs middle: {bleu_initial_follow_ups} | Last vs middle: {bleu_last_follow_ups}")
+                return False
+            elif bleu_initial_follow_ups > 0.45:
+                print(
+                    f"Incorrect items - mixed initial with middle. Initial vs last: {bleu_initial_last} | Initial vs middle: {bleu_initial_follow_ups} | Last vs middle: {bleu_last_follow_ups}")
+                return False
+            elif has_one_middle_incorrect:
+                print(
+                    f"Incorrect items - some middle item connected to first topic. Initial vs last: {bleu_initial_last} | Initial vs middle: {middle_init_bleus} | Last vs middle: {middle_last_bleus}")
+                return False
+            return True
+        else:
+            print(
+                f"Incorrect items - wrong topics. Initial vs last: {bleu_initial_last} | Initial vs middle: {bleu_initial_follow_ups} | Last vs middle: {bleu_last_follow_ups}")
+            return False
+
+    def filter_incorrect(self, steps: int, query: str, answer: str,
+                         interactions: list[tuple[str, str]], mode: str = 'multi') -> bool:
+        if mode == 'multi':
+            return query is not None and answer is not None and interactions is not None and len(interactions) == steps
+        else:
+            return query is not None and answer is not None and interactions is not None and len(
+                interactions) == steps and self.filter_incorrect_long_range(query, answer, interactions)
+
+    def process_interactions(self, interactions: list[tuple[str, str]]) -> list[dict[str, str]]:
         return [{'query': query.strip(), 'answer': answer.strip()} for query, answer in interactions]
 
-    def process_items(self, items_str: str, steps: int, stream: bool = False) -> int:
+    def process_items(self, items_str: str, steps: int, stream: bool = False, mode: str = 'multi') -> int:
         try:
             if not items_str.rstrip().endswith(']'):
                 items_str = items_str.rstrip() + ']'
@@ -2694,13 +2764,13 @@ class MrlSyntheticDatasetGenerator:
             if not stream:
                 print(items_str)
             items_list = eval(items_str)
-            items_len = len(items_list)
+            total_items_len = len(self.items['query'])
             for (query, answer), interactions in items_list:
-                if query is not None and answer is not None and interactions is not None and len(interactions) == steps:
+                if self.filter_incorrect(steps, query, answer, interactions, mode=mode):
                     self.items['query'].append(query.strip())
                     self.items['answer'].append(answer.strip())
                     self.items['interactions'].append(self.process_interactions(interactions))
-            return items_len
+            return len(self.items['query']) - total_items_len
         except:
             self.failed_count += 1
             print(f'Cannot process generated list! Failed {self.failed_count} times')
@@ -2727,7 +2797,7 @@ class MrlSyntheticDatasetGenerator:
                 prompt, stream=stream, temperature=temperature, top_p=top_p,
                 top_k=top_k, max_tokens=max_tokens, timeout=timeout, system_prompt=system_prompt,
             )
-            new_items_len = self.process_items(txt[21:] if '<think>' in txt else txt, steps, stream=stream)
+            new_items_len = self.process_items(txt[21:] if '<think>' in txt else txt, steps, stream=stream, mode=mode)
             total_items = len(self.items['query'])
             if stream:
                 print('\n')
@@ -2735,7 +2805,6 @@ class MrlSyntheticDatasetGenerator:
             if total_items > self.max_items:
                 print('Max items limit reached, breaking.')
                 break
-
 
 
 class MrlGeneratorPostprocessor:
@@ -2826,7 +2895,9 @@ class MrlGeneratorPostprocessor:
     def get_subset(self, split_idx: int) -> MrlSyntheticDatasetGenerator:
         queries_a, queries_b = self.generator.items['query'][:split_idx], self.generator.items['query'][split_idx:]
         answers_a, answers_b = self.generator.items['answer'][:split_idx], self.generator.items['answer'][split_idx:]
-        interactions_a, interactions_b = self.generator.items['interactions'][:split_idx], self.generator.items['interactions'][split_idx:]
+        interactions_a, interactions_b = self.generator.items['interactions'][:split_idx], self.generator.items[
+                                                                                               'interactions'][
+                                                                                           split_idx:]
 
         self.generator.items = {
             'query': queries_a,
@@ -2843,6 +2914,9 @@ class MrlGeneratorPostprocessor:
         }
 
         return generator_b
+
+    def get_subset_postprocessor(self, split_idx: int) -> "MrlGeneratorPostprocessor":
+        return self.__class__(self.get_subset(split_idx), self.dataset_id, self.config_name, self.split, self.token)
 
     def append_from_existing_dataset(self):
         dataset = load_dataset(self.dataset_id, self.config_name, split=self.split, token=self.token)

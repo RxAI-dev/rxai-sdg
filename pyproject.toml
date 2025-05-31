@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "rxai-sdg"
-version = "0.1.4"
+version = "0.1.10"
 description = "Reactive AI - Synthetic Datasets Generator"
 
 license = "Apache-2.0"
@@ -27,4 +27,5 @@ python = ">=3.10"
 datasets = "^3.5.0"
 huggingface-hub = "^0.30.0"
 openai = '^1.82.1'
+nltk = '^3.9.1'
 
