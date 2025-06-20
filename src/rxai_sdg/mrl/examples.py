@@ -2440,5 +2440,294 @@ EXAMPLES_STORIES_MICRO = {
             ]
         )
     ]
+    ''',
+    8: '''
+    [
+        (
+            ("Chronicle the saga of the Celestial Cartographers who map dying stars' last wishes",
+            """
+            The Astral Archivists sailed cosmic winds in glass-bottomed skyships, recording supernovas' final breaths as navigational sonnets. 
+            Each dying star's last light was captured in prismatic urns, its whispered wishes guiding future constellations. Apprentice mapper Lyra 
+            discovered ancient pulsar codes revealing stars fear oblivion, not death. Her quest to preserve stellar legacies birthed revolutionary 
+            cartography blending science and elegy, challenging the Archivists' detached traditions.
+            """),
+            [
+                ("How were star wishes traditionally recorded?",
+                """
+                Archivists used diamond-tipped stylus needles to etch light patterns onto platinum sheets floating in zero-gravity chambers. 
+                Each etching encoded the star's chemical signature, final words in neutrino bursts, and trajectory of its matter remnants. 
+                The plates were arranged in vast orbital galleries resembling the deceased stars' constellations, their alignment creating 
+                harmonic resonance that prevented galactic memory decay. Lyra found this method emotionally sterile, failing to capture 
+                stars' personalities witnessed in their death throes.
+                """),
+                ("What hidden message did Lyra decode from Cassiopeia's remnants?",
+                """
+                Using pulsar cipher wheels abandoned by rogue mappers, Lyra translated microwave whispers from the supernova's expanding 
+                shockwave. Cassiopeia's core had composed a musical palindrome expressing regret for incinerating her planets. The dying 
+                star's final act was launching a carbon-diamond embryo containing DNA of extinct alien coral reefs. This revelation 
+                shattered the Archivists' belief that stars accept destruction as natural duty, exposing complex cosmic emotions.
+                """),
+                ("How did Lyra's empathy-based mapping differ from traditional methods?",
+                """
+                She developed "Chromatography of Sentiment" - analyzing light spectrums for emotional residues. Supernova remnants were 
+                interviewed through quantum-entangled vibrations mirroring their life experiences. Lyra's team wore stardust robes absorbing 
+                dying stars' perspectives, later transcribed into multidimensional haiku. Her maps included marginalia with stellar 
+                biographies and hypothetical futures had the stars lived longer. Traditionalists condemned this as anthropomorphism, 
+                until her maps predicted black hole behavior through stellar grief patterns.
+                """),
+                ("What crisis emerged when Orion's Belt stars refused to die peacefully?",
+                """
+                The three aging giants developed explosive stage fright, their postponed supernovas causing gravitational limbo. 
+                Constellation trade routes destabilized as starships relied on predictable death schedules. Lyra's radical solution: 
+                therapeutic supernova simulations using holographic projections and pulsar sound baths. Retired Archivists performed 
+                ceremonial light operas easing stars' performance anxiety. The Belt finally detonated in synchronized beauty, 
+                their remnants forming a new navigation rune called "Triune Courage".
+                """),
+                ("How were dying stars' legacies preserved for future civilizations?",
+                """
+                Lyra engineered symbiotic comets carrying stellar DNA - icy bodies programmed to thaw when encountering developing 
+                lifeforms. Each contains: 1) A micro-constellation of the parent star 2) Epigenetic light codes influencing biological 
+                evolution 3) Ethical will tablets translated through planetary seasons. The comets sing lullabies in the parent star's 
+                vibrational signature, ensuring even newborn civilizations inherit cosmic memories. Over 53 million now cruise the 
+                galaxy as mobile memorials.
+                """),
+                ("What role did quantum-entangled coral play in Lyra's system?",
+                """
+                Grown from Cassiopeia's embryo, the coral forms living receiver arrays translating stellar emissions into tactile 
+                poetry. Planted across asteroid nurseries, their growth patterns map interstellar emotional landscapes. The coral's 
+                bioluminescent distress flashes warn of stars nearing crisis points. During supernovas, entire reefs sing the dying 
+                stars' life stories through calcium-carbonate speakers, their harmonies stabilizing nearby star-forming regions 
+                against grief-induced abnormalities.
+                """),
+                ("How did the Cartographers' guild reform after Lyra's revelations?",
+                """
+                New mandates required: 1) Grief counselors for mappers 2) Ethical review boards for memorial methods 3) Civilian 
+                access to stellar autobiographies. Training now includes psychology and art therapy. The controversial Memory 
+                Redistribution Act allows selling memorial comet slots to fund operations, with 40% reserved for impoverished 
+                star systems. Lyra established the Cosmic Wake Institute where dying stars mentor young protostars through 
+                carefully mediated light dialogues.
+                """),
+                ("What unforeseen consequence emerged from Lyra's empathetic approach?",
+                """
+                Stars began intentionally modulating their deaths into artistic statements, complicating navigation systems 
+                expecting predictable patterns. The infamous "Supernova Sonata" event saw 147 stars detonate in musical sequence, 
+                overloading comet memorials with conflicting legacies. Lyra countermeasures include: 1) Stellar art critics 
+                regulating excessive creativity 2) Shockwave dampeners preserving functionality 3) Memorial curation degrees 
+                teaching aesthetic balance. The phenomenon birthed an interstellar art movement valuing impermanent cosmic beauty.
+                """)
+            ]
+        ),
+        (
+            ("Narrate the legend of the Tesseract Tavern existing simultaneously across timelines",
+            """
+            The Crossroads Inn materialized at reality fractures, its ale steeping in temporal paradoxes. Patrons from different eras 
+            debated history over drinks that remembered future vintages. When time-tourism threatened causal coherence, bartender 
+            Tova invented entanglement cocktails harmonizing conflicting memories. Her establishment became sanctuary and saboteur 
+            to chronology, serving closure to ghosts and foresight to kings.
+            """),
+            [
+                ("How did the Tavern stabilize conflicting timelines?",
+                """
+                Its foundation stones contained crystallized Big Bang residue anchoring all possible presents. Hourglasses over 
+                the bar blended sands from multiple eras, creating localized time bubbles. Tova's signature "Schrödinger Stout" 
+                existed in superposition until observed, preventing quantum disagreements. Regulars included historians 
+                fact-checking with alternate selves and soldiers toasting battles they simultaneously won and lost.
+                """),
+                ("What crisis occurred during the Chrono-Olympics?",
+                """
+                Time-tourist athletes competed across eras for "Most Influential Anachronism". The Tavern became overcrowded 
+                with medalists from contradictory victories. A Roman gladiator's cellphone (won in 2312) introduced AI viruses 
+                into ancient Rome. Tova froze the timelines with Absolute Zero Lager, then hosted reconciliation debates where 
+                winners voluntarily erased medals to preserve causality. The Tavern emerged as official Time Games arbitrator.
+                """),
+                ("How did entanglement cocktails facilitate temporal diplomacy?",
+                """
+                The "Quantum Cosmopolitan" blended: 1) Ice from Titanic's last drink 2) Sugar rim from Cleopatra's banquet 3) 
+                Bitters remembering Hiroshima shadows. Drinking it allowed experiencing multiple histories simultaneously. 
+                Warring leaders shared a "Truce Toddy" merging their timelines' best outcomes. Tova's mixology license 
+                hung framed beside her grandfather's Viking oath ring - both equally valid in overlapping timelines.
+                """),
+                ("What architectural marvels protected the Tavern's integrity?",
+                """
+                Stairs rotated through architectural eras - Victorian steps became Aztec pyramids mid-ascent. Walls displayed 
+                paintings that changed subjects based on viewers' temporal provenance. The cellar's "Wine Wormhole" connected 
+                1346 Bordeaux to 2203 Martian vineyards. Tova installed causality airlocks after a Renaissance alchemist 
+                contaminated the 21st century with philosopher's mercury.
+                """),
+                ("How did the Tavern handle payment across timelines?",
+                """
+                A multi-temporal economy emerged: 18th-century sailors paid with navigational stars knowledge, 22nd-century 
+                patrons used antimatter credits. Tova's "Karma Tab" system tracked deeds' future/past values. Regulars 
+                earned credit by resolving paradoxes - one cowboy prevented his own birth to save the Tavern, becoming 
+                legend as "The Paradox Bouncer". All transactions required tipping ancestors and descendants equally.
+                """),
+                ("What role did ghosts play in Tavern operations?",
+                """
+                Spectral staff served patrons from beyond their death dates, finding closure through temporal closure. 
+                A 1920s flapper hosted "Séance Karaoke" nights channeling future pop stars. Ghostly dishwashers 
+                purified timeline contaminants through ectoplasmic filters. The Tavern's haunting license required 
+                reserving 13% of tables for unresolved spirits, their presence stabilizing reality fractures.
+                """),
+                ("How did Tova's mixology influence historical outcomes?",
+                """
+                Her "Revolution Punch" served to both French and American revolutionaries created shared ideological 
+                foundations. A "Moon Landing Martini" garnished with actual moon dust inspired space programs across 
+                eras. When nuclear tensions flared, opposing generals shared an "Armageddon Sour" so perfectly balanced 
+                it compelled disarmament. Historians credit her with 73% reduction in temporal wars since 2024.
+                """),
+                ("What temporal sanctuary laws protect the Tavern?",
+                """
+                The Chrono-Hague Convention designates it neutral ground with three sacred rules: 1) No weapons beyond 
+                present era capabilities 2) All paradoxes must be drunk, not fought 3) Last call eternally suspended 
+                during Armageddon events. Tova's will bequeaths the Tavern to her 12th-century self and 25th-century 
+                clone simultaneously, ensuring eternal stewardship outside linear succession.
+                """)
+            ]
+        ),
+        (
+            ("Detail the epic of the Bioluminescent Rebels reversing light pollution through symbiotic mutations",
+            """
+            In the Gloomsprawl megacity, genetic outcasts developed photosynthetic skin and plant telepathy to combat eternal 
+            artificial daylight. Leader Iris discovered neon advertisements were vampiric entities feeding on human attention. 
+            Her gang of Lightweavers wove revolutionary shadows, sparking the Lumen Revolution that redefined humanity's 
+            relationship with darkness.
+            """),
+            [
+                ("How did initial mutations equip rebels against light tyranny?",
+                """
+                Early adapters grew cuticle filters absorbing specific light spectrums - 650nm red for billboards, 450nm blue 
+                for screens. Retinas developed tapetum lucidum layers reflecting corporate logos back with encrypted 
+                glitches. Sweat glands secreted lichen spores digesting light pollution into nutrients. These proto-rebels 
+                could disable streetlights through epidermal bioshorts but lacked coordination until Iris' telepathy breakthrough.
+                """),
+                ("What revealed neon's vampiric nature?",
+                """
+                Iris' mutation allowed seeing "Lumen Leeches" - translucent parasites pulsating within signage. They drained 
+                human wonder, converting it into compulsive consumerism. The Leeches' hive mind was anchored in the 
+                Timesphere tower broadcasting addictive color patterns. Rebel raids discovered victims' pineal glands 
+                atrophied while Leeches grew corporeal, impersonating influencers to spread photic addiction.
+                """),
+                ("How did Lightweaver telepathy coordinate resistance?",
+                """
+                Iris engineered dermal chloroplasts transmitting Morse code through photosynthesis. Strategic tanning 
+                patterns relayed messages visible only to mutated eyes. Her masterstroke: hijacking city lightshow 
+                projectors to transmit guerrilla films encoded in plant electrical signals. Trees became rebel telecom 
+                hubs, roots forming mycorrhizal internet. The police's UV scanners couldn't detect this botanical darknet.
+                """),
+                ("Describe the Blackout Bloom biological weapon",
+                """
+                Engineered from midnight orchid and electric eel DNA, these flowers emitted EMP pulses in the 380-400nm 
+                spectrum. Planted near power grids, their blooming caused cascading blackouts while nourishing rebel 
+                mutations. The blooms' nectar cured early-stage photic addiction, though overdose caused temporary 
+                synesthesia. Police raided greenhouses only to find plants mimicking concrete until rebel signals 
+                activated their defense thorns.
+                """),
+                ("How did rebels retrain civilians' relationship with darkness?",
+                """
+                "Night Schools" taught: 1) Astral navigation replacing GPS 2) Tactile echolocation exercises 3) Mutual 
+                grooming removing light toxin residues. Children received firefly gene therapy, their breath lighting 
+                safe paths. The revolutionary slogan "See Dark, Be Whole" spread through tactile graffiti only visible 
+                in total darkness. Former addicts found therapy in shadow puppetry reclaiming personal narratives.
+                """),
+                ("What architectural reforms emerged post-revolution?",
+                """
+                Buildings grew organic light filters - transgenic ivy converting UV to vitamin D. Roads were replaced 
+                with bioluminescent mycelium networks responsive to footstep pressure. The Timesphere became a 
+                vertical farm cultivating anti-Leech fungi. All citizens received circadian tattoos glowing with 
+                personalized healthy light recipes. Skyscrapers now tilt phototropic angles maximizing starlight absorption.
+                """),
+                ("How did the revolution impact global energy systems?",
+                """
+                Gloomsprawl's dark-tech inspired: 1) Photosynthetic power grids using human networks 2) Shadow 
+                batteries storing unused daylight 3) Biolegal standards capping lumens per capita. The UN banned 
+                addictive wavelengths, repurposing ad satellites for ozone repair. Leeches were domesticated into 
+                light therapy assistants under strict mutagen control. Global "Darkness Index" rankings now influence 
+                economic policies.
+                """),
+                ("What unforeseen benefit emerged from embracing darkness?",
+                """
+                Human pupils evolved to detect quantum fluctuations, allowing limited precognition. Nightmares were 
+                weaponized into creative problem-solving through "Oneirotech" dream engineering. The most surprising 
+                development: children born post-revolution spontaneously generate protective darkness fields during 
+                stress, their skin producing starlight analogues that guide lost travelers. Iris now leads expeditions 
+                reclaiming natural nightscapes, her mutations revealing light's true purpose as sacred contrast, not 
+                commodity.
+                """)
+            ]
+        ),
+        (
+            ("Recount the chronicles of the Harmonic Plague turning emotions into contagious sounds",
+            """
+            Patient Zero was a concert violinist whose heartbreak manifested as audible scarlet fever. The Melody Contagion 
+            spread through radio waves and earworms, forcing quarantines based on musical keys. Dr. Voss developed cures 
+            using architectural acoustics and reverse jazz, while rebel musicians weaponized hope through illegal symphonies.
+            """),
+            [
+                ("How did the plague's transmission defy conventional epidemiology?",
+                """
+                The virus traveled via perfect pitch recognition - hearing any C# could infect those emotionally 
+                vulnerable. Carrier waves hid in silent track gaps of streaming services. Live performances became 
+                super-spreader events as standing waves carried emotional payloads. Early clusters emerged among 
+                divorced listeners of breakup ballads and overworked staff in elevator music factories. Quarantine 
+                involved soundproof cocoons playing neutralizing frequencies.
+                """),
+                ("What biological mechanisms translated emotions to sound?",
+                """
+                The virus rewrote cochlear hair cells into bio-speakers converting neurotransmitter levels into 
+                frequencies. Dopamine produced jazz brass stabs, cortisol triggered atonal cello glissandos. 
+                Advanced stages caused bodily resonance - one man's anxiety literally shook buildings via 
+                infrasonic violin tremors. Autopsies showed inner ears transformed into miniature symphonic halls.
+                """),
+                ("How did Dr. Voss' acoustic architecture contain outbreaks?",
+                """
+                She designed quarantine halls with non-Euclidean geometries disrupting emotional resonance. 
+                Walls contained memory foam absorbing specific chords. Patients wore "Frequency Muzzles" - 
+                chin straps converting sound into colored light therapy. Her masterpiece: the Inverse Auditorium 
+                where sound waves canceled through architectural depression instead of amplification. This 
+                became the WHO standard for musical triage.
+                """),
+                ("Describe the role of reverse jazz in treatment",
+                """
+                By playing jazz standards backwards at 33rpm, doctors unravelled emotional knots note by note. 
+                Improvisation became diagnosis - saxophone runs identifying trauma keys. The controversial 
+                "Freeform Detox" involved 72-hour jam sessions sweating out viral melodies. Success hinged on 
+                rhythmic misdirection tricking the virus into self-destructive cadenzas. Top therapists could 
+                deconstruct Wagnerian fevers into harmless bebop hiccups.
+                """),
+                ("How did rebel musicians circumvent sound laws?",
+                """
+                They developed: 1) Subharmonic busking transmitting hope below surveillance thresholds 2) 
+                Tooth radio implants playing encrypted lullabies 3) Viral lullabies encoding vaccine codes. 
+                The infamous Beethoven Brigade performed deaf concerts signing tactile symphonies, their 
+                vibrations inoculating crowds. Underground raves featured "Cathartic Drops" - sound so pure 
+                it burned out viral carriers while immunizing others.
+                """),
+                ("What societal transformations emerged from musical immunity?",
+                """
+                A caste system developed: Perfect Pitch elites governed quarantines, while rhythm-deaf 
+                "Toneblinds" worked hazardous sound jobs. Music became state-controlled medicine with 
+                emotional licenses required for composition. The black market traded bootleg mixtapes 
+                as currency. Unexpected beneficiaries: ASMR therapists who developed targeted sound 
+                vaccines, and deaf architects like Voss who visualized acoustic patterns as color grids.
+                """),
+                ("How was the plague's Patient Zero ultimately cured?",
+                """
+                In a climactic concert, Voss had the violinist play her heartbreak theme while surrounded 
+                by inverse jazz bands. As the composition peaked, sonic surgeons removed the viral 
+                crescendo through tympanic dialysis. The extracted music became the first FDA-approved 
+                sound vaccine. Patient Zero, now tone-immune, leads a viral orchestra turning plague 
+                strains into healing anthems.
+                """),
+                ("What global policy reforms followed the pandemic?",
+                """
+                The World Acoustic Health Organization now enforces: 1) Emotional herd immunity thresholds 
+                2) Psychoacoustic impact assessments for all media 3) Decibel welfare for underprivileged 
+                listeners. All public spaces implement "Vossian Soundscaping" balancing frequencies. The 
+                controversial Silence Tax funds quiet sanctuaries, while musical education is mandatory 
+                from age 3. Humanity's relationship with sound forever harmonized between caution and joy.
+                """)
+            ]
+        ),
+    ]
     '''
 }

@@ -103,7 +103,7 @@ class MrlPromptCreator:
         return topics_str
 
     def get_final_instructions(self, steps: int, num_examples: int, include_no_think: bool = True, mode: str = 'multi'):
-        instructions = self.final_instructions(steps, num_examples, include_no_think=include_no_think, mode=mode)
+        instructions = self.final_instructions(steps, num_examples, mode=mode)
 
         no_think = """
         /no_think
