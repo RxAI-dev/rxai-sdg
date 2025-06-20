@@ -586,6 +586,7 @@ def final_instructions_real(steps: int, num_examples: int, mode: str = 'multi'):
     - Output is a single list of tuples in same format as examples
     - Output contains {num_examples} elements with the same format as examples
     - Do not generate separate list for each example, only single list of tuples
+    - Each tuple should end with closing `)` and each list should end with closing `]`
     
     Generate {num_examples} entries following EXACTLY this structure.
     """ if mode == 'multi' else f"""
@@ -604,6 +605,7 @@ def final_instructions_real(steps: int, num_examples: int, mode: str = 'multi'):
     - Output is a single list of tuples in same format as examples
     - Output contains {num_examples} elements with the same format as examples
     - Do not generate separate list for each example, only single list of tuples
+    - Each tuple should end with closing `)` and each list should end with closing `]`
     - Ensure, that after {steps - 1} follow-up QAs (interactions) for **topic two**, there's also final {steps} (last) query and answer for **topic one**
     
     Generate {num_examples} entries following EXACTLY this structure.
@@ -934,6 +936,7 @@ def final_instructions_stories(steps: int, num_examples: int, mode: str = 'multi
     - Output is a single list of tuples in same format as examples
     - Output contains {num_examples} elements with the same format as examples
     - Do not generate separate list for each example, only single list of tuples
+    - Each tuple should end with closing `)` and each list should end with closing `]`
 
     Generate {num_examples} entries following EXACTLY this structure.
     """ if mode == 'multi' else f"""
@@ -953,6 +956,7 @@ def final_instructions_stories(steps: int, num_examples: int, mode: str = 'multi
     - Output is a single list of tuples in same format as examples
     - Output contains {num_examples} elements with the same format as examples
     - Do not generate separate list for each example, only single list of tuples
+    - Each tuple should end with closing `)` and each list should end with closing `]`
     - Ensure, that after {steps - 1} follow-up QAs (interactions) for **topic two**, there's also final {steps} (last) query and answer for **topic one**
 
     Generate {num_examples} entries following EXACTLY this structure.

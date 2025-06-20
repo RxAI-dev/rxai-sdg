@@ -68,7 +68,7 @@ class InteractionSftSyntheticDatasetGenerator(BaseDatasetGenerator):
                 prompt, stream=stream, temperature=temperature, top_p=top_p,
                 top_k=top_k, max_tokens=max_tokens, timeout=timeout, system_prompt=system_prompt,
             )
-            new_items_len = self.process_items(txt)
+            new_items_len = self.process_items(txt, stream=stream)
             total_items = len(self.items['query'])
             if stream:
                 print('\n')
@@ -118,7 +118,10 @@ class InteractionSftGeneratorPostprocessor:
 
     def push_to_hf_hub(self):
         ds = self.generator.get_dataset()
-        ds.push_to_hub(repo_id=self.dataset_id, config_name=self.config_name, split=self.split, token=self.token)
+        if self.config_name is not None:
+            ds.push_to_hub(repo_id=self.dataset_id, config_name=self.config_name, split=self.split, token=self.token)
+        else:
+            ds.push_to_hub(repo_id=self.dataset_id, split=self.split, token=self.token)
 
     def replace_common_names(self, new_names: tuple[list[str], list[str]], existing_names: tuple[list[str], list[str]] = (common_female_names, common_male_names), skip_ratio: float = 0.0):
         ds = self.generator.get_dataset()
