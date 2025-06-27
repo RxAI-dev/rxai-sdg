@@ -1903,6 +1903,140 @@ EXAMPLES_REAL_MICRO_LONG: dict[int, str] = {
 }
 
 EXAMPLES_STORIES_MICRO = {
+    2: '''
+    [
+        (
+            ("Tell me a story about the Bubblegum Dragon who guards lost playgrounds",
+            """
+            The Bubblegum Dragon lived beneath the rusty slide of Abandoned Oak Park, its scales made of hardened chewing gum mosaics. 
+            Each dawn, it blew protective bubble shields around forgotten swing sets using mint-flavored breath. 
+            The dragon collected children's lost teeth as tribute, crafting them into chalk that drew magical hopscotch portals. 
+            When construction crews threatened to bulldoze the park, the dragon's bubblegum barrier withstood excavators until neighborhood kids organized a "Remember Oak Day" parade. 
+            Marching with handmade kazoos and jump rope lassos, they reminded the city how laughter echoes in derelict spaces.
+            """),
+            [
+                ("How did the dragon create bubble shields?",
+                """
+                The Bubblegum Dragon's respiratory system contained specialized sacs where childhood memories fermented into viscous gum resin. 
+                When exhaled through its candy-cane striped horns, this resin expanded upon contact with nostalgic objects like rusty monkey bars. 
+                The bubbles' tensile strength came from layered recollections - first kisses under slides, victory chants after kickball games. 
+                Each shield lasted precisely 13 hours (a child's attention span peak) before dissolving into scented mist that made weeds grow in playground shapes. 
+                The dragon could adjust bubble flavors based on threats: sour apple for lawyers' paperwork, strawberry for concrete mixers.
+                """),
+                ("What happened during the final standoff with bulldozers?",
+                """
+                As bulldozers approached, the dragon blew triple-layered bubblegum domes infused with every lost tooth's memory. 
+                Construction blades gummed up with strawberry-scented resistance while cement trucks spat out rainbow slurry. 
+                Neighborhood kids arrived with kazoo orchestras playing hopscotch chants that vibrated through chalk portals, summoning spectral jump rope teams. 
+                Their parade float made from welded swing chains projected holograms of Oak Park's happiest moments onto the bubbles. 
+                When the mayor saw her childhood self winning the 1993 sack race, she halted demolition and designated the park a laughter conservation zone.
+                """)
+            ]
+        ),
+        (
+            ("Tell me a story about the Midnight Laundromat where clothes absorb dreams",
+            """
+            At 11:11 PM, the Whirlpool Wonderland laundromat's machines activated, churning pajamas into dream catalysts. 
+            Owner Iris discovered that spin cycles imprinted subconscious thoughts onto fabric - anxiety stains became courage patches, nightmare lint transformed into hope fuzz. 
+            Her specialty: "Snooze Spin" settings blending dream fragments into collaborative quilts. 
+            When insomnia plagued the town, Iris hosted all-night folding parties where participants' sleepwear merged dreams into a communal tapestry that cured collective restlessness.
+            """),
+            [
+                ("How did dream absorption affect different fabrics?",
+                """
+                Cotton became porous memory sponges absorbing first-layer dreams like flying or falling. 
+                Silk developed liquid-crystal properties reflecting dream colors onto walls. 
+                Polyester blends created "fusion dreams" where multiple sleepers' experiences merged into surreal narratives. 
+                Iris's experiments revealed wool retained nightmares longest but could be sanitized in mint-flavored dryers. 
+                The most valuable material: vintage flannel that amplified lucid dreaming when spun at 33rpm - the exact speed of REM cycles.
+                """),
+                ("What happened during the insomnia crisis?",
+                """
+                A viral cat video kept the town awake with compulsive viewing, creating dream deficits. 
+                Iris responded with Emergency Protocol 7: citizens donated sleepwear for marathon washing. 
+                She programmed machines to weave dream fragments into a city-scale quilt displayed in the town square. 
+                As people touched their clothing threads in the tapestry, shared dream energy flowed back through the fabric. 
+                The quilt's central patch - made from the mayor's polka-dot pajamas - emitted delta wave pulses that finally lulled everyone into restorative sleep.
+                """)
+            ]
+        ),
+        (
+            ("Tell me a story about the Gravity Gardeners who cultivate floating islands",
+            """
+            The Terrafirma Collective tended airborne ecosystems drifting on anti-gravity spores. 
+            Head gardener Petra balanced island weights using song-root systems that harmonized with planetary magnetism. 
+            Their flagship: New Eden Atoll where upside-down waterfalls nourished cloud orchards. 
+            When industrial smog threatened to ground the islands, Petra engineered "sky-vines" that filtered pollution into iridescent vapor trails visible from space.
+            """),
+            [
+                ("How did song-roots maintain island stability?",
+                """
+                Genetically modified from sequoia and humpback whale DNA, the roots transmitted infrasonic harmonies through magnetic soil. 
+                Petra tuned them to resonate with Earth's Schumann resonance (7.83Hz) using tuning forks made from meteorite fragments. 
+                Each root system created localized gravity wells calibrated by pitch - bass notes increased weight for storm resistance, soprano trills lightened islands for migration. 
+                The roots' symbiotic fungi converted sound vibrations into anti-gravity particles through quantum entanglement.
+                """),
+                ("What solution saved the islands from smog grounding?",
+                """
+                Petra crossbred Spanish moss with atmospheric algae to create photosynthetic sky-vines. 
+                These draped from island edges like living scrubbers, their feathery leaves absorbing carbon while releasing oxygen glitter. 
+                The vines' roots distilled smog into liquid stardust stored in hollow gourds - later sold as celestial art supplies. 
+                Final upgrade: installing vine-powered wind harps that played cleansing melodies, restoring the islands' buoyancy through harmonic purification.
+                """)
+            ]
+        ),
+        (
+            ("Tell me a story about the Shadow Puppet Theater that predicts weather patterns",
+            """
+            Behind Granny Elm's barn, the Nocturne Players performed nightly forecasts using silhouette prophecies. 
+            Young Leo manipulated shadow strings that bent moonlight into predictive shapes: rabbit profiles meant rain, dragon silhouettes warned of heatwaves. 
+            Their accuracy stemmed from "Umbra Ink" mixed from eclipse dust and children's wonder. 
+            When climate change distorted patterns, Leo invented "memory lanterns" projecting historical weather shadows to recalibrate predictions.
+            """),
+            [
+                ("How did Umbra Ink enhance predictions?",
+                """
+                The ink contained nanoparticles sensitive to atmospheric pressure changes. 
+                When painted on shadow screens, it darkened proportionally to humidity levels. 
+                Leo's secret formula: 3 parts 2017 solar eclipse dust, 2 parts firefly gut bacteria, and 1 tear of pure childhood astonishment. 
+                The mixture allowed shadows to absorb latent heat signatures and display them as thermal silhouettes hours before weather manifested.
+                """),
+                ("What breakthrough came from memory lanterns?",
+                """
+                Leo archived century-old weather reports as shadow dioramas in hurricane-proof lanterns. 
+                During performances, these historical shadows merged with real-time predictions creating "forecast hybrids". 
+                The breakthrough: recognizing that climate-distorted patterns repeated fractal versions of past anomalies. 
+                His lantern-projected 1936 Dust Bowl shadows helped predict modern droughts with 92% accuracy, saving farms through early irrigation.
+                """)
+            ]
+        ),
+        (
+            ("Tell me a story about the Jellyfish Symphony conducting oceanic currents",
+            """
+            Maestro Aurelia led a bioluminescent orchestra of siphonophore musicians in the Twilight Zone. 
+            Their tentacles pulsed electroluminescent concertos that directed marine migrations - whale songs became bass lines, shrimp clicks provided percussion. 
+            When noise pollution from submarine cables disrupted performances, Aurelia composed "Silent Sonatas" using pressure waves instead of sound. 
+            Her magnum opus: the Great Conveyor Belt Waltz that repaired damaged currents after oil spills.
+            """),
+            [
+                ("How did siphonophores synchronize with whale songs?",
+                """
+                Specialized zooids in their colonies acted as living tuning forks resonating with cetacean frequencies. 
+                Aurelia trained them using hydrothermal vent metronomes set to migratory rhythms. 
+                The siphonophores' gelatinous bodies transmitted vibrations through conductive mesoglea at light-speed. 
+                Their light shows translated songs into color spectrums - blue for feeding calls, green for mating chants - visible across oceanic basins.
+                """),
+                ("What made Silent Sonatas effective against noise pollution?",
+                """
+                Aurelia replaced audible frequencies with controlled pressure differentials felt through lateral lines. 
+                Sonata patterns formed hydraulic dance steps guiding fish around cable zones. 
+                The silent performances used coordinated depth changes to create "hydraulic signatures" - unique pressure fingerprints recognizable to marine life. 
+                After sonata implementation, 89% of disoriented species successfully navigated polluted corridors using these liquid waypoints.
+                """)
+            ]
+        )
+    ]
+    ''',
     4: '''
     [
         (
