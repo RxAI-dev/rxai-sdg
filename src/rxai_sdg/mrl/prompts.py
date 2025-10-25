@@ -502,7 +502,7 @@ def task_description_real(follow_ups_format: str, steps: int, num_examples: int,
     ```
     """
 
-def critical_rules_real(steps: int, prior_steps: int, num_tokens: int, mode: str = 'multi'):
+def critical_rules_real(steps: int, prior_steps: int, num_tokens: int, mode: str = 'multi', example_multiplier: int = 4):
     if mode == 'multi':
         return f"""
     ## CRITICAL RULES
@@ -510,12 +510,10 @@ def critical_rules_real(steps: int, prior_steps: int, num_tokens: int, mode: str
       - All geographical/scientific facts must be accurate
       - No fictional elements - only real-world entities
       - Real-world knowledge, but only a basic facts like in examples
-      - Simple facts in form of stories
-      - Shouldn't include a lot of numbers - only basic facts
-      - No calculations, etc., only the knowledge and just dialog content
-    2. Non-formal language:
-      - Model is pre-trained on stories with non-formal language - it should be compatible
-      - While dataset includes real world facts, they should be served in story-like format
+      - Simple facts from real-world information
+    2. Language:
+      - Model is pre-trained on wikipedia - it should be compatible
+      - While dataset includes real world facts, they should be served in dialogue format
     3. Referential Integrity:
       - Each follow-up references 3+ facts from previous answers
       - Final answer must combine facts from {prior_steps} previous steps
@@ -531,7 +529,7 @@ def critical_rules_real(steps: int, prior_steps: int, num_tokens: int, mode: str
       - try a lot different topics
     6. Interaction length
       - each interaction - query + answer - should have about {num_tokens} tokens length
-      - length should be similar as in examples
+      - length should similar as in examples
     """
     else:
         return f"""
@@ -540,12 +538,10 @@ def critical_rules_real(steps: int, prior_steps: int, num_tokens: int, mode: str
       - All geographical/scientific facts must be accurate
       - No fictional elements - only real-world entities
       - Real-world knowledge, but only a basic facts like in examples
-      - Simple facts in form of stories
-      - Shouldn't include a lot of numbers - only basic facts
-      - No calculations, etc., only the knowledge and just dialog content
-    2. Non-formal language:
-      - Model is pre-trained on stories with non-formal language - it should be compatible
-      - While dataset includes real world facts, they should be served in story-like format
+      - Simple facts  from real-world information
+    2. Language:
+      - Model is pre-trained on wikipedia - it should be compatible
+      - While dataset includes real world facts, they should be served in dialogue format
     3. Referential Integrity:
       - Each middle follow-up for **topic two** references 3+ facts from previous answers and trying to combine facts from {prior_steps} previous steps (except first step)
       - Final answer must change back to **topic one** and reference 3+ facts from initial QA pair/interaction
@@ -561,7 +557,7 @@ def critical_rules_real(steps: int, prior_steps: int, num_tokens: int, mode: str
       - try a lot different topics
     7. Interaction length
       - each interaction - query + answer - should have about {num_tokens} tokens length
-      - length should be similar as in examples
+      - length should similar as in examples
     8. **CRUCIAL/CRITICAL** !! - Long-Range Strategy
       - first, initial QA pair is connected to **topic one**
       - ensure that there is exactly {steps} follow-up QAs/interactions with two different **topics**

@@ -76,7 +76,10 @@ class BaseDatasetGenerator(ABC):
             for chunk in chat_completion_res:
                 if datetime.timestamp(datetime.now()) - t1 > timeout:
                     break
-                ch = chunk.choices[0].delta.content or ""
+                try:
+                    ch = chunk.choices[0].delta.content or ""
+                except Exception as e:
+                    ch = ""
                 print(ch, end="")
                 acc += ch
             return acc

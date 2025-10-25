@@ -222,13 +222,13 @@ class MrlSyntheticDatasetGenerator(BaseDatasetGenerator):
     def __call__(self, prompt_creator: MrlPromptCreator, steps: int, iterations: int, num_examples: int = 10,
                  num_topics: int = 10, include_no_think: bool = True, mode: str = 'multi', stream: bool = False,
                  temperature: float = 0.7, top_p: float = 0.9, top_k: int = 50, max_tokens: int = 15000,
-                 timeout: int = 120, restart: bool = False):
+                 timeout: int = 120, restart: bool = False, num_tokens: int = 256):
         if restart:
             self.items = self._init_items()
 
         for iteration in range(iterations):
             # Create example prompt
-            prompt = prompt_creator(steps, num_examples=num_examples, num_topics=num_topics,
+            prompt = prompt_creator(steps, num_examples=num_examples, num_topics=num_topics, num_tokens=num_tokens,
                                     include_no_think=include_no_think, mode=mode)
             # Get system prompt
             system_prompt = prompt_creator.get_system_prompt(num_examples)
