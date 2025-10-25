@@ -248,7 +248,7 @@ class MrlSyntheticDatasetGenerator(BaseDatasetGenerator):
 
 
 class MrlGeneratorPostprocessor:
-    def __init__(self, generator: MrlSyntheticDatasetGenerator, dataset_id: str, config_name: str, split: str = 'train',
+    def __init__(self, generator: MrlSyntheticDatasetGenerator, dataset_id: str, config_name: str = None, split: str = 'train',
                  token: str = None):
         self.generator = generator
         self.dataset_id = dataset_id
@@ -359,7 +359,10 @@ class MrlGeneratorPostprocessor:
         return self.__class__(self.get_subset(split_idx), self.dataset_id, self.config_name, self.split, self.token)
 
     def append_from_existing_dataset(self):
-        dataset = load_dataset(self.dataset_id, self.config_name, split=self.split, token=self.token)
+        if self.config_name is not None:
+            dataset = load_dataset(self.dataset_id, self.config_name, split=self.split, token=self.token)
+        else:
+            dataset = load_dataset(self.dataset_id, split=self.split, token=self.token)
 
         self.generator.items = {
             'query': dataset['query'] + self.generator.items['query'],
