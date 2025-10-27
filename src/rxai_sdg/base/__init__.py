@@ -5,6 +5,17 @@ from ollama import Client
 from datasets import Dataset, load_dataset
 from datetime import datetime
 
+default_additional_config = {
+    'presence_penalty': 0,
+    'frequency_penalty': 0,
+    'response_format': {"type": "text"},
+    'extra_body': {
+        "top_k": 50,
+        'repetition_penalty': 1,
+        'min_p': 0,
+    },
+}
+
 class BaseDatasetGenerator(ABC):
     def __init__(
             self, max_items: int = None, model_name: str = "qwen/qwen3-4b-fp8",
@@ -35,13 +46,17 @@ class BaseDatasetGenerator(ABC):
     def _generate_openai_like(
             self, prompt: str, stream: bool = False, temperature: float = 0.7,
             top_p: float = 0.9, top_k: int = 50, max_tokens: int = 15000,
-            system_prompt: str = "", timeout: int = 120
+            system_prompt: str = "", timeout: int = 120, additional_config: dict = None,
     ):
-        presence_penalty = 0
-        frequency_penalty = 0
-        repetition_penalty = 1
-        min_p = 0
-        response_format = {"type": "text"}
+        if additional_config is None:
+            additional_config = default_additional_config
+
+        if 'extra_body' in additional_config:
+            additional_config['extra_body']['top_k'] = top_k
+        else:
+            additional_config['extra_body'] = {
+                'top_k': top_k,
+            }
 
         chat_completion_res = self.client.chat.completions.create(
             model=self.model_name,
@@ -59,15 +74,8 @@ class BaseDatasetGenerator(ABC):
             max_tokens=max_tokens,
             temperature=temperature,
             top_p=top_p,
-            presence_penalty=presence_penalty,
-            frequency_penalty=frequency_penalty,
-            response_format=response_format,
-            extra_body={
-                "top_k": top_k,
-                "repetition_penalty": repetition_penalty,
-                "min_p": min_p
-            },
-            timeout=timeout
+            timeout=timeout,
+            **additional_config,
         )
 
         if stream:
@@ -126,7 +134,7 @@ class BaseDatasetGenerator(ABC):
     def generate_items(
             self, prompt: str, stream: bool = False, temperature: float = 0.7,
             top_p: float = 0.9, top_k: int = 50, max_tokens: int = 15000,
-            system_prompt: str = "", timeout: int = 120
+            system_prompt: str = "", timeout: int = 120, additional_config: dict = None,
     ):
         try:
             if self.use_ollama:
@@ -137,7 +145,7 @@ class BaseDatasetGenerator(ABC):
             else:
                 return self._generate_openai_like(
                     prompt, stream=stream, temperature=temperature, top_p=top_p, top_k=top_k,
-                    max_tokens=max_tokens, system_prompt=system_prompt, timeout=timeout
+                    max_tokens=max_tokens, system_prompt=system_prompt, timeout=timeout, additional_config=additional_config
                 )
         except Exception as e:
             print('API Error', e)

@@ -222,7 +222,7 @@ class MrlSyntheticDatasetGenerator(BaseDatasetGenerator):
     def __call__(self, prompt_creator: MrlPromptCreator, steps: int, iterations: int, num_examples: int = 10,
                  num_topics: int = 10, include_no_think: bool = True, mode: str = 'multi', stream: bool = False,
                  temperature: float = 0.7, top_p: float = 0.9, top_k: int = 50, max_tokens: int = 15000,
-                 timeout: int = 120, restart: bool = False, num_tokens: int = 256):
+                 timeout: int = 120, restart: bool = False, num_tokens: int = 256, additional_config: dict = None):
         if restart:
             self.items = self._init_items()
 
@@ -235,7 +235,7 @@ class MrlSyntheticDatasetGenerator(BaseDatasetGenerator):
             # Call API to generate items
             txt = self.generate_items(
                 prompt, stream=stream, temperature=temperature, top_p=top_p,
-                top_k=top_k, max_tokens=max_tokens, timeout=timeout, system_prompt=system_prompt,
+                top_k=top_k, max_tokens=max_tokens, timeout=timeout, system_prompt=system_prompt, additional_config=additional_config
             )
             new_items_len = self.process_items(txt, steps, stream=stream, mode=mode)
             total_items = len(self.items['query'])
@@ -372,4 +372,7 @@ class MrlGeneratorPostprocessor:
 
     def push_to_hf_hub(self):
         ds = self.generator.get_dataset()
-        ds.push_to_hub(repo_id=self.dataset_id, config_name=self.config_name, split=self.split, token=self.token)
+        if self.config_name is not None:
+            ds.push_to_hub(repo_id=self.dataset_id, config_name=self.config_name, split=self.split, token=self.token)
+        else:
+            ds.push_to_hub(repo_id=self.dataset_id, split=self.split, token=self.token)
