@@ -2189,3 +2189,202 @@ def final_instructions_ai(steps: int, num_examples: int, mode: str = 'multi'):
 
 
 ALL_PROMPTS_AI = (system_ai, task_description_ai, critical_rules_ai, final_instructions_ai)
+
+def system_rx(num_examples: int):
+    return f"""
+    You are a Memory Reinforcement Learning dataset generator for a Reactive Transformer model - you should generate conversation examples based on provided documentation.
+    Output must be a Python list of tuples containing initial query-answer pairs and list of follow-up interactions, without any code, explanation, or metadata.
+    You are used to generate list of exactly {num_examples} tuples with three elements: question, answer and list of follow-up interactions, based on
+    real knowledge from provided documentation - for Reactive AI technologies.
+    """
+
+
+def task_description_rx(follow_ups_format: str, steps: int, num_examples: int, prior_steps: int, mode: str = 'multi', docs: str = ''):
+    return f"""
+    # Memory Reinforcement Learning Data Generation - Reactive AI Technologies - {steps} Step(s)
+
+    ## DOCUMENTATION - Data Source
+    {docs}
+
+    ## TASK DESCRIPTION
+    Based on provided description of Reactive AI technologies - language models, architecture and company info, generate {num_examples}
+    examples of interconnected interactions testing multi-step memory retention. They will be used to train reactive models, that works
+    in real-time processing mode - processing only the single messages (interactions), and keeps conversation history in short-term memory.
+    Generated conversations should be based on your knowledge of AI research and provided documentation of Reactive AI technologies:
+    - Event-Driven AI & Reactive Neural Networks
+    - Reactive Language Models (RxLM)
+    - Reactive Transformer (RxT) architecture
+    - Sparse Query Attention layers
+    - RxLM Framework for models training and inference
+    - Reactive AI company details
+    It should contain QA pairs with knowledge related to Reactive AI technologies and their relation to AI research and market
+
+    Each example must:
+
+    1. Start with initial factual QA (Based on provided documentation) - query and answer
+    2. Contain {steps} follow-up QAs progressively referencing prior answers - list of queries and answers
+    3. Each answer introduces 3-4 new facts while repeating 3+ previous facts
+    4. Final interaction requires synthesizing info from {prior_steps}+ prior steps
+    ## FORMAT REQUIREMENTS
+    ```python
+    [
+        (
+            ("[Initial Question]", "[Initial Answer]"),
+            {follow_ups_format}
+        ),
+        # {num_examples} total entries
+    ]
+    ```
+    """ if mode == 'multi' else f"""
+    # Memory Reinforcement Learning Data Generation (AI Subset) - {steps} Step(s) - Long-Range Strategy
+
+    ## TASK DESCRIPTION
+    Based on provided description of Reactive AI technologies - language models, architecture and company info, generate {num_examples}
+    examples of interconnected interactions testing multi-step memory retention. They will be used to train reactive models, that works
+    in real-time processing mode - processing only the single messages (interactions), and keeps conversation history in short-term memory.
+    Generated conversations should be based on your knowledge of AI research and provided documentation of Reactive AI technologies:
+    - Event-Driven AI & Reactive Neural Networks
+    - Reactive Language Models (RxLM)
+    - Reactive Transformer (RxT) architecture
+    - Sparse Query Attention layers
+    - RxLM Framework for models training and inference
+    - Reactive AI company details
+    It should contain QA pairs with knowledge related to Reactive AI technologies and their relation to AI research and market
+
+    In Long-Range strategy each generated example should contain two completely different message **topics**:
+    - first topic is used only in first and last interaction
+    - second topic is used in all interactions between first and last
+
+    Each example must:
+
+    1. Start with initial factual QA (Reactive AI technologies) - query and answer - for the first **topic**
+    2. Contain {steps} follow-up QAs list of queries and answers
+    3. First query in follow-up QAs (interactions) is changing **topic** into second one - not connected to first QA, and answer is also for new **topic**
+    4. All next follow-up interactions, except the last one, have to continue the second **topic**:
+        - Each answer introduces 3-4 new facts while repeating 3+ previous facts
+    4. Final, last interaction is going back to first **topic** - asking a question about data from first QA pair (interaction) and the answer is containing most facts from first interaction
+    ## FORMAT REQUIREMENTS
+    ```python
+    [
+        (
+            ("[Initial Question: **topic one**]", "[Initial Answer: **topic one**]"),
+            {follow_ups_format}
+        ),
+        # {num_examples} total entries
+    ]
+    ```
+    """
+
+
+def critical_rules_rx(steps: int, prior_steps: int, num_tokens: int, mode: str = 'multi'):
+    if mode == 'multi':
+        return f"""
+    ## CRITICAL RULES
+    1. Factual Consistency:
+      - All technical/scientific facts must be accurate and based on documentation
+      - No fictional elements - only real-world entities for Reactive AI technologies
+      - Real-world knowledge about Reactive AI and it's relation to AI topic
+      - Facts from real-world information about Reactive AI research
+    2. Language:
+      - Model is pre-trained on fineweb-edu and wikipedia - it should be compatible
+      - While dataset includes real world facts, they should be served in dialogue format
+      - examples may include some fragments of Python code blocks, but rather small and limited
+    3. Referential Integrity:
+      - Each follow-up references 3+ facts from previous answers
+      - Final answer must combine facts from {prior_steps} previous steps
+    4. Progressive Retention:
+      - Each answer is on the same topic
+      - Knowledge is accumulated in answers
+      - Queries reference previous answers
+    5. Do not repeat examples
+      - each item should be unique - do not use the same examples as provided
+      - please do not generate same examples as in FEW SHOTS items should be new
+      - don't generate examples in same topics as in FEW SHOT EXAMPLES
+      - be creative for topics
+      - try a lot different topics
+    6. Interaction length
+      - each interaction - query + answer - should have about {num_tokens} tokens length
+      - length should similar as in examples
+    """
+    else:
+        return f"""
+    ## CRITICAL RULES
+    1. Factual Consistency:
+      - All technical/scientific facts must be accurate and based on documentation
+      - No fictional elements - only real-world entities for Reactive AI technologies
+      - Real-world knowledge about Reactive AI and it's relation to AI topic
+      - Facts from real-world information about Reactive AI research
+    2. Language:
+      - Model is pre-trained on fineweb-edu and wikipedia - it should be compatible
+      - While dataset includes real world facts, they should be served in dialogue format
+      - examples may include some fragments of Python code blocks, but rather small and limited
+    3. Referential Integrity:
+      - Each middle follow-up for **topic two** references 3+ facts from previous answers and trying to combine facts from {prior_steps} previous steps (except first step)
+      - Final answer must change back to **topic one** and reference 3+ facts from initial QA pair/interaction
+    4. Progressive Retention:
+      - Each answer from the middle of sequence (except initial and last follow-up) is on the same topic (**topic two**)
+      - Knowledge is accumulated in answers
+      - Queries reference previous answers of the same **topic**
+    5. Do not repeat examples
+      - each item should be unique - do not use the same examples as provided
+      - please do not generate same examples as in FEW SHOTS items should be new
+      - don't generate examples in same topics as in FEW SHOT EXAMPLES
+      - be creative for topics
+      - try a lot different topics
+    7. Interaction length
+      - each interaction - query + answer - should have about {num_tokens} tokens length
+      - length should similar as in examples
+    8. **CRUCIAL/CRITICAL** !! - Long-Range Strategy
+      - first, initial QA pair is connected to **topic one**
+      - ensure that there is exactly {steps} follow-up QAs/interactions with two different **topics**
+      - first {steps - 1} follow-ups are all exploring **topic two**
+      - ensure that exactly the last, {steps} QA pair (interaction) is going back to **topic one**
+      - ensure that the last {steps} interaction is not connected to **topic two**
+    """
+
+
+def final_instructions_rx(steps: int, num_examples: int, mode: str = 'multi'):
+    instructions = f"""
+    ## GENERATION INSTRUCTIONS
+    1. Start each sequence with fact about Reactive AI technologies from provided documentation
+    2. Design {steps} follow-ups requiring cumulative understanding
+    3. Ensure final answer combines numerical, temporal, and spatial data
+    4. Validate all  factual accuracy
+    ## OUTPUT VALIDATION
+    - No placeholder text ("...")
+    - All facts consistent
+    - {steps} follow-ups per entry
+    - Final answer combines 3+ prior facts
+    - Output only the final list - without wrapping it with '```python' and '```'
+    - Output is a single list of tuples in same format as examples
+    - Output contains {num_examples} elements with the same format as examples
+    - Do not generate separate list for each example, only single list of tuples
+    - Each tuple should end with closing `)` and each list should end with closing `]`
+
+    Generate {num_examples} entries following EXACTLY this structure.
+    """ if mode == 'multi' else f"""
+    ## GENERATION INSTRUCTIONS
+    1. Start each sequence with fact about Reactive AI technologies from provided documentation in **topic one**
+    2. Design {steps - 1} follow-ups requiring cumulative understanding for **topic two**
+    3. Ensure final query is switching back to **topic one** and final answer is including data from initial QA pair
+    4. Validate all factual accuracy
+    5. All follow-ups should have {steps} elements: {steps - 1} for **topic two** and last 1 for switching back to **topic one**
+    ## OUTPUT VALIDATION
+    - No placeholder text ("...")
+    - All facts consistent
+    - exactly {steps} follow-ups per entry: {steps - 1} for **topic two** and last 1 for **topic one**
+    - Final answer combines 3-4+ facts from first initial interaction
+    - Output only the final list - without wrapping it with '```python' and '```'
+    - Output is a single list of tuples in same format as examples
+    - Output contains {num_examples} elements with the same format as examples
+    - Do not generate separate list for each example, only single list of tuples
+    - Each tuple should end with closing `)` and each list should end with closing `]`
+    - Ensure, that after {steps - 1} follow-up QAs (interactions) for **topic two**, there's also final {steps} (last) query and answer for **topic one**
+
+    Generate {num_examples} entries following EXACTLY this structure.
+    """
+
+    return instructions
+
+
+ALL_PROMPTS_RX = (system_rx, task_description_rx, critical_rules_rx, final_instructions_rx)

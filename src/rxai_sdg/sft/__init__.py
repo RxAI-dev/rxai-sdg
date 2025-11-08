@@ -54,7 +54,7 @@ class InteractionSftSyntheticDatasetGenerator(BaseDatasetGenerator):
             return 0
 
     def __call__(self, prompt_creator: InteractionSftPromptCreator, iterations: int, num_examples: int = 20, include_no_think: bool = True, stream: bool = False, temperature: float = 0.7, top_p: float = 0.9,
-                 top_k: int = 50, max_tokens: int = 12000, timeout: int = 120, restart: bool = False):
+                 max_tokens: int = 12000, timeout: int = 120, restart: bool = False, additional_config: dict = None):
         if restart:
             self.items = self._init_items()
 
@@ -66,7 +66,7 @@ class InteractionSftSyntheticDatasetGenerator(BaseDatasetGenerator):
             # Call API to generate items
             txt = self.generate_items(
                 prompt, stream=stream, temperature=temperature, top_p=top_p,
-                top_k=top_k, max_tokens=max_tokens, timeout=timeout, system_prompt=system_prompt,
+                max_tokens=max_tokens, timeout=timeout, system_prompt=system_prompt, additional_config=additional_config
             )
             new_items_len = self.process_items(txt, stream=stream)
             total_items = len(self.items['query'])

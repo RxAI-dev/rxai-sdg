@@ -45,18 +45,11 @@ class BaseDatasetGenerator(ABC):
 
     def _generate_openai_like(
             self, prompt: str, stream: bool = False, temperature: float = 0.7,
-            top_p: float = 0.9, top_k: int = 50, max_tokens: int = 15000,
+            top_p: float = 0.9, max_tokens: int = 15000,
             system_prompt: str = "", timeout: int = 120, additional_config: dict = None,
     ):
         if additional_config is None:
             additional_config = default_additional_config
-
-        if 'extra_body' in additional_config:
-            additional_config['extra_body']['top_k'] = top_k
-        else:
-            additional_config['extra_body'] = {
-                'top_k': top_k,
-            }
 
         chat_completion_res = self.client.chat.completions.create(
             model=self.model_name,
@@ -96,9 +89,14 @@ class BaseDatasetGenerator(ABC):
 
     def _generate_ollama(
             self, prompt: str, stream: bool = False, temperature: float = 0.7,
-            top_p: float = 0.9, top_k: int = 50,
-            system_prompt: str = "", timeout: int = 120
+            top_p: float = 0.9, system_prompt: str = "", timeout: int = 120,
+            additional_config: dict = None,
     ):
+        if additional_config is None:
+            additional_config = default_additional_config
+
+        top_k = additional_config['extra_body']['top_k'] if 'extra_body' in additional_config and 'top_k' in additional_config['extra_body'] else None
+
         chat_completion_res = self.client.chat(
             model=self.model_name,
             messages=[
@@ -131,20 +129,21 @@ class BaseDatasetGenerator(ABC):
             return acc
 
         return chat_completion_res['message']['content']
+
     def generate_items(
             self, prompt: str, stream: bool = False, temperature: float = 0.7,
-            top_p: float = 0.9, top_k: int = 50, max_tokens: int = 15000,
+            top_p: float = 0.9, max_tokens: int = 15000,
             system_prompt: str = "", timeout: int = 120, additional_config: dict = None,
     ):
         try:
             if self.use_ollama:
                 return self._generate_ollama(
-                    prompt, stream=stream, temperature=temperature, top_p=top_p, top_k=top_k,
-                    system_prompt=system_prompt, timeout=timeout
+                    prompt, stream=stream, temperature=temperature, top_p=top_p,
+                    system_prompt=system_prompt, timeout=timeout, additional_config=additional_config
                 )
             else:
                 return self._generate_openai_like(
-                    prompt, stream=stream, temperature=temperature, top_p=top_p, top_k=top_k,
+                    prompt, stream=stream, temperature=temperature, top_p=top_p,
                     max_tokens=max_tokens, system_prompt=system_prompt, timeout=timeout, additional_config=additional_config
                 )
         except Exception as e:

@@ -2,7 +2,7 @@ import random
 from openai import OpenAI
 from datasets import Dataset, load_dataset
 from datetime import datetime
-from typing import Union, Callable
+from typing import Union, Callable, Literal
 from ..base import BaseDatasetGenerator
 from .prompts import ALL_PROMPTS_REAL
 from .examples import EXAMPLES_REAL_MICRO, EXAMPLES_REAL_MICRO_LONG
@@ -209,6 +209,12 @@ class MrlSyntheticDatasetGenerator(BaseDatasetGenerator):
             items_list = self._get_items_list(items_str, stream=stream)
             total_items_len = len(self.items['query'])
             for (query, answer), interactions in items_list:
+                # Hack for unexpected error - not adding interactions to some example
+                if len(self.items['query']) > len(self.items['interactions']):
+                    print('Found incorrectly added query and answer, removing')
+                    self.items['query'] = self.items['query'][:len(self.items['interactions'])]
+                    self.items['answer'] = self.items['answer'][:len(self.items['interactions'])]
+
                 if self.filter_incorrect(steps, query, answer, interactions, mode=mode):
                     self.items['query'].append(query.strip())
                     self.items['answer'].append(answer.strip())
@@ -221,7 +227,7 @@ class MrlSyntheticDatasetGenerator(BaseDatasetGenerator):
 
     def __call__(self, prompt_creator: MrlPromptCreator, steps: int, iterations: int, num_examples: int = 10,
                  num_topics: int = 10, include_no_think: bool = True, mode: str = 'multi', stream: bool = False,
-                 temperature: float = 0.7, top_p: float = 0.9, top_k: int = 50, max_tokens: int = 15000,
+                 temperature: float = 0.7, top_p: float = 0.9, max_tokens: int = 15000,
                  timeout: int = 120, restart: bool = False, num_tokens: int = 256, additional_config: dict = None):
         if restart:
             self.items = self._init_items()
@@ -235,7 +241,7 @@ class MrlSyntheticDatasetGenerator(BaseDatasetGenerator):
             # Call API to generate items
             txt = self.generate_items(
                 prompt, stream=stream, temperature=temperature, top_p=top_p,
-                top_k=top_k, max_tokens=max_tokens, timeout=timeout, system_prompt=system_prompt, additional_config=additional_config
+                max_tokens=max_tokens, timeout=timeout, system_prompt=system_prompt, additional_config=additional_config
             )
             new_items_len = self.process_items(txt, steps, stream=stream, mode=mode)
             total_items = len(self.items['query'])
@@ -376,3 +382,145 @@ class MrlGeneratorPostprocessor:
             ds.push_to_hub(repo_id=self.dataset_id, config_name=self.config_name, split=self.split, token=self.token)
         else:
             ds.push_to_hub(repo_id=self.dataset_id, split=self.split, token=self.token)
+
+
+class MrlContextBasedPromptCreator:
+    def __init__(
+            self,
+            prompts: Union[list[Callable], tuple[Callable, Callable, Callable, Callable]] = ALL_PROMPTS_REAL,
+            examples: dict[int, str] = None,
+            long_examples: dict[int, str] = None,
+            context_list: list[dict[Literal['topics', 'docs'], Union[str, list[str]]]] = None,
+            use_random_context: bool = True,
+    ):
+        self.example_strs = EXAMPLES_REAL_MICRO if examples is None else examples
+
+        self.long_example_strs = EXAMPLES_REAL_MICRO_LONG if long_examples is None else long_examples
+
+        self.examples_start = """
+    ## FEW-SHOT EXAMPLES (Do not generate same or almost the same ones)
+    ```python
+    """
+
+        self.examples_end = """
+    ```
+    """
+
+        self.context_list = context_list if context_list is not None else context_list
+        self.context_len = len(self.context_list)
+        self.use_random_context = use_random_context
+        self.current_context_idx = 0
+
+
+        system_prompt, description, critical_rules, final_instructions = prompts
+        self.system_prompt = system_prompt
+        self.description = description
+        self.critical_rules = critical_rules
+        self.final_instructions = final_instructions
+
+    def get_follow_ups_format(self, steps: int, mode: str = 'multi'):
+        if mode == 'long':
+            format_follow_ups = f"""
+              [
+                  ("[Follow-up 1: **topic two**]", "[Answer 1: **topic two**]"),
+                  ("[Follow-up 2: **topic two**]", "[Answer 2: **topic two**]"),
+                  # ... {steps - 1} examples for **topic two**
+                  ("[Follow-up {steps}: **topic one** (final)]", "[Answer {steps}: **topic one**  (final)]"),
+              ]
+        """
+        elif steps == 1:
+            format_follow_ups = f"""
+              [
+                  ("[Follow-up 1]", "[Answer 1]"),
+              ]
+        """
+        elif steps == 2:
+            format_follow_ups = f"""
+              [
+                  ("[Follow-up 1]", "[Answer 1]"),
+                  ("[Follow-up 2]", "[Answer 2]"),
+              ]
+        """
+        else:
+            format_follow_ups = f"""
+              [
+                  ("[Follow-up 1]", "[Answer 1]"),
+                  ("[Follow-up 2]", "[Answer 2]"),
+                  # ... {steps} total
+              ]
+        """
+        return format_follow_ups
+
+    def get_description(self, steps: int, num_examples: int, prior_steps: int, mode: str = 'multi', docs: str = ''):
+        return self.description(self.get_follow_ups_format(steps, mode), steps, num_examples, prior_steps, mode, docs)
+
+    def get_critical_rules(self, steps: int, prior_steps: int, num_tokens: int, mode: str = 'multi'):
+        return self.critical_rules(steps, prior_steps, num_tokens, mode)
+
+    def get_examples(self, steps: int, mode: str = 'multi'):
+        exs = self.example_strs[steps] if mode == 'multi' else self.long_example_strs[steps]
+        return self.examples_start + exs + self.examples_end
+
+    def get_topics(self, num_topics: int, mode: str = 'multi', topics: list[str] = None):
+        if topics is None:
+            topics = []
+        topics = random.choices(topics, k=num_topics)
+
+        if num_topics != 0:
+            topics_bullets = '/n'.join([f'- {topic}' for topic in topics])
+
+            topics_str = f"""
+      ## TOPICS FOR GENERATED EXAMPLES:
+        - do not use same examples like FEW SHOTS, try different topics, like following ones
+        - you can use one of the following topics for generated examples or similar one
+        {topics_bullets}
+      """ if mode == 'multi' else f"""
+      ## TOPICS FOR GENERATED EXAMPLES:
+      - do not use same examples like FEW SHOTS, try different **topics**, like following ones
+      - you should use **TWO** of the following **topics** for generated examples or some similar **topics**
+      {topics_bullets}
+      """
+        else:
+            topics_str = ''
+
+        return topics_str
+
+    def get_final_instructions(self, steps: int, num_examples: int, include_no_think: bool = True, mode: str = 'multi'):
+        instructions = self.final_instructions(steps, num_examples, mode=mode)
+
+        no_think = """
+        /no_think
+        """
+
+        return instructions + no_think if include_no_think else instructions
+
+    def get_prior_steps(self, steps: int):
+        if steps < 4:
+            prior_steps = 1
+        elif steps >= 4:
+            prior_steps = 2
+        elif steps <= 8:
+            prior_steps = 3
+        else:
+            prior_steps = 4
+
+        return prior_steps
+
+    def get_system_prompt(self, num_examples: int):
+        return self.system_prompt(num_examples)
+
+    def __call__(self, steps: int, num_examples: int = 10, num_topics: int = 10, mode: str = 'multi',
+                 include_no_think: bool = True, num_tokens: int = 256):
+        if self.use_random_context:
+            ctx = random.choice(self.context_list)
+        else:
+            ctx = self.context_list[self.current_context_idx]
+            self.current_context_idx += 1
+            if self.context_len == self.current_context_idx:
+                self.current_context_idx = 0
+
+        prior_steps = self.get_prior_steps(steps)
+        return (self.get_description(steps, num_examples, prior_steps, mode=mode, docs=ctx['docs']) +
+                self.get_critical_rules(steps, prior_steps, num_tokens, mode=mode) +
+                self.get_examples(steps, mode=mode) + self.get_topics(num_topics, mode=mode, topics=ctx['topics']) +
+                self.get_final_instructions(steps, num_examples, include_no_think=include_no_think, mode=mode))
