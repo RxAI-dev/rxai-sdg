@@ -89,13 +89,21 @@ class BaseDatasetGenerator(ABC):
 
     def _generate_ollama(
             self, prompt: str, stream: bool = False, temperature: float = 0.7,
-            top_p: float = 0.9, system_prompt: str = "", timeout: int = 120,
+            top_p: float = 0.9, max_tokens: int = 15000, system_prompt: str = "", timeout: int = 120,
             additional_config: dict = None,
     ):
         if additional_config is None:
             additional_config = default_additional_config
 
         top_k = additional_config['extra_body']['top_k'] if 'extra_body' in additional_config and 'top_k' in additional_config['extra_body'] else None
+
+        options = {
+            'temperature': temperature,
+            'top_p': top_p,
+            'num_predict': max_tokens,  # Ollama's equivalent of max_tokens
+        }
+        if top_k is not None:
+            options['top_k'] = top_k
 
         chat_completion_res = self.client.chat(
             model=self.model_name,
@@ -110,11 +118,7 @@ class BaseDatasetGenerator(ABC):
                 }
             ],
             stream=stream,
-            options={
-                'temperature': temperature,
-                'top_p': top_p,
-                'top_k': top_k
-            }
+            options=options
         )
 
         if stream:
@@ -123,12 +127,20 @@ class BaseDatasetGenerator(ABC):
             for chunk in chat_completion_res:
                 if datetime.timestamp(datetime.now()) - t1 > timeout:
                     break
-                ch = chunk['message']['content'] or ""
+                # Handle both dict-style (older versions) and object-style (newer versions) responses
+                try:
+                    ch = chunk.message.content or ""
+                except (AttributeError, TypeError):
+                    ch = chunk.get('message', {}).get('content', '') or ""
                 print(ch, end="")
                 acc += ch
             return acc
 
-        return chat_completion_res['message']['content']
+        # Handle both dict-style (older versions) and object-style (newer versions) responses
+        try:
+            return chat_completion_res.message.content
+        except (AttributeError, TypeError):
+            return chat_completion_res.get('message', {}).get('content', '')
 
     def generate_items(
             self, prompt: str, stream: bool = False, temperature: float = 0.7,
@@ -139,12 +151,14 @@ class BaseDatasetGenerator(ABC):
             if self.use_ollama:
                 return self._generate_ollama(
                     prompt, stream=stream, temperature=temperature, top_p=top_p,
-                    system_prompt=system_prompt, timeout=timeout, additional_config=additional_config
+                    max_tokens=max_tokens, system_prompt=system_prompt, timeout=timeout,
+                    additional_config=additional_config
                 )
             else:
                 return self._generate_openai_like(
                     prompt, stream=stream, temperature=temperature, top_p=top_p,
-                    max_tokens=max_tokens, system_prompt=system_prompt, timeout=timeout, additional_config=additional_config
+                    max_tokens=max_tokens, system_prompt=system_prompt, timeout=timeout,
+                    additional_config=additional_config
                 )
         except Exception as e:
             print('API Error', e)
