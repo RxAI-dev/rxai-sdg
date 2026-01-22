@@ -48,6 +48,7 @@ from .examples import (
     get_dmpo_example_single,
     get_dmpo_example_all,
 )
+from ..base.test import ollama_api_key
 
 
 # ============================================================================
@@ -115,7 +116,8 @@ class ReasoningCompletionGenerator(BaseDatasetGenerator):
             response = response[3:]
         if response.endswith('```'):
             response = response[:-3]
-
+        if response.endswith('}'):
+            response = response[:-1]
         response = response.strip()
 
         # Try to parse as Python list
@@ -141,7 +143,7 @@ class ReasoningCompletionGenerator(BaseDatasetGenerator):
         dataset: Dataset,
         target_tokens: int = 512,
         iterations: int = None,
-        stream: bool = False,
+        stream: bool = True,
         temperature: float = 0.7,
         top_p: float = 0.9,
         max_tokens: int = 4096,
@@ -275,7 +277,7 @@ class ReasoningCompletionGenerator(BaseDatasetGenerator):
             # Build interaction list (without think blocks)
             interactions = [
                 {'query': inter.get('query', ''), 'answer': inter.get('answer', '')}
-                for inter in conversation
+                for i, inter in enumerate(conversation) if i < len(conversation) - 1
             ]
 
             # Build prompt
@@ -300,7 +302,6 @@ class ReasoningCompletionGenerator(BaseDatasetGenerator):
                 timeout=timeout,
                 additional_config=additional_config
             )
-
             think_blocks = self._parse_think_list(response)
 
             if stream:
@@ -316,6 +317,7 @@ class ReasoningCompletionGenerator(BaseDatasetGenerator):
                     }
                     for i in range(len(interactions))
                 ]
+                completed.append(conversation[-1])
                 self.items['interactions'].append(completed)
                 print(f"Completed conversation {conv_idx + 1}/{iterations} ({len(completed)} interactions)")
             else:
@@ -1408,7 +1410,10 @@ def create_reasoning_completion_generator(
         api_key=api_key,
         use_ollama=use_ollama
     )
+import os
+openai_api_key = os.environ.get("OPENAI_API_KEY")
 
+# create_reasoning_completion_generator(model_name="gpt-4", use_ollama=False, max_items=1000, api_key=openai_api_key)
 
 def create_hybrid_reasoning_generator(
     max_items: int = 1000,
@@ -1448,3 +1453,5 @@ def create_dmpo_generator(
     )
     prompt_creator = DMPOPromptCreator(topics=topics)
     return generator, prompt_creator
+
+
