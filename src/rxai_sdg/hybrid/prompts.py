@@ -176,6 +176,18 @@ For each interaction, the reasoning should:
 - Be coherent with both the query and the provided answer
 - Build upon previous reasoning where appropriate
 
+NSTRUCTION FOR MULTILINE RESPONSES:
+
+    Always use the escape sequence \\n to indicate a line break.
+
+    Never use actual newline characters (from pressing Enter/Return).
+
+    Never use HTML's
+    or Windows-style \\r\\n.
+
+    Example of correct formatting: "First line\\nSecond line\\nThird line"
+
+    This ensures your response can be parsed correctly by the system.
 Output format: A Python list of strings, where each string is the thinking block for the corresponding interaction.
 Example: ["First thinking block...", "Second thinking block...", ...]"""
 
@@ -224,7 +236,7 @@ def task_description_reasoning_completion_all(
     target_tokens_per_think: int = 512
 ):
     """Generate prompt for all think blocks at once."""
-    interactions_str = ""
+    interactions_str = ''''''
     for i, inter in enumerate(interactions, 1):
         interactions_str += f"\n### Interaction {i}\n"
         interactions_str += f"Query: {inter.get('query', '')}\n"
@@ -232,26 +244,26 @@ def task_description_reasoning_completion_all(
 
     return f"""# Multi-Interaction Reasoning Completion Task
 
-## TASK
-Generate thinking/reasoning blocks for ALL interactions in this conversation at once.
-Each thinking block should logically connect its query to its answer.
+    ## TASK
+    Generate thinking/reasoning blocks for ALL interactions in this conversation at once.
+    Each thinking block should logically connect its query to its answer.
 
-## CONVERSATION
-{interactions_str}
-
-## REQUIREMENTS
-1. Generate a thinking block for EACH interaction
-2. Later interactions should reference earlier ones when relevant
-3. Each thinking should show clear reasoning steps leading to its answer
-4. Target approximately {target_tokens_per_think} tokens per thinking block
-5. Do not repeat answers in thinking - focus on reasoning process
-6. Maintain coherence across the conversation
-
-## OUTPUT FORMAT
-Output a Python list of strings where each string is a thinking block:
-["Thinking for interaction 1...", "Thinking for interaction 2...", ...]
-
-Generate ONLY the Python list - no other text or explanation."""
+    ## CONVERSATION
+    {interactions_str}
+    
+    ## REQUIREMENTS
+    1. Generate a thinking block for EACH interaction
+    2. Later interactions should reference earlier ones when relevant
+    3. Each thinking should show clear reasoning steps leading to its answer
+    4. Target approximately {target_tokens_per_think} tokens per thinking block
+    5. Do not repeat answers in thinking - focus on reasoning process
+    6. Maintain coherence across the conversation
+    
+    ## OUTPUT FORMAT
+    Output a Python list of strings where each string is a thinking block:
+    ["Thinking for interaction 1...", "Thinking for interaction 2...", ...]
+    
+    Generate ONLY the Python list - no other text or explanation."""
 
 
 # ============================================================================
@@ -389,6 +401,7 @@ Output a Python list of dictionaries:
 ]
 
 For fast-answer interactions, 'think' can be empty string "".
+
 
 Generate ONLY the Python list - no other text."""
 

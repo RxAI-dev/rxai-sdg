@@ -1,0 +1,14 @@
+from src.rxai_sdg.hybrid import create_reasoning_completion_generator
+import os
+import requests
+from datasets import load_dataset
+
+dataset = load_dataset("ReactiveAI/beta-reasoning", "Dolci-Think-SFT-32B", split="train")
+ovh_api_key = os.environ.get("OVH_API_KEY")
+url = "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
+
+generator = create_reasoning_completion_generator(api_key=ovh_api_key, api_url=url, model_name="gpt-oss-20b")
+
+test_dataset = dataset.select(range(10))
+
+generator.complete_all_at_once(dataset=test_dataset, additional_config={}, num_tries=3)
