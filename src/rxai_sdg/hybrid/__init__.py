@@ -636,22 +636,26 @@ class HybridReasoningGenerator(BaseDatasetGenerator):
                     target_tokens=target_tokens,
                     require_extended_thinking=use_thinking
                 )
+                max_tries = 3
+                for attempt in range(max_tries):
+                    response = self.generate_items(
+                        user,
+                        stream=stream,
+                        temperature=temperature,
+                        top_p=top_p,
+                        max_tokens=max_tokens,
+                        system_prompt=system,
+                        timeout=timeout,
+                        additional_config=additional_config
+                    )
 
-                response = self.generate_items(
-                    user,
-                    stream=stream,
-                    temperature=temperature,
-                    top_p=top_p,
-                    max_tokens=max_tokens,
-                    system_prompt=system,
-                    timeout=timeout,
-                    additional_config=additional_config
-                )
+                    if stream:
+                        print('\n')
 
-                if stream:
-                    print('\n')
+                    interaction = self._parse_interaction(response)
 
-                interaction = self._parse_interaction(response)
+                    if interaction is not None:
+                        break
 
                 if interaction:
                     current_conversation.append(interaction)
