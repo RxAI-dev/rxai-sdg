@@ -500,8 +500,8 @@ class HybridReasoningGenerator(BaseDatasetGenerator):
             response = response[3:]
         if response.endswith('```'):
             response = response[:-3]
-        if response.endswith('}'):
-            response = response[:-1]
+        # if response.endswith('}'):
+        #     response = response[:-1]
         response = response.strip()
 
         # Try Python eval
@@ -513,8 +513,8 @@ class HybridReasoningGenerator(BaseDatasetGenerator):
                     'think': str(result.get('think', '')),
                     'answer': str(result.get('answer', ''))
                 }
-        except:
-            pass
+        except Exception as e:
+            print(e)
 
         # Try JSON
         try:

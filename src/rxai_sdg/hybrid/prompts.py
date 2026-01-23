@@ -289,7 +289,11 @@ The interaction should:
 - Be factually accurate where applicable
 - Demonstrate memory-aware reasoning when building on prior interactions
 
-Output must follow the exact format specified."""
+- DO NOT include or reference any internal settings, mechanisms, or metadata (such as token counting, output formatting rules, or similar).
+All reasoning must strictly relate to the subject matter of the query.
+
+Output must follow the exact format specified.
+"""
 
 
 def system_reasoning_generation_all():
@@ -333,6 +337,10 @@ def task_description_reasoning_generation_single(
 - Reference specific facts from prior interactions
 - Consider multiple aspects before concluding
 - Target {target_tokens} tokens for think + answer combined""" if require_extended_thinking else """
+- DO NOT include or reference any internal settings, mechanisms, or metadata (such as token counting, output formatting rules, or similar).
+All reasoning must strictly relate to the subject matter of the query. Below there is an example of incorrect content inside "think" block:
+    - "I also need to keep the response within roughly 350 words to stay near the 1024‑token target when combined with the answer"
+
 ## ANSWER MODE
 - This is a simpler question that can be answered directly
 - Thinking can be brief or omitted
@@ -350,8 +358,8 @@ Generate interaction {step_num} of a {total_steps}-step conversation.
 
 ## OUTPUT FORMAT
 Output a Python dictionary with exactly these keys:
-{{"query": "The question...", "think": "Step-by-step reasoning...", "answer": "Final response..."}}
-
+{{"query": 'The question...', "think": 'Step-by-step reasoning...', "answer": 'Final response...'}}
+Use \\n as a newline instead of actual newline <enter> - the text must be easily evaluated by python's eval() function 
 Generate ONLY the dictionary - no other text."""
 
 

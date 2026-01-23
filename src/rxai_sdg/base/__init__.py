@@ -48,8 +48,8 @@ class BaseDatasetGenerator(ABC):
             top_p: float = 0.9, max_tokens: int = 15000,
             system_prompt: str = "", timeout: int = 120, additional_config: dict = None,
     ):
-        # if additional_config is None:
-        #     additional_config = default_additional_config
+        if additional_config is None:
+            additional_config = default_additional_config
 
         chat_completion_res = self.client.chat.completions.create(
             model=self.model_name,
@@ -68,7 +68,7 @@ class BaseDatasetGenerator(ABC):
             temperature=temperature,
             top_p=top_p,
             timeout=timeout,
-            # **additional_config,
+            **additional_config,
         )
 
         if stream:
