@@ -309,7 +309,6 @@ Each conversation should:
 - Demonstrate both fast answers (simple) and extended thinking (complex)
 - Show realistic conversational flow
 
-
 Output must be a Python list in the exact format specified."""
 
 
@@ -319,7 +318,8 @@ def task_description_reasoning_generation_single(
     total_steps: int,
     prior_interactions: list[dict] = None,
     target_tokens: int = 1024,
-    require_extended_thinking: bool = True
+    require_extended_thinking: bool = True,
+    language: str = "English"
 ):
     """Generate prompt for creating a single interaction."""
     prior_str = ""
@@ -358,15 +358,18 @@ Generate interaction {step_num} of a {total_steps}-step conversation.
 {thinking_requirement.format(target_tokens=target_tokens)}
 
 ## OUTPUT FORMAT
+Response MUST BE IN {language} LANGUAGE!
 Output a Python dictionary with exactly these keys:
 {{"query": 'The question...', "think": 'Step-by-step reasoning...', "answer": 'Final response...'}}
 Use \\n as a newline instead of actual newline <enter> - the text must be easily evaluated by python's eval() function 
-Generate ONLY the dictionary - no other text."""
+Generate ONLY the dictionary - no other text.
+"""
 
 
 def task_description_reasoning_generation_all(
     topic: str,
     num_interactions: int,
+    language: str = "ENGLISH",
     target_tokens_per_interaction: int = 1024,
     thinking_ratio: float = 0.7
 ):
@@ -403,15 +406,16 @@ Ensure the conversation tests memory retention by:
 
 ## OUTPUT FORMAT
 Output a Python list of dictionaries:
-[
+'[
     {{"query": "...", "think": "...", "answer": "..."}},
     {{"query": "...", "think": "...", "answer": "..."}},
     # ... {num_interactions} total interactions
-]
-
+]'
+Use \\n as a newline instead of actual newline <enter> - the text must be easily evaluated by python's eval() function, so check if the response, 
+that you want to return is properly processed by eval() function
 For fast-answer interactions, 'think' can be empty string "".
 
-
+Response MUST BE IN {language} LANGUAGE!
 Generate ONLY the Python list - no other text."""
 
 

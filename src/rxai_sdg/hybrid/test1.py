@@ -18,21 +18,22 @@ generator = HybridReasoningGenerator(
 prompt_creator = HybridReasoningPromptCreator(topics=TOPICS_HYBRID_REASONING)
 
 # Single mode
-# generator.generate_single(
-#     prompt_creator=prompt_creator,
-#     num_interactions=5,
-#     conversations=3,
-#     stream=False,
-#     additional_config={}
-# )
+generator.generate_single(
+    prompt_creator=prompt_creator,
+    num_interactions=5,
+    conversations=3,
+    stream=False,
+    additional_config={}
+)
 
 # All at once mode
 generator.generate_all_at_once(
     prompt_creator=prompt_creator,
     num_interactions=3,
     conversations=5,
-    stream=False,
-    additional_config={}
+    stream=True,
+    additional_config={},
+    language="Polish"
 )
 
 #
