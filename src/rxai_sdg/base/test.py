@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from src.rxai_sdg.base import BaseDatasetGenerator
+from . import BaseDatasetGenerator
 import os
 
 ollama_api_key = os.environ.get("OLLAMA_API_KEY")
