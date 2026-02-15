@@ -221,7 +221,8 @@ class ReasoningCompletionGenerator(BaseDatasetGenerator):
                         timeout=timeout,
                         additional_config=additional_config
                     )
-                    think_block = self._parse_think_block(response)
+                    if response is not None:
+                        think_block = self._parse_think_block(response)
 
                     if len(think_block) > 0:
                         break
@@ -255,7 +256,8 @@ class ReasoningCompletionGenerator(BaseDatasetGenerator):
         timeout: int = 300,
         additional_config: dict = None,
         include_examples: bool = True,
-        num_tries: int = 3
+        num_tries: int = 5,
+        skip_last_interaction: bool = False
     ):
         """
         Generate all missing think blocks for a conversation at once.
@@ -272,6 +274,7 @@ class ReasoningCompletionGenerator(BaseDatasetGenerator):
             additional_config: Additional API configuration
             include_examples: Whether to include few-shot examples
             num_tries: Number of tries to generate correct parsable response
+            skip_last_interaction: Optionally skip generation of the think block in the last interaction
         """
         if iterations is None:
             iterations = len(dataset)
@@ -282,10 +285,16 @@ class ReasoningCompletionGenerator(BaseDatasetGenerator):
             conversation = dataset[conv_idx]['interactions']
 
             # Build interaction list (without think blocks)
-            interactions = [
-                {'query': inter.get('query', ''), 'answer': inter.get('answer', '')}
-                for i, inter in enumerate(conversation) if i < len(conversation) - 1
-            ]
+            if skip_last_interaction:
+                interactions = [
+                    {'query': inter.get('query', ''), 'answer': inter.get('answer', '')}
+                    for inter in conversation[:-1]
+                ]
+            else:
+                interactions = [
+                    {'query': inter.get('query', ''), 'answer': inter.get('answer', '')}
+                    for inter in conversation
+                ]
 
             # Build prompt
             prompt = task_description_reasoning_completion_all(
@@ -311,7 +320,7 @@ class ReasoningCompletionGenerator(BaseDatasetGenerator):
                     additional_config=additional_config
                 )
                 think_blocks = self._parse_think_list(response)
-                if len(think_blocks) > 0:
+                if len(think_blocks) == len(interactions):
                     break
                 print(f"Attempt {attempt + 1}/{num_tries} failed, retrying...")
 

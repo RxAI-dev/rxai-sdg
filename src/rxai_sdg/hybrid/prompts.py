@@ -187,6 +187,7 @@ NSTRUCTION FOR MULTILINE RESPONSES:
 
     Example of correct formatting: "First line\\nSecond line\\nThird line"
 
+
     This ensures your response can be parsed correctly by the system.
 Output format: A Python list of strings, where each string is the thinking block for the corresponding interaction.
 Example: ["First thinking block...", "Second thinking block...", ...]"""
@@ -226,6 +227,8 @@ Answer: {answer}
 4. Target approximately {target_tokens} tokens
 5. Do not repeat the answer in the thinking - focus on the reasoning process
 6. If the query requires combining information from multiple previous interactions, explicitly reference them
+7. For trivial queries (greetings, simple questions like "how are you?", basic acknowledgments), the "think" block should be very short - 2 sentences at most
+    
 
 ## OUTPUT
 Generate ONLY the thinking content - no special tokens, no explanation, just the reasoning text."""
@@ -258,6 +261,7 @@ def task_description_reasoning_completion_all(
     4. Target approximately {target_tokens_per_think} tokens per thinking block
     5. Do not repeat answers in thinking - focus on reasoning process
     6. Maintain coherence across the conversation
+    7. For trivial queries (greetings, simple questions like "how are you?", basic acknowledgments), the "think" block should be very short - about 2 sentences at most
     
     ## OUTPUT FORMAT
     Output a Python list of strings where each string is a thinking block:

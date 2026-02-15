@@ -9,34 +9,34 @@ ovh_api_key = os.environ.get("OVH_API_KEY")
 url = "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
 
 
-generator = HybridReasoningGenerator(
-            max_items=1000,
-            model_name="gpt-oss-20b",
-            api_url=url,
-            api_key=ovh_api_key,
-        )
-prompt_creator = HybridReasoningPromptCreator(topics=TOPICS_HYBRID_REASONING)
-
-# Single mode
-generator.generate_single(
-    prompt_creator=prompt_creator,
-    num_interactions=5,
-    conversations=3,
-    stream=False,
-    additional_config={}
-)
-
-# All at once mode
-generator.generate_all_at_once(
-    prompt_creator=prompt_creator,
-    num_interactions=3,
-    conversations=5,
-    stream=True,
-    additional_config={},
-    language="Polish"
-)
+# generator = HybridReasoningGenerator(
+#             max_items=1000,
+#             model_name="gpt-oss-20b",
+#             api_url=url,
+#             api_key=ovh_api_key,
+#         )
+# prompt_creator = HybridReasoningPromptCreator(topics=TOPICS_HYBRID_REASONING)
+#
+# # Single mode
+# generator.generate_single(
+#     prompt_creator=prompt_creator,
+#     num_interactions=5,
+#     conversations=3,
+#     stream=False,
+#     additional_config={}
+# )
+#
+# # All at once mode
+# generator.generate_all_at_once(
+#     prompt_creator=prompt_creator,
+#     num_interactions=3,
+#     conversations=5,
+#     stream=True,
+#     additional_config={},
+#     language="Polish"
+# )
 
 #
-# test_dataset = dataset.select(range(10))
-# generator = create_reasoning_completion_generator(api_key=ovh_api_key, api_url=url, model_name="gpt-oss-20b")
-# generator.complete_all_at_once(dataset=test_dataset, additional_config={}, num_tries=3)
+test_dataset = dataset.select(range(10))
+generator = create_reasoning_completion_generator(api_key=ovh_api_key, api_url=url, model_name="gpt-oss-20b")
+generator.complete_single(dataset=test_dataset, additional_config={}, num_tries=3)
