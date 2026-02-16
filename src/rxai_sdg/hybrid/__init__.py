@@ -221,7 +221,8 @@ class ReasoningCompletionGenerator(BaseDatasetGenerator):
                         timeout=timeout,
                         additional_config=additional_config
                     )
-                    think_block = self._parse_think_block(response)
+                    if response is not None:
+                        think_block = self._parse_think_block(response)
 
                     if len(think_block) > 0:
                         break
@@ -255,7 +256,8 @@ class ReasoningCompletionGenerator(BaseDatasetGenerator):
         timeout: int = 300,
         additional_config: dict = None,
         include_examples: bool = True,
-        num_tries: int = 3
+        num_tries: int = 5,
+        skip_last_interaction: bool = False
     ):
         """
         Generate all missing think blocks for a conversation at once.
@@ -272,6 +274,7 @@ class ReasoningCompletionGenerator(BaseDatasetGenerator):
             additional_config: Additional API configuration
             include_examples: Whether to include few-shot examples
             num_tries: Number of tries to generate correct parsable response
+            skip_last_interaction: Optionally skip generation of the think block in the last interaction
         """
         if iterations is None:
             iterations = len(dataset)
@@ -282,10 +285,16 @@ class ReasoningCompletionGenerator(BaseDatasetGenerator):
             conversation = dataset[conv_idx]['interactions']
 
             # Build interaction list (without think blocks)
-            interactions = [
-                {'query': inter.get('query', ''), 'answer': inter.get('answer', '')}
-                for i, inter in enumerate(conversation) if i < len(conversation) - 1
-            ]
+            if skip_last_interaction:
+                interactions = [
+                    {'query': inter.get('query', ''), 'answer': inter.get('answer', '')}
+                    for inter in conversation[:-1]
+                ]
+            else:
+                interactions = [
+                    {'query': inter.get('query', ''), 'answer': inter.get('answer', '')}
+                    for inter in conversation
+                ]
 
             # Build prompt
             prompt = task_description_reasoning_completion_all(
@@ -311,7 +320,7 @@ class ReasoningCompletionGenerator(BaseDatasetGenerator):
                     additional_config=additional_config
                 )
                 think_blocks = self._parse_think_list(response)
-                if len(think_blocks) > 0:
+                if len(think_blocks) == len(interactions):
                     break
                 print(f"Attempt {attempt + 1}/{num_tries} failed, retrying...")
 
@@ -389,7 +398,8 @@ class HybridReasoningPromptCreator:
         total_steps: int,
         prior_interactions: list[dict] = None,
         target_tokens: int = 1024,
-        require_extended_thinking: bool = True
+        require_extended_thinking: bool = True,
+        language: str = "English"
     ) -> tuple[str, str]:
         """
         Get prompt for single interaction generation.
@@ -405,7 +415,8 @@ class HybridReasoningPromptCreator:
             total_steps=total_steps,
             prior_interactions=prior_interactions,
             target_tokens=target_tokens,
-            require_extended_thinking=require_extended_thinking
+            require_extended_thinking=require_extended_thinking,
+            language=language
         )
 
         if self.include_examples:
@@ -419,7 +430,8 @@ class HybridReasoningPromptCreator:
         topic: str,
         num_interactions: int,
         target_tokens_per_interaction: int = 1024,
-        thinking_ratio: float = 0.7
+        thinking_ratio: float = 0.7,
+        language: str = "English"
     ) -> tuple[str, str]:
         """
         Get prompt for full conversation generation.
@@ -433,7 +445,8 @@ class HybridReasoningPromptCreator:
             topic=topic,
             num_interactions=num_interactions,
             target_tokens_per_interaction=target_tokens_per_interaction,
-            thinking_ratio=thinking_ratio
+            thinking_ratio=thinking_ratio,
+            language=language
         )
 
         if self.include_examples:
@@ -500,8 +513,8 @@ class HybridReasoningGenerator(BaseDatasetGenerator):
             response = response[3:]
         if response.endswith('```'):
             response = response[:-3]
-        if response.endswith('}'):
-            response = response[:-1]
+        # if response.endswith('}'):
+        #     response = response[:-1]
         response = response.strip()
 
         # Try Python eval
@@ -513,8 +526,8 @@ class HybridReasoningGenerator(BaseDatasetGenerator):
                     'think': str(result.get('think', '')),
                     'answer': str(result.get('answer', ''))
                 }
-        except:
-            pass
+        except Exception as e:
+            print(e)
 
         # Try JSON
         try:
@@ -598,7 +611,8 @@ class HybridReasoningGenerator(BaseDatasetGenerator):
         max_tokens: int = 8192,
         timeout: int = 180,
         additional_config: dict = None,
-        restart: bool = False
+        restart: bool = False,
+        language: str = "English"
     ):
         """
         Generate conversations one interaction at a time.
@@ -616,6 +630,7 @@ class HybridReasoningGenerator(BaseDatasetGenerator):
             timeout: Request timeout
             additional_config: Additional API config
             restart: Whether to clear existing items
+            language: Language of generated response
         """
         if restart:
             self.items = self._init_items()
@@ -634,24 +649,29 @@ class HybridReasoningGenerator(BaseDatasetGenerator):
                     total_steps=num_interactions,
                     prior_interactions=current_conversation if step > 1 else None,
                     target_tokens=target_tokens,
-                    require_extended_thinking=use_thinking
+                    require_extended_thinking=use_thinking,
+                    language=language
                 )
+                max_tries = 3
+                for attempt in range(max_tries):
+                    response = self.generate_items(
+                        user,
+                        stream=stream,
+                        temperature=temperature,
+                        top_p=top_p,
+                        max_tokens=max_tokens,
+                        system_prompt=system,
+                        timeout=timeout,
+                        additional_config=additional_config
+                    )
 
-                response = self.generate_items(
-                    user,
-                    stream=stream,
-                    temperature=temperature,
-                    top_p=top_p,
-                    max_tokens=max_tokens,
-                    system_prompt=system,
-                    timeout=timeout,
-                    additional_config=additional_config
-                )
+                    if stream:
+                        print('\n')
 
-                if stream:
-                    print('\n')
+                    interaction = self._parse_interaction(response)
 
-                interaction = self._parse_interaction(response)
+                    if interaction is not None:
+                        break
 
                 if interaction:
                     current_conversation.append(interaction)
@@ -685,7 +705,9 @@ class HybridReasoningGenerator(BaseDatasetGenerator):
         max_tokens: int = 32000,
         timeout: int = 300,
         additional_config: dict = None,
-        restart: bool = False
+        restart: bool = False,
+        max_tries: int = 3,
+        language: str = "English"
     ):
         """
         Generate entire conversations at once.
@@ -703,6 +725,9 @@ class HybridReasoningGenerator(BaseDatasetGenerator):
             timeout: Request timeout
             additional_config: Additional API config
             restart: Whether to clear existing items
+            max_tries: Number of tries to generate response - added in case model generate
+            wrong response, which is incompatible with eval() function
+            language: Which language to generate in.
         """
         if restart:
             self.items = self._init_items()
@@ -714,24 +739,28 @@ class HybridReasoningGenerator(BaseDatasetGenerator):
                 topic=topic,
                 num_interactions=num_interactions,
                 target_tokens_per_interaction=target_tokens_per_interaction,
-                thinking_ratio=thinking_ratio
+                thinking_ratio=thinking_ratio,
+                language=language
             )
 
-            response = self.generate_items(
-                user,
-                stream=stream,
-                temperature=temperature,
-                top_p=top_p,
-                max_tokens=max_tokens,
-                system_prompt=system,
-                timeout=timeout,
-                additional_config=additional_config
-            )
+            for attempt in range(max_tries):
+                response = self.generate_items(
+                    user,
+                    stream=stream,
+                    temperature=temperature,
+                    top_p=top_p,
+                    max_tokens=max_tokens,
+                    system_prompt=system,
+                    timeout=timeout,
+                    additional_config=additional_config
+                )
 
-            if stream:
-                print('\n')
+                if stream:
+                    print('\n')
 
-            conversation = self._parse_conversation(response)
+                conversation = self._parse_conversation(response)
+                if conversation is not None and len(conversation) > 0:
+                    break
 
             if len(conversation) >= num_interactions * 0.8:  # Allow some tolerance
                 # Pad or truncate to exact length
