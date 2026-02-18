@@ -176,8 +176,8 @@ For each interaction, the reasoning should:
 - Be coherent with both the query and the provided answer
 - Build upon previous reasoning where appropriate
 
-NSTRUCTION FOR MULTILINE RESPONSES:
 
+INSTRUCTION FOR MULTILINE RESPONSES:
     Always use the escape sequence \\n to indicate a line break.
 
     Never use actual newline characters (from pressing Enter/Return).
@@ -430,7 +430,7 @@ Generate ONLY the Python list - no other text."""
 
 def system_dmpo_generation_single():
     """System prompt for single DMPO pair generation."""
-    return """You are a DMPO Dataset Generator for RxT-Beta, creating preference pairs for memory optimization training.
+    return f"""You are a DMPO Dataset Generator for RxT-Beta, creating preference pairs for memory optimization training.
 
 Your task is to generate BOTH an accepted (good) and rejected (bad) response for each interaction.
 
@@ -446,8 +446,24 @@ REJECTED response characteristics:
 - Incomplete, inaccurate, or unhelpful answer
 - May contain subtle errors or contradictions
 
-The contrast should be clear but realistic - rejected responses should represent plausible mistakes, not absurd errors."""
 
+The contrast should be clear but realistic - rejected responses should represent plausible mistakes, not absurd errors.
+
+{MULTLINE_INSTRUCT}
+{ESCAPE_QUOTA}
+"""
+
+ESCAPE_QUOTA = 'ALWAYS escape single-quotation mark and double-quotation mark'
+
+MULTLINE_INSTRUCT = '''INSTRUCTION FOR MULTILINE RESPONSES:
+    Always use the escape sequence \\n to indicate a line break.
+
+    Never use actual newline characters (from pressing Enter/Return).
+
+    Never use HTML's
+    or Windows-style \\r\\n.
+
+    Example of correct formatting: "First line\\nSecond line\\nThird line"'''
 
 def system_dmpo_generation_all():
     """System prompt for full DMPO conversation generation."""
@@ -504,6 +520,7 @@ Generate interaction {step_num} with BOTH accepted and rejected responses.
 - Make it realistic - a plausible mistake, not obviously absurd
 
 ## OUTPUT FORMAT
+Return text in JSON format
 Output a Python dictionary with this structure:
 {{
     "query": "The question requiring memory and reasoning...",
@@ -518,8 +535,17 @@ Output a Python dictionary with this structure:
 }}
 
 Target approximately {target_tokens} tokens total per response (think + answer).
+{MULTLINE_INSTRUCT}
 
-Generate ONLY the dictionary - no other text."""
+Generate ONLY the dictionary - no other text.
+"""
+
+COUNTING_PARENTHESIS = '''ALWAYS check if opening parenthesis match closing parenthesis IT IS VERY IMPORTANT!
+structure of the output:
+{{"query":"text",
+"accepted": {{"think": "text", "answer": "text"}},
+"rejected: {{"think": "text", "answer": "text"}}}}
+That means that at the end there are always TWO closing parenthesis }}}}'''
 
 
 def task_description_dmpo_all(
@@ -564,9 +590,152 @@ Output a Python list of dictionaries:
     }},
     # ... {num_interactions} total interactions
 ]
-
+REMEMBER that after "answer" key-value pair their MUST be closing parenthesis to maintain demanded structure
+where "accepted" and "rejected" is on the same level in the dictionary.
 Generate ONLY the Python list - no other text."""
 
+
+def system_dmpo_completion_single() -> str:
+    """System prompt for single DMPO pair generation mode."""
+    return """You are an expert at identifying and generating weaker alternative responses for preference learning datasets.
+
+Your task is to generate rejected (lower-quality) responses that are intentionally weaker than accepted responses, while maintaining subtlety in the differences.
+
+Key principles:
+1. The rejected response should be plausibly wrong or suboptimal, not obviously bad
+2. Weaknesses should be realistic - the kinds of mistakes people actually make
+3. Keep the rejected response similar in length to the accepted response
+4. Vary the types of weaknesses: incomplete reasoning, logical gaps, missing considerations, oversimplifications, or minor inaccuracies
+5. The rejected response should still attempt to answer the question, but with diminished quality
+6. Return ONLY the rejected think and answer blocks - do not include the query or accepted response in output"""
+
+
+def system_dmpo_completion_all() -> str:
+    """System prompt for all-at-once DMPO pair generation mode."""
+    return """You are an expert at identifying and generating weaker alternative responses for preference learning datasets.
+
+Your task is to generate rejected (lower-quality) responses for multiple interactions while maintaining consistency across the conversation.
+
+Key principles:
+1. Each rejected response should be intentionally weaker than its corresponding accepted response, but subtly so
+2. Weaknesses should be realistic and varied across responses (incomplete reasoning, logical gaps, missing considerations, oversimplifications, minor inaccuracies)
+3. Keep each rejected response similar in length to its corresponding accepted response
+4. Maintain conversation coherence - rejected responses should still reference prior context appropriately, just with reduced quality
+5. Return a list of rejected think/answer pairs only - do not include queries or accepted responses in output
+6. Ensure the rejected responses form a plausible (though weaker) conversation arc"""
+
+
+def task_description_dmpo_completion_single(
+    query: str,
+    accepted_think: str,
+    accepted_answer: str,
+    target_tokens: int = 512,
+    memory_context: list = None
+) -> str:
+    """Generate prompt for single DMPO pair completion."""
+    prompt = f"""## Task: Generate a Weaker Alternative Response
+
+You are given an ACCEPTED response to a query. Your task is to generate a REJECTED response that is intentionally weaker while remaining plausible.
+
+### Query
+{query}
+
+### Accepted Response (Reference for comparison)
+**Thinking:**
+{accepted_think}
+
+**Answer:**
+{accepted_answer}
+
+---
+
+### Instructions for Generating Rejected Response
+
+Generate a thinking block and answer that are:
+- **Subtly weaker** than the accepted response (avoid obviously bad responses)
+- **Similar in length** to the accepted response (within ±20% of token count)
+- **Realistic** - representing mistakes people actually make
+- **Different in quality approach** - choose ONE primary weakness type:
+  * Incomplete reasoning (misses key considerations)
+  * Logical gap (draws conclusions without full justification)
+  * Oversimplification (ignores nuance or complexity)
+  * Narrow perspective (considers fewer viewpoints)
+  * Minor inaccuracy (contains a small error that compounds reasoning)
+
+### Memory Context
+"""
+
+    if memory_context and len(memory_context) > 0:
+        prompt += "Prior interactions in this conversation:\n"
+        for i, interaction in enumerate(memory_context, 1):
+            prompt += f"\n**Interaction {i}:**\n"
+            prompt += f"- Query: {interaction.get('query', '')}\n"
+            prompt += f"- Accepted Think: {interaction.get('accepted', {}).get('think', '')[:200]}...\n"
+            prompt += f"- Accepted Answer: {interaction.get('accepted', {}).get('answer', '')[:200]}...\n"
+    else:
+        prompt += "This is the first interaction in the conversation.\n"
+
+    prompt += f"""
+
+### Output Format
+Return ONLY a JSON object with this structure (no markdown, no explanation):
+{{"rejected": {{"think": "...", "answer": "..."}}}}
+
+Generate the rejected response now:"""
+
+    return prompt
+
+
+def task_description_dmpo_completion_all(
+    interactions: list,
+    target_tokens_per_pair: int = 512
+) -> str:
+    """Generate prompt for all-at-once DMPO pair completion."""
+    prompt = f"""## Task: Generate Weaker Alternative Responses for Full Conversation
+
+You are given a conversation with ACCEPTED responses. Your task is to generate REJECTED responses for each interaction that are intentionally weaker while remaining plausible.
+
+### Conversation with Accepted Responses
+"""
+
+    for i, interaction in enumerate(interactions, 1):
+        prompt += f"""
+**Interaction {i}:**
+- Query: {interaction['query']}
+- Accepted Think: {interaction['accepted']['think']}
+- Accepted Answer: {interaction['accepted']['answer']}
+"""
+
+    prompt += f"""
+
+---
+
+### Instructions for Generating Rejected Responses
+
+For EACH interaction, generate a rejected response that is:
+- **Subtly weaker** than the accepted response (avoid obviously bad responses)
+- **Similar in length** to the accepted response (within ±20% of ~{target_tokens_per_pair} tokens)
+- **Realistic** - representing mistakes people actually make
+- **Varied in weakness type** across interactions:
+  * Incomplete reasoning (misses key considerations)
+  * Logical gap (draws conclusions without full justification)
+  * Oversimplification (ignores nuance or complexity)
+  * Narrow perspective (considers fewer viewpoints)
+  * Minor inaccuracy (contains a small error that compounds reasoning)
+
+Maintain conversation coherence - rejected responses should still reference prior interactions, just with reduced quality and depth.
+
+### Output Format
+Return ONLY a JSON array with this structure (no markdown, no explanation):
+[
+  {{"rejected": {{"think": "...", "answer": "..."}}}},
+  {{"rejected": {{"think": "...", "answer": "..."}}}},
+  ...
+]
+
+Generate {len(interactions)} rejected responses now:"""
+
+    return prompt
 
 # ============================================================================
 # PROMPT TUPLES FOR DIFFERENT MODES
