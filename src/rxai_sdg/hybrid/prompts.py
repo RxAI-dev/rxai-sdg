@@ -176,8 +176,8 @@ For each interaction, the reasoning should:
 - Be coherent with both the query and the provided answer
 - Build upon previous reasoning where appropriate
 
-NSTRUCTION FOR MULTILINE RESPONSES:
 
+INSTRUCTION FOR MULTILINE RESPONSES:
     Always use the escape sequence \\n to indicate a line break.
 
     Never use actual newline characters (from pressing Enter/Return).
@@ -430,7 +430,7 @@ Generate ONLY the Python list - no other text."""
 
 def system_dmpo_generation_single():
     """System prompt for single DMPO pair generation."""
-    return """You are a DMPO Dataset Generator for RxT-Beta, creating preference pairs for memory optimization training.
+    return f"""You are a DMPO Dataset Generator for RxT-Beta, creating preference pairs for memory optimization training.
 
 Your task is to generate BOTH an accepted (good) and rejected (bad) response for each interaction.
 
@@ -446,8 +446,24 @@ REJECTED response characteristics:
 - Incomplete, inaccurate, or unhelpful answer
 - May contain subtle errors or contradictions
 
-The contrast should be clear but realistic - rejected responses should represent plausible mistakes, not absurd errors."""
 
+The contrast should be clear but realistic - rejected responses should represent plausible mistakes, not absurd errors.
+
+{MULTLINE_INSTRUCT}
+{ESCAPE_QUOTA}
+"""
+
+ESCAPE_QUOTA = 'ALWAYS escape single-quotation mark and double-quotation mark'
+
+MULTLINE_INSTRUCT = '''INSTRUCTION FOR MULTILINE RESPONSES:
+    Always use the escape sequence \\n to indicate a line break.
+
+    Never use actual newline characters (from pressing Enter/Return).
+
+    Never use HTML's
+    or Windows-style \\r\\n.
+
+    Example of correct formatting: "First line\\nSecond line\\nThird line"'''
 
 def system_dmpo_generation_all():
     """System prompt for full DMPO conversation generation."""
@@ -504,6 +520,7 @@ Generate interaction {step_num} with BOTH accepted and rejected responses.
 - Make it realistic - a plausible mistake, not obviously absurd
 
 ## OUTPUT FORMAT
+Return text in JSON format
 Output a Python dictionary with this structure:
 {{
     "query": "The question requiring memory and reasoning...",
@@ -518,8 +535,17 @@ Output a Python dictionary with this structure:
 }}
 
 Target approximately {target_tokens} tokens total per response (think + answer).
+{MULTLINE_INSTRUCT}
 
-Generate ONLY the dictionary - no other text."""
+Generate ONLY the dictionary - no other text.
+"""
+
+COUNTING_PARENTHESIS = '''ALWAYS check if opening parenthesis match closing parenthesis IT IS VERY IMPORTANT!
+structure of the output:
+{{"query":"text",
+"accepted": {{"think": "text", "answer": "text"}},
+"rejected: {{"think": "text", "answer": "text"}}}}
+That means that at the end there are always TWO closing parenthesis }}}}'''
 
 
 def task_description_dmpo_all(
@@ -564,7 +590,8 @@ Output a Python list of dictionaries:
     }},
     # ... {num_interactions} total interactions
 ]
-
+REMEMBER that after "answer" key-value pair their MUST be closing parenthesis to maintain demanded structure
+where "accepted" and "rejected" is on the same level in the dictionary.
 Generate ONLY the Python list - no other text."""
 
 

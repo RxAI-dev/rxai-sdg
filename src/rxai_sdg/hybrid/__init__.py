@@ -943,7 +943,6 @@ class DMPOGenerator(BaseDatasetGenerator):
     def _parse_dmpo_pair(self, response: str) -> Optional[dict]:
         """Parse a single DMPO pair from API response."""
         response = response.strip()
-
         # Remove markdown code blocks
         if response.startswith('```python'):
             response = response[9:]
@@ -952,11 +951,11 @@ class DMPOGenerator(BaseDatasetGenerator):
         if response.endswith('```'):
             response = response[:-3]
 
-        response = response.strip()
+        response = f'''{response}'''.strip()
 
         # Try Python eval
         try:
-            result = eval(response)
+            result = eval( f'''{response}''')
             if isinstance(result, dict) and 'query' in result and 'accepted' in result and 'rejected' in result:
                 return {
                     'query': str(result.get('query', '')),
@@ -1079,7 +1078,8 @@ class DMPOGenerator(BaseDatasetGenerator):
         max_tokens: int = 8192,
         timeout: int = 180,
         additional_config: dict = None,
-        restart: bool = False
+        restart: bool = False,
+        num_tries: int = 5
     ):
         """
         Generate DMPO pairs one interaction at a time.
@@ -1099,6 +1099,7 @@ class DMPOGenerator(BaseDatasetGenerator):
             timeout: Request timeout
             additional_config: Additional API config
             restart: Whether to clear existing items
+            num_tries: Number of tries to generate the response
         """
         if restart:
             self.items = self._init_items()
@@ -1119,22 +1120,25 @@ class DMPOGenerator(BaseDatasetGenerator):
                     prior_interactions=accepted_history if step > 1 else None,
                     target_tokens=target_tokens
                 )
+                for i in range(num_tries):
+                    response = self.generate_items(
+                        user,
+                        stream=stream,
+                        temperature=temperature,
+                        top_p=top_p,
+                        max_tokens=max_tokens,
+                        system_prompt=system,
+                        timeout=timeout,
+                        additional_config=additional_config
+                    )
 
-                response = self.generate_items(
-                    user,
-                    stream=stream,
-                    temperature=temperature,
-                    top_p=top_p,
-                    max_tokens=max_tokens,
-                    system_prompt=system,
-                    timeout=timeout,
-                    additional_config=additional_config
-                )
+                    if stream:
+                        print('\n')
 
-                if stream:
-                    print('\n')
-
-                dmpo_pair = self._parse_dmpo_pair(response)
+                    dmpo_pair = self._parse_dmpo_pair(response)
+                    if dmpo_pair:
+                        break
+                    print(f"Failed to parse dmpo pair - {i+1} / {num_tries} attempts in interaction number {step+1} ")
 
                 if dmpo_pair:
                     current_conversation.append(dmpo_pair)
