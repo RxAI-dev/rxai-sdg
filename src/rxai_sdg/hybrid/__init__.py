@@ -224,7 +224,7 @@ class ReasoningCompletionGenerator(BaseDatasetGenerator):
                     if response is not None:
                         think_block = self._parse_think_block(response)
 
-                    if len(think_block) > 0:
+                    if len(think_block) > 0 and think_block != '[]':
                         break
                     print(f"Attempt {attempt + 1} failed...\n")
                 completed_interactions.append({
