@@ -309,3 +309,12 @@ def get_dmpo_example_all(num_interactions: int) -> str:
     """Get example for DMPO full conversation."""
     closest = min(EXAMPLES_DMPO_ALL.keys(), key=lambda x: abs(x - num_interactions))
     return EXAMPLES_DMPO_ALL[closest]
+
+def get_dmpo_completion_example_single() -> str:
+    """Get example for DMPO single pair generation."""
+    return EXAMPLES_DMPO_SINGLE.get(1, EXAMPLES_DMPO_SINGLE[1])
+
+
+def get_dmpo_completion_example_all() -> str:
+    """Get example for DMPO full conversation generation."""
+    return EXAMPLES_DMPO_ALL.get(2, EXAMPLES_DMPO_ALL[2])

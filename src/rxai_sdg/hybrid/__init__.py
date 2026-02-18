@@ -38,7 +38,8 @@ from .prompts import (
     system_dmpo_generation_all,
     task_description_dmpo_single,
     task_description_dmpo_all,
-    get_random_topics,
+    get_random_topics, system_dmpo_completion_all, system_dmpo_completion_single,
+    task_description_dmpo_completion_single, task_description_dmpo_completion_all,
 )
 from .examples import (
     get_reasoning_completion_example_single,
@@ -46,7 +47,7 @@ from .examples import (
     get_reasoning_generation_example_single,
     get_reasoning_generation_example_all,
     get_dmpo_example_single,
-    get_dmpo_example_all,
+    get_dmpo_example_all, get_dmpo_completion_example_single, get_dmpo_completion_example_all,
 )
 from ..base.test import ollama_api_key
 
@@ -1280,7 +1281,344 @@ class DMPOGenerator(BaseDatasetGenerator):
         else:
             raise ValueError(f"Unknown mode: {mode}. Use 'single' or 'all_at_once'")
 
+class DMPOCompletionGenerator(BaseDatasetGenerator):
+    """
+    Generator for completing DMPO preference pairs from existing conversations.
 
+    Takes conversations with query/think/answer and generates rejected responses
+    that are intentionally weaker, using the accepted response as reference.
+
+    Input structure:
+    {"query": "...", "think": "...", "answer": "..."}
+
+    Output structure:
+    {"query": "...", "accepted": {"think": "...", "answer": "..."}, "rejected": {"think": "...", "answer": "..."}}
+
+    Supports two modes:
+    - single: Generate one rejected response at a time with full context
+    - all_at_once: Generate all rejected responses for a conversation at once
+    """
+
+    def _init_items(self) -> dict[str, list]:
+        """Initialize storage for DMPO completion pairs."""
+        return {'interactions': []}
+
+    def _parse_dmpo_pair(self, response: str) -> Optional[dict]:
+        """Parse a single DMPO pair with rejected response from API response."""
+        response = response.strip()
+
+        # Remove markdown code blocks
+        if response.startswith('```python'):
+            response = response[9:]
+        elif response.startswith('```'):
+            response = response[3:]
+        if response.endswith('```'):
+            response = response[:-3]
+
+        response = response.strip()
+
+        # Try Python eval
+        try:
+            result = eval(response)
+            if isinstance(result, dict) and 'rejected' in result:
+                return {
+                    'rejected': {
+                        'think': str(result.get('rejected', {}).get('think', '')),
+                        'answer': str(result.get('rejected', {}).get('answer', ''))
+                    }
+                }
+        except:
+            pass
+
+        # Try JSON
+        try:
+            result = json.loads(response)
+            if isinstance(result, dict) and 'rejected' in result:
+                return {
+                    'rejected': {
+                        'think': str(result.get('rejected', {}).get('think', '')),
+                        'answer': str(result.get('rejected', {}).get('answer', ''))
+                    }
+                }
+        except:
+            pass
+
+        return None
+
+    def _parse_dmpo_pairs_list(self, response: str) -> list[dict]:
+        """Parse a list of DMPO pairs with rejected responses from API response."""
+        response = response.strip()
+
+        # Remove markdown code blocks
+        if response.startswith('```python'):
+            response = response[9:]
+        elif response.startswith('```'):
+            response = response[3:]
+        if response.endswith('```'):
+            response = response[:-3]
+
+        response = response.strip()
+
+        # Try to fix truncated responses
+        if not response.endswith(']'):
+            last_complete = response.rfind('}')
+            if last_complete > 0:
+                response = response[:last_complete + 1] + ']'
+
+        # Try Python eval
+        try:
+            result = eval(response)
+            if isinstance(result, list):
+                parsed = []
+                for item in result:
+                    if isinstance(item, dict) and 'rejected' in item:
+                        parsed.append({
+                            'rejected': {
+                                'think': str(item.get('rejected', {}).get('think', '')),
+                                'answer': str(item.get('rejected', {}).get('answer', ''))
+                            }
+                        })
+                return parsed
+        except:
+            pass
+
+        # Try JSON
+        try:
+            result = json.loads(response)
+            if isinstance(result, list):
+                parsed = []
+                for item in result:
+                    if isinstance(item, dict) and 'rejected' in item:
+                        parsed.append({
+                            'rejected': {
+                                'think': str(item.get('rejected', {}).get('think', '')),
+                                'answer': str(item.get('rejected', {}).get('answer', ''))
+                            }
+                        })
+                return parsed
+        except:
+            pass
+
+        return []
+
+    def complete_single(
+        self,
+        dataset: Dataset,
+        target_tokens: int = 512,
+        iterations: int = None,
+        stream: bool = False,
+        temperature: float = 0.7,
+        top_p: float = 0.9,
+        max_tokens: int = 4096,
+        timeout: int = 180,
+        additional_config: dict = None,
+        include_examples: bool = True,
+        num_tries: int = 3
+    ):
+        """
+        Generate rejected responses one at a time with full context.
+
+        Args:
+            dataset: HuggingFace dataset with 'interactions' field containing
+                     list of dicts with 'query', 'think', 'answer' keys
+            target_tokens: Target length for rejected response
+            iterations: Max number of conversations to process (None = all)
+            stream: Whether to stream responses
+            temperature: Sampling temperature
+            top_p: Nucleus sampling parameter
+            max_tokens: Max tokens per generation
+            timeout: Request timeout in seconds
+            additional_config: Additional API configuration
+            include_examples: Whether to include few-shot examples
+            num_tries: Number of tries to generate model response
+        """
+        if iterations is None:
+            iterations = len(dataset)
+
+        system_prompt = system_dmpo_completion_single()
+
+        for conv_idx in range(min(iterations, len(dataset))):
+            conversation = dataset[conv_idx]['interactions']
+            completed_interactions = []
+
+            for step_idx, interaction in enumerate(conversation):
+                query = interaction.get('query', '')
+                think = interaction.get('think', '')
+                answer = interaction.get('answer', '')
+
+                # Build memory context from prior accepted responses
+                memory_context = completed_interactions if step_idx > 0 else None
+
+                # Build prompt with accepted response visible to model
+                prompt = task_description_dmpo_completion_single(
+                    query=query,
+                    accepted_think=think,
+                    accepted_answer=answer,
+                    memory_context=memory_context,
+                    target_tokens=target_tokens
+                )
+
+                # Add few-shot example
+                if include_examples:
+                    example = get_dmpo_completion_example_single()
+                    prompt = f"## FEW-SHOT EXAMPLE\n{example}\n\n{prompt}"
+
+                for attempt in range(num_tries):
+                    # Generate rejected response
+                    response = self.generate_items(
+                        prompt,
+                        stream=stream,
+                        temperature=temperature,
+                        top_p=top_p,
+                        max_tokens=max_tokens,
+                        system_prompt=system_prompt,
+                        timeout=timeout,
+                        additional_config=additional_config
+                    )
+                    dmpo_result = self._parse_dmpo_pair(response)
+
+                    if dmpo_result:
+                        break
+                    print(f"Attempt {attempt + 1} failed...\n")
+
+                if dmpo_result:
+                    completed_interactions.append({
+                        'query': query,
+                        'accepted': {
+                            'think': think,
+                            'answer': answer
+                        },
+                        'rejected': dmpo_result['rejected']
+                    })
+
+                if stream:
+                    print('\n')
+
+            # Store completed conversation
+            self.items['interactions'].append(completed_interactions)
+            print(f"Completed conversation {conv_idx + 1}/{iterations} ({len(completed_interactions)} interactions)")
+
+            if self.max_items and len(self.items['interactions']) >= self.max_items:
+                print("Max items reached, stopping.")
+                break
+
+    def complete_all_at_once(
+        self,
+        dataset: Dataset,
+        target_tokens_per_pair: int = 512,
+        iterations: int = None,
+        stream: bool = False,
+        temperature: float = 0.7,
+        top_p: float = 0.9,
+        max_tokens: int = 16000,
+        timeout: int = 300,
+        additional_config: dict = None,
+        include_examples: bool = True,
+        num_tries: int = 5
+    ):
+        """
+        Generate all rejected responses for a conversation at once.
+
+        Args:
+            dataset: HuggingFace dataset with 'interactions' field
+            target_tokens_per_pair: Target length for each rejected response
+            iterations: Max conversations to process (None = all)
+            stream: Whether to stream responses
+            temperature: Sampling temperature
+            top_p: Nucleus sampling parameter
+            max_tokens: Max tokens for generation
+            timeout: Request timeout in seconds
+            additional_config: Additional API configuration
+            include_examples: Whether to include few-shot examples
+            num_tries: Number of tries to generate correct parsable response
+        """
+        if iterations is None:
+            iterations = len(dataset)
+
+        system_prompt = system_dmpo_completion_all()
+
+        for conv_idx in range(min(iterations, len(dataset))):
+            conversation = dataset[conv_idx]['interactions']
+
+            # Build interaction list with accepted responses
+            interactions = [
+                {
+                    'query': inter.get('query', ''),
+                    'accepted': {
+                        'think': inter.get('think', ''),
+                        'answer': inter.get('answer', '')
+                    }
+                }
+                for inter in conversation
+            ]
+
+            # Build prompt
+            prompt = task_description_dmpo_completion_all(
+                interactions=interactions,
+                target_tokens_per_pair=target_tokens_per_pair
+            )
+
+            # Add few-shot example
+            if include_examples:
+                example = get_dmpo_completion_example_all()
+                prompt = f"## FEW-SHOT EXAMPLE\n{example}\n\n{prompt}"
+
+            for attempt in range(num_tries):
+                # Generate all rejected responses
+                response = self.generate_items(
+                    prompt,
+                    stream=stream,
+                    temperature=temperature,
+                    top_p=top_p,
+                    max_tokens=max_tokens,
+                    system_prompt=system_prompt,
+                    timeout=timeout,
+                    additional_config=additional_config
+                )
+                rejected_responses = self._parse_dmpo_pairs_list(response)
+                if len(rejected_responses) == len(interactions):
+                    break
+                print(f"Attempt {attempt + 1}/{num_tries} failed, retrying...")
+
+            if len(rejected_responses) == len(interactions):
+                completed = [
+                    {
+                        'query': interactions[i]['query'],
+                        'accepted': interactions[i]['accepted'],
+                        'rejected': rejected_responses[i]['rejected']
+                    }
+                    for i in range(len(interactions))
+                ]
+                self.items['interactions'].append(completed)
+                print(f"Completed conversation {conv_idx + 1}/{iterations} ({len(completed)} pairs)")
+            else:
+                print(f"Warning: Got {len(rejected_responses)} rejected responses for {len(interactions)} interactions, skipping")
+                self.failed_count += 1
+
+            if self.max_items and len(self.items['interactions']) >= self.max_items:
+                print("Max items reached, stopping.")
+                break
+
+    def __call__(
+        self,
+        dataset: Dataset,
+        mode: Literal['single', 'all_at_once'] = 'single',
+        **kwargs
+    ):
+        """
+        Run DMPO completion in specified mode.
+
+        Args:
+            dataset: HuggingFace dataset with 'interactions' field
+            mode: 'single' or 'all_at_once'
+            **kwargs: Additional arguments passed to the specific method
+        """
+        if mode == 'single':
+            self.complete_single(dataset, **kwargs)
+        elif mode == 'all_at_once':
+            self.complete_all_at_once(dataset, **kwargs)
+        else:
+            raise ValueError(f"Unknown mode: {mode}. Use 'single' or 'all_at_once'")
 # ============================================================================
 # POSTPROCESSORS
 # ============================================================================
