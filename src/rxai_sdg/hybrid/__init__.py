@@ -1589,8 +1589,8 @@ class DMPOCompletionGenerator(BaseDatasetGenerator):
                         target_tokens=target_tokens
                     )
                 else:
-                    rejected_think = interaction.get('rejected', {}).get('think', '')
-                    rejected_answer = interaction.get('rejected', {}).get('answer', '')
+                    rejected_think = interaction.get('think', '')
+                    rejected_answer = interaction.get('answer', '')
                     prompt = task_description_dmpo_completion_single_accepted(
                         query=query,
                         rejected_think=rejected_think,
@@ -1724,8 +1724,8 @@ class DMPOCompletionGenerator(BaseDatasetGenerator):
                     {
                         'query': inter.get('query', ''),
                         'rejected': {
-                            'think': inter.get('rejected', {}).get('think', ''),
-                            'answer': inter.get('rejected', {}).get('answer', '')
+                            'think': inter.get('think', ''),
+                            'answer': inter.get('answer', '')
                         }
                     }
                     for inter in conversation
