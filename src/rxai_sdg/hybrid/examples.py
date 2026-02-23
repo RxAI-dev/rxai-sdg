@@ -155,7 +155,7 @@ Generated interaction 3 (final of 3-step conversation):
     "think": "This is a great synthesis question that connects multiple threads from our conversation:\n1. From interaction 1: The strange properties of entanglement (measurement disturbs state)\n2. From interaction 2: QKD as a practical application; mention of Shor's algorithm breaking RSA\n\nThe user wants to understand:\na) How QKD actually works mechanically\nb) Whether quantum computers could break quantum cryptography (ironic if so!)\n\nLet me think through QKD protocols:\n\nBB84 protocol (original, uses single photons):\n- Alice sends photons in random bases\n- Bob measures in random bases\n- They compare bases publicly, keep matching ones\n- Any interception causes errors they can detect\n\nE91 protocol (entanglement-based):\n- Source creates entangled pairs\n- Alice and Bob each get one particle\n- They perform measurements in various bases\n- Bell inequality violations confirm no eavesdropper\n\nRegarding quantum computers breaking QKD:\n- Shor's algorithm breaks RSA (classical crypto) by factoring\n- QKD security is based on physics (uncertainty principle), not mathematical hardness\n- Quantum computers actually strengthen the need for QKD!\n- There are potential attacks (side channels, implementation flaws) but not fundamental breaks\n\nI should connect this back to our earlier discussion of why entanglement measurement is inherently disturbing - that's the core security principle.",
     "answer": "Let me explain how QKD works, connecting back to the entanglement properties we've discussed.\n\n**How QKD Works (E91 Protocol)**:\n1. A source generates entangled photon pairs and sends one photon to Alice, one to Bob\n2. Each independently measures their photon's polarization in randomly chosen bases\n3. They publicly compare which bases they used (not results) and keep only matching measurements\n4. They can test Bell inequalities on a subset - violations confirm genuine entanglement and no eavesdropper\n5. Any eavesdropper (Eve) trying to intercept and measure would disturb the entanglement, reducing the Bell violation below the quantum threshold\n6. This disturbance manifests as errors in the remaining shared bits, revealing Eve's presence\n\nThe security fundamentally relies on what we discussed earlier - measurement disturbs quantum states, and entanglement correlations are stronger than anything achievable through hidden classical mechanisms.\n\n**Could Quantum Computers Break QKD?**\n\nInterestingly, no - and this is important! The threat model is different:\n\n- **Classical cryptography (RSA, ECC)**: Security based on computational hardness (factoring, discrete log). Shor's algorithm running on a large quantum computer would break these.\n\n- **QKD**: Security based on laws of physics (uncertainty principle, no-cloning theorem). Even a perfect quantum computer can't violate these physical principles.\n\nIn fact, quantum computers make QKD more important, not less. They threaten our current classical encryption but can't touch quantum-mechanical security guarantees.\n\nThe real vulnerabilities in QKD are practical: implementation flaws, side-channel attacks on hardware, or the classical authentication needed to set up the quantum channel. But these are engineering challenges, not fundamental theoretical breaks."
 }
-'''
+''',
 }
 
 EXAMPLES_REASONING_GENERATION_ALL: dict[int, str] = {
@@ -239,7 +239,7 @@ Generated DMPO pair (interaction 2 of 3):
         "answer": "Several storage solutions are being developed to address intermittency:\n\n**Batteries**: Lithium-ion batteries like those Tesla makes are becoming more common. They can store energy for several hours and release it when needed. Costs have come down significantly - I believe around 50% in the last few years.\n\n**Pumped Hydro**: This involves pumping water uphill when electricity is cheap and letting it flow down through turbines when needed. It's been around for decades and provides most grid storage today.\n\n**Hydrogen**: Some companies are looking at using excess renewable electricity to make hydrogen, which can be stored and later converted back to electricity.\n\n**How close are we?** Batteries can handle a few hours of storage now, which helps with daily cycles. But for longer periods - like a week of cloudy weather - we don't really have good solutions yet. Some experts say seasonal storage might take another 20-30 years to become practical.\n\nUntil storage improves significantly, we'll likely need to keep some fossil fuel plants running as backup for when renewables aren't producing enough power."
     }
 }
-'''
+''',
 }
 
 EXAMPLES_DMPO_ALL: dict[int, str] = {
@@ -318,3 +318,33 @@ def get_dmpo_completion_example_single() -> str:
 def get_dmpo_completion_example_all() -> str:
     """Get example for DMPO full conversation generation."""
     return EXAMPLES_DMPO_ALL.get(2, EXAMPLES_DMPO_ALL[2])
+
+
+def get_dmpo_completion_accepted_example_single() -> str:
+    """Get example for DMPO accepted-response completion."""
+    return '''
+Given query: "Why is energy storage important for renewable grids?"
+Given rejected response:
+{"rejected": {"think": "Storage helps sometimes, but I think grids can just use more solar panels.", "answer": "Storage is nice but not essential. You can just build more renewables to cover gaps."}}
+
+Generated accepted response:
+{"accepted": {"think": "Intermittency means supply does not always align with demand. Storage smooths shortfalls and reduces curtailment, especially during low production periods. It also supports grid stability and reduces reliance on peaker plants.", "answer": "Energy storage is critical because wind and solar output varies while demand remains continuous. Storage shifts excess power from high-production periods to times of low generation, improves grid reliability, and reduces the need for fossil backup."}}
+'''
+
+
+def get_dmpo_completion_accepted_example_all() -> str:
+    """Get example for DMPO full conversation accepted-response completion."""
+    return '''
+Input conversation (rejected responses):
+[
+  {"query": "What is entropy?", "rejected": {"think": "Entropy is just disorder.", "answer": "Entropy means disorder in a system."}},
+  {"query": "How does entropy relate to energy?", "rejected": {"think": "It does not really relate.", "answer": "Entropy is separate from energy."}}
+]
+
+Generated accepted responses:
+[
+  {"accepted": {"think": "Entropy measures the number of microstates consistent with a macrostate, not just vague disorder. It connects to energy via the second law and spontaneous energy dispersal.", "answer": "Entropy quantifies the number of possible microscopic arrangements of a system. It tends to increase, and this is tied to how energy spreads out in spontaneous processes."}},
+  {"accepted": {"think": "Energy dispersal increases entropy; heat flow and irreversible processes raise entropy. Free energy links energy and entropy through G = H - T*S.", "answer": "Entropy relates to energy because energy tends to disperse; irreversible processes increase entropy. Thermodynamic relationships like G = H - T*S connect energy and entropy directly."}}
+]
+'''
+

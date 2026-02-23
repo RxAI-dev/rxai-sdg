@@ -610,6 +610,20 @@ Key principles:
 6. Return ONLY the rejected think and answer blocks - do not include the query or accepted response in output"""
 
 
+def system_dmpo_completion_single_accepted() -> str:
+    """System prompt for single accepted-response completion mode."""
+    return """You are an expert at improving weak responses for preference learning datasets.
+
+Your task is to generate accepted (higher-quality) responses that correct a provided rejected response while remaining realistic and helpful.
+
+Key principles:
+1. The accepted response should be clearly stronger than the rejected response, but not unrealistically perfect
+2. Improvements should be realistic - fix missing context, correct reasoning, and address inaccuracies
+3. Keep the accepted response similar in length to the rejected response
+4. Use clear reasoning steps that connect the query to the answer
+5. Return ONLY the accepted think and answer blocks - do not include the query or rejected response in output"""
+
+
 def system_dmpo_completion_all() -> str:
     """System prompt for all-at-once DMPO pair generation mode."""
     return """You are an expert at identifying and generating weaker alternative responses for preference learning datasets.
@@ -624,6 +638,23 @@ Key principles:
 5. Return a list of rejected think/answer pairs only - do not include queries or accepted responses in output
 6. Ensure the rejected responses form a plausible (though weaker) conversation arc"""
 
+
+def system_dmpo_completion_all_accepted() -> str:
+    """System prompt for all-at-once accepted-response completion mode."""
+    return """You are an expert at improving weak responses for preference learning datasets.
+
+Your task is to generate accepted (higher-quality) responses for multiple interactions while maintaining consistency across the conversation.
+
+Key principles:
+1. Each accepted response should be clearly stronger than its corresponding rejected response
+2. Improvements should be realistic and varied across responses (better reasoning, added context, corrected inaccuracies)
+3. Keep each accepted response similar in length to its corresponding rejected response
+4. Maintain conversation coherence - accepted responses should reference prior context appropriately
+5. Return a list of accepted think/answer pairs only - do not include queries or rejected responses in output
+6. Ensure the accepted responses form a coherent conversation arc"""
+
+
+# ...existing code...
 
 def task_description_dmpo_completion_single(
     query: str,
@@ -686,6 +717,67 @@ Generate the rejected response now:"""
     return prompt
 
 
+def task_description_dmpo_completion_single_accepted(
+    query: str,
+    rejected_think: str,
+    rejected_answer: str,
+    target_tokens: int = 512,
+    memory_context: list = None
+) -> str:
+    """Generate prompt for single accepted-response completion."""
+    prompt = f"""## Task: Generate an Improved Accepted Response
+
+You are given a REJECTED response to a query. Your task is to generate an ACCEPTED response that is stronger while remaining plausible.
+
+### Query
+{query}
+
+### Rejected Response (Reference for improvement)
+**Thinking:**
+{rejected_think}
+
+**Answer:**
+{rejected_answer}
+
+---
+
+### Instructions for Generating Accepted Response
+
+Generate a thinking block and answer that are:
+- **Clearly stronger** than the rejected response (but not unrealistically perfect)
+- **Similar in length** to the rejected response (within ±20% of token count)
+- **Realistic** - fix missing context, correct inaccuracies, and strengthen reasoning
+- **Different in quality approach** - choose ONE primary improvement type:
+  * Add missing considerations or key steps
+  * Fix a logical gap or unsupported conclusion
+  * Correct a factual mistake or subtle inaccuracy
+  * Broaden perspective with relevant context
+  * Clarify reasoning for a stronger justification
+
+### Memory Context
+"""
+
+    if memory_context and len(memory_context) > 0:
+        prompt += "Prior interactions in this conversation:\n"
+        for i, interaction in enumerate(memory_context, 1):
+            prompt += f"\n**Interaction {i}:**\n"
+            prompt += f"- Query: {interaction.get('query', '')}\n"
+            prompt += f"- Accepted Think: {interaction.get('accepted', {}).get('think', '')[:200]}...\n"
+            prompt += f"- Accepted Answer: {interaction.get('accepted', {}).get('answer', '')[:200]}...\n"
+    else:
+        prompt += "This is the first interaction in the conversation.\n"
+
+    prompt += f"""
+
+### Output Format
+Return ONLY a JSON object with this structure (no markdown, no explanation):
+{{"accepted": {{"think": "...", "answer": "..."}}}}
+
+Generate the accepted response now:"""
+
+    return prompt
+
+
 def task_description_dmpo_completion_all(
     interactions: list,
     target_tokens_per_pair: int = 512
@@ -737,34 +829,56 @@ Generate {len(interactions)} rejected responses now:"""
 
     return prompt
 
+
+def task_description_dmpo_completion_all_accepted(
+    interactions: list,
+    target_tokens_per_pair: int = 512
+) -> str:
+    """Generate prompt for all-at-once accepted-response completion."""
+    prompt = f"""## Task: Generate Improved Accepted Responses for Full Conversation
+
+You are given a conversation with REJECTED responses. Your task is to generate ACCEPTED responses for each interaction that are stronger while remaining plausible.
+
+### Conversation with Rejected Responses
+"""
+
+    for i, interaction in enumerate(interactions, 1):
+        prompt += f"""
+**Interaction {i}:**
+- Query: {interaction['query']}
+- Rejected Think: {interaction['rejected']['think']}
+- Rejected Answer: {interaction['rejected']['answer']}
+"""
+
+    prompt += f"""
+
+---
+
+### Instructions for Generating Accepted Responses
+
+For EACH interaction, generate an accepted response that is:
+- **Clearly stronger** than the rejected response (but not unrealistically perfect)
+- **Similar in length** to the rejected response (within ±20% of ~{target_tokens_per_pair} tokens)
+- **Realistic** - fix missing context, correct inaccuracies, and strengthen reasoning
+- **Varied in improvement type** across interactions:
+  * Add missing considerations or key steps
+  * Fix a logical gap or unsupported conclusion
+  * Correct a factual mistake or subtle inaccuracy
+  * Broaden perspective with relevant context
+  * Clarify reasoning for a stronger justification
+
+Maintain conversation coherence - accepted responses should reference prior interactions appropriately.
+
+### Output Format
+Return ONLY a JSON array with this structure (no markdown, no explanation):
+[
+  {{"accepted": {{"think": "...", "answer": "..."}}}},
+  {{"accepted": {{"think": "...", "answer": "..."}}}},
+  ...
+]
+
+Generate {len(interactions)} accepted responses now:"""
+
+    return prompt
+
 # ============================================================================
-# PROMPT TUPLES FOR DIFFERENT MODES
-# ============================================================================
-
-ALL_PROMPTS_REASONING_COMPLETION = (
-    system_reasoning_completion_single,
-    system_reasoning_completion_all,
-    task_description_reasoning_completion_single,
-    task_description_reasoning_completion_all,
-)
-
-ALL_PROMPTS_REASONING_GENERATION = (
-    system_reasoning_generation_single,
-    system_reasoning_generation_all,
-    task_description_reasoning_generation_single,
-    task_description_reasoning_generation_all,
-)
-
-ALL_PROMPTS_DMPO = (
-    system_dmpo_generation_single,
-    system_dmpo_generation_all,
-    task_description_dmpo_single,
-    task_description_dmpo_all,
-)
-
-
-def get_random_topics(n: int = 10, topics: list[str] = None) -> list[str]:
-    """Get random topics for generation."""
-    if topics is None:
-        topics = TOPICS_HYBRID_REASONING
-    return random.choices(topics, k=n)
