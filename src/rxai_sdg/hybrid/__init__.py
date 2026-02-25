@@ -1652,7 +1652,18 @@ class DMPOCompletionGenerator(BaseDatasetGenerator):
                             'query': query,
                             'accepted': completion_result['accepted']
                         })
-
+                # print information about lengths of think and answer for accepted and rejected responses. Use if statement for target to print which response was generated
+                    if target == 'rejected':
+                        print(f"Generated rejected response for interaction {step_idx + 1}/{len(conversation)}: "
+                              f"Accepted think length={len(accepted_think.split())}, Accepted answer length={len(accepted_answer.split())}, "
+                              f"Rejected think length={len(completion_result['rejected']['think'].split())}, Rejected answer length={len(completion_result['rejected']['answer'].split())}")
+                    else:
+                        print(f"Generated {target} response for interaction {step_idx + 1}/{len(conversation)}: "
+                          f"Accepted think length={len(rejected_think.split())}, Accepted answer length={len(rejected_answer.split())}, "
+                          f"Rejected think length={len(completion_result['accepted']['think'].split())}, Rejected answer length={len(completion_result['accepted']['answer'].split())}")
+                else:
+                    print(f"Failed to parse completion for interaction {step_idx + 1} in conversation {conv_idx + 1}")
+                    self.failed_count += 1
                 if stream:
                     print('\n')
 

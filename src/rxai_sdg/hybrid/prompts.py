@@ -604,10 +604,12 @@ Your task is to generate rejected (lower-quality) responses that are intentional
 Key principles:
 1. The rejected response should be plausibly wrong or suboptimal, not obviously bad
 2. Weaknesses should be realistic - the kinds of mistakes people actually make
-3. Keep the rejected response similar in length to the accepted response
+3. Keep the rejected response similar in length to the accepted response. THIS IS VERY IMPORTANT - the rejected response should not be significantly shorter or longer than the accepted response.
+Every time you generate a rejected response, check if the number of tokens in the rejected response is within ±20% of the number of tokens in the accepted response. If it is not, adjust the rejected response to meet this requirement.
 4. Vary the types of weaknesses: incomplete reasoning, logical gaps, missing considerations, oversimplifications, or minor inaccuracies
 5. The rejected response should still attempt to answer the question, but with diminished quality
-6. Return ONLY the rejected think and answer blocks - do not include the query or accepted response in output"""
+6. Return ONLY the rejected think and answer blocks - do not include the query or accepted response in output
+"""
 
 
 def system_dmpo_completion_single_accepted() -> str:
@@ -660,7 +662,7 @@ def task_description_dmpo_completion_single(
     query: str,
     accepted_think: str,
     accepted_answer: str,
-    target_tokens: int = 512,
+    target_tokens: int = 1024,
     memory_context: list = None
 ) -> str:
     """Generate prompt for single DMPO pair completion."""
@@ -677,14 +679,16 @@ You are given an ACCEPTED response to a query. Your task is to generate a REJECT
 
 **Answer:**
 {accepted_answer}
-
+"""
+    token_count = len(accepted_think.split()) + len(accepted_answer.split())
+    prompt += f"""
 ---
 
 ### Instructions for Generating Rejected Response
 
 Generate a thinking block and answer that are:
 - **Subtly weaker** than the accepted response (avoid obviously bad responses)
-- **Similar in length** to the accepted response (within ±20% of token count)
+- **Length** Length of your rejected response (think + answer) should have length of about {2*target_tokens} words
 - **Realistic** - representing mistakes people actually make
 - **Different in quality approach** - choose ONE primary weakness type:
   * Incomplete reasoning (misses key considerations)
@@ -692,7 +696,7 @@ Generate a thinking block and answer that are:
   * Oversimplification (ignores nuance or complexity)
   * Narrow perspective (considers fewer viewpoints)
   * Minor inaccuracy (contains a small error that compounds reasoning)
-
+KEEP IN MIND **Length** point
 ### Memory Context
 """
 
