@@ -197,7 +197,8 @@ def task_description_reasoning_completion_single(
     query: str,
     answer: str,
     memory_context: list[dict] = None,
-    target_tokens: int = 512
+    target_tokens: int = 512,
+    system_prompt: str = None,
 ):
     """Generate prompt for single think block completion."""
     memory_str = ""
@@ -209,6 +210,9 @@ def task_description_reasoning_completion_single(
             if ctx.get('think'):
                 memory_str += f"Thinking: {ctx.get('think', '')}\n"
             memory_str += f"Answer: {ctx.get('answer', '')}\n"
+
+    if system_prompt is not None:
+        memory_str = f'\n## SYSTEM PROMPT \n{system_prompt}\n' + memory_str
 
     return f"""# Reasoning Completion Task
 
@@ -228,7 +232,7 @@ Answer: {answer}
 5. Do not repeat the answer in the thinking - focus on the reasoning process
 6. If the query requires combining information from multiple previous interactions, explicitly reference them
 7. For trivial queries (greetings, simple questions like "how are you?", basic acknowledgments), the "think" block should be very short - 2 sentences at most
-    
+{'8. Follow the instructions in the system prompt' if system_prompt is not None else ''}
 
 ## OUTPUT
 Generate ONLY the thinking content - no special tokens, no explanation, just the reasoning text."""
@@ -236,7 +240,8 @@ Generate ONLY the thinking content - no special tokens, no explanation, just the
 
 def task_description_reasoning_completion_all(
     interactions: list[dict],
-    target_tokens_per_think: int = 512
+    target_tokens_per_think: int = 512,
+    system_prompt: str = None,
 ):
     """Generate prompt for all think blocks at once."""
     interactions_str = ''''''
@@ -252,6 +257,7 @@ def task_description_reasoning_completion_all(
     Each thinking block should logically connect its query to its answer.
 
     ## CONVERSATION
+    {f'### SYSTEM PROMPT \n{system_prompt}' if system_prompt is not None else ''}
     {interactions_str}
     
     ## REQUIREMENTS
@@ -262,6 +268,7 @@ def task_description_reasoning_completion_all(
     5. Do not repeat answers in thinking - focus on reasoning process
     6. Maintain coherence across the conversation
     7. For trivial queries (greetings, simple questions like "how are you?", basic acknowledgments), the "think" block should be very short - about 2 sentences at most
+    {'8. Follow the instructions in the system prompt' if system_prompt is not None else ''}
     
     ## OUTPUT FORMAT
     Output a Python list of strings where each string is a thinking block:

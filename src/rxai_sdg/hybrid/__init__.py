@@ -95,9 +95,23 @@ class ReasoningCompletionGenerator(BaseDatasetGenerator):
         )
     """
 
+    def __init__(
+            self, max_items: int = None, model_name: str = "qwen/qwen3-4b-fp8",
+            api_url: str = "https://api.novita.ai/v3/openai", api_key: str = None,
+            use_ollama: bool = False, with_system_prompts: bool = False,
+    ):
+        super(ReasoningCompletionGenerator, self).__init__(
+            max_items=max_items,
+            model_name=model_name,
+            api_url=api_url,
+            api_key=api_key,
+            use_ollama=use_ollama,
+        )
+        self.with_system_prompts = with_system_prompts
+
     def _init_items(self) -> dict[str, list]:
         """Initialize storage for completed conversations."""
-        return {'interactions': []}
+        return {'interactions': [], 'system': []} if self.with_system_prompts else {'interactions': []}
 
     def _parse_think_block(self, response: str) -> str:
         """Extract and clean thinking content from API response."""
@@ -184,6 +198,8 @@ class ReasoningCompletionGenerator(BaseDatasetGenerator):
             conversation = dataset[conv_idx]['interactions']
             completed_interactions = []
 
+            conv_system_prompt = dataset[conv_idx]['system'] if self.with_system_prompts and 'system' in dataset[conv_idx] else None
+
             for step_idx, interaction in enumerate(conversation):
                 query = interaction.get('query', '')
                 answer = interaction.get('answer', '')
@@ -206,7 +222,8 @@ class ReasoningCompletionGenerator(BaseDatasetGenerator):
                     query=query,
                     answer=answer,
                     memory_context=memory_context,
-                    target_tokens=target_tokens
+                    target_tokens=target_tokens,
+                    system_prompt=conv_system_prompt,
                 )
 
                 if additional_context is not None:
@@ -247,6 +264,10 @@ class ReasoningCompletionGenerator(BaseDatasetGenerator):
 
             # Store completed conversation
             self.items['interactions'].append(completed_interactions)
+
+            if self.with_system_prompts:
+                self.items['system'].append(conv_system_prompt)
+
             print(f"Completed conversation {conv_idx + 1}/{iterations} ({len(completed_interactions)} interactions)")
 
             if self.max_items and len(self.items['interactions']) >= self.max_items:
@@ -295,6 +316,8 @@ class ReasoningCompletionGenerator(BaseDatasetGenerator):
         for conv_idx in range(min(iterations, len(dataset))):
             conversation = dataset[conv_idx]['interactions']
 
+            conv_system_prompt = dataset[conv_idx]['system'] if self.with_system_prompts and 'system' in dataset[conv_idx] else None
+
             # Build interaction list (without think blocks)
             if skip_last_interaction:
                 interactions = [
@@ -310,7 +333,8 @@ class ReasoningCompletionGenerator(BaseDatasetGenerator):
             # Build prompt
             prompt = task_description_reasoning_completion_all(
                 interactions=interactions,
-                target_tokens_per_think=target_tokens_per_think
+                target_tokens_per_think=target_tokens_per_think,
+                system_prompt=conv_system_prompt,
             )
 
             if additional_context is not None:
@@ -354,6 +378,10 @@ class ReasoningCompletionGenerator(BaseDatasetGenerator):
                 ]
                 completed.append(conversation[-1])
                 self.items['interactions'].append(completed)
+
+                if self.with_system_prompts:
+                    self.items['system'].append(conv_system_prompt)
+
                 print(f"Completed conversation {conv_idx + 1}/{iterations} ({len(completed)} interactions)")
             else:
                 print(f"Warning: Got {len(think_blocks)} think blocks for {len(interactions)} interactions, skipping")
