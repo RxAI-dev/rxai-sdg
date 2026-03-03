@@ -100,6 +100,7 @@ class ReasoningCompletionGenerator(BaseDatasetGenerator):
             api_url: str = "https://api.novita.ai/v3/openai", api_key: str = None,
             use_ollama: bool = False, with_system_prompts: bool = False,
     ):
+        self.with_system_prompts = with_system_prompts
         super(ReasoningCompletionGenerator, self).__init__(
             max_items=max_items,
             model_name=model_name,
@@ -107,7 +108,6 @@ class ReasoningCompletionGenerator(BaseDatasetGenerator):
             api_key=api_key,
             use_ollama=use_ollama,
         )
-        self.with_system_prompts = with_system_prompts
 
     def _init_items(self) -> dict[str, list]:
         """Initialize storage for completed conversations."""
