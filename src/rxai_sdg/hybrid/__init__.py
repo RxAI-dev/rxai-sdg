@@ -1659,8 +1659,8 @@ class DMPOCompletionGenerator(BaseDatasetGenerator):
                               f"Rejected think length={len(completion_result['rejected']['think'].split())}, Rejected answer length={len(completion_result['rejected']['answer'].split())}")
                     else:
                         print(f"Generated {target} response for interaction {step_idx + 1}/{len(conversation)}: "
-                          f"Accepted think length={len(rejected_think.split())}, Accepted answer length={len(rejected_answer.split())}, "
-                          f"Rejected think length={len(completion_result['accepted']['think'].split())}, Rejected answer length={len(completion_result['accepted']['answer'].split())}")
+                          f"Accepted think length={len(completion_result['accepted']['think'].split())}, Accepted answer length={len(completion_result['accepted']['answer'].split())}, "
+                          f"Rejected think length={len(rejected_think.split())}, Rejected answer length={len(rejected_answer.split())}")
                 else:
                     print(f"Failed to parse completion for interaction {step_idx + 1} in conversation {conv_idx + 1}")
                     self.failed_count += 1
@@ -1763,6 +1763,9 @@ class DMPOCompletionGenerator(BaseDatasetGenerator):
                     timeout=timeout,
                     additional_config=additional_config
                 )
+                if response is None:
+                    print(f"Attempt {attempt + 1}/{num_tries} failed with no response, retrying...")
+                    continue
                 completion_responses = self._parse_completion_pairs_list(response, target)
                 if len(completion_responses) == len(interactions):
                     break
