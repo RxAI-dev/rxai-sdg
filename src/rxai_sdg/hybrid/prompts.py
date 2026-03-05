@@ -232,7 +232,7 @@ Answer: {answer}
 5. Do not repeat the answer in the thinking - focus on the reasoning process
 6. If the query requires combining information from multiple previous interactions, explicitly reference them
 7. For trivial queries (greetings, simple questions like "how are you?", basic acknowledgments), the "think" block should be very short - 2 sentences at most
-{'8. Follow the instructions in the system prompt' if system_prompt is not None else ''}
+{'8. Strictly follow the instructions in the system prompt for reasoning blocks, ensure they are fulfilled' if system_prompt is not None else ''}
 
 ## OUTPUT
 Generate ONLY the thinking content - no special tokens, no explanation, just the reasoning text."""
