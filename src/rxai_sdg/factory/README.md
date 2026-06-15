@@ -30,10 +30,10 @@ Seed Curator → [ Responder → Verifier → User-Simulator → Fact-Ledger/Nee
 
 | Component | Module | Role |
 |-----------|--------|------|
-| `SeedCurator` | `seed_curator.py` | Load/dedup/tag seeds, flag haystacks, load prompt packs |
-| `Responder` | `responder.py` | Strong teacher; reasoning-mode answers; optional logit capture |
+| `SeedCurator` | `seed_curator.py` | Load/dedup/tag seeds (rule-based), flag haystacks, load prompt packs |
+| `Responder` | `responder.py` | Strong **memory-enabled** teacher; reasoning-mode answers; robust `<think>` parsing |
 | `ConstraintVerifier` | `verifiers/` | Per-response, language-aware programmatic checkers |
-| `UserSimulator` | `user_simulator.py` | `(intent × policy)` sampler + structured `constraint_spec` emission |
+| `UserSimulator` | `user_simulator.py` | Temporally-valid `(intent × policy)` draw + **grounded** follow-up + `constraint_spec` |
 | `FactLedger` / `NeedlePlanner` | `ledger.py` | Plant / recall / update facts; schedule delayed recalls |
 | `SegmentWriter` | `writer.py` | Typed segments + JSONL writing |
 | `FactoryDatasetPostprocessor` | `dataset.py` | Build / append a HuggingFace dataset |
@@ -163,24 +163,73 @@ English + universal checkers are implemented; other locales register explicit
 transformation tasks are **never** blindly translated — multilingual generation
 must be native.
 
+## Coherence contracts (grounded by construction)
+
+The generation core enforces hard, testable invariants so the data is coherent,
+not merely structurally valid:
+
+* **Memory-enabled teacher.** The Responder is prompted as an assistant with
+  persistent memory of the whole conversation; memory-disclaimer answers ("I
+  don't retain information between conversations") fail verification and are
+  regenerated. The internal QA checklist is **never** put in the generation
+  prompt.
+* **Strict reasoning/answer segmentation.** `parse_response` splits on the
+  `<think>…</think>` delimiters: exactly one well-formed block ⇒ `reasoning` +
+  `answer` (`reasoning_flag=True`); otherwise the whole tag-stripped output is the
+  `answer` (`reasoning_flag=False`, `malformed_outputs` incremented). A `</think>`
+  tag is never left inside an `answer`.
+* **Grounded, single-pass follow-ups.** The User-Simulator produces one grounded
+  query (no second-pass `naturalize`): transformations target the prior answer,
+  `deepen`/`self_critique`/`chained_compute` operate on its claims, `open_chat`
+  continues the running topic. The machine-checkable `constraint_spec` is always
+  built programmatically.
+* **Fact lifecycle.** The `FactLedger` is the single source of truth: a planted
+  value is asserted present in the emitted query and marked *injected*; a recall /
+  update is only scheduled against an already-injected, sufficiently-distant fact.
+* **Temporal-policy validity.** `cumulative` needs ≥1 prior active constraint;
+  `standing` may bootstrap the stack on a follow-up; a fact `delayed_recall` needs
+  an injected fact planted ≥ `min_recall_distance` turns earlier.
+
 ## Verification levels (spec §6)
 
-1. **Per-response** (`ConstraintVerifier`) — fires only for machine-checkable
-   `constraint_spec`s (`programmatic`/`hybrid`); a general quality gate
-   (refusal/length/repetition) always applies.
+1. **Per-response** (`ConversationLoop._verify_turn`) — a general quality gate
+   (refusal/length/repetition), a **coherence gate** (no memory-disclaimer, no
+   chain-of-thought leakage), and the machine-checkable constraint
+   (`programmatic`/`hybrid`). `passed` therefore reflects coherence, not just
+   literal constraint satisfaction.
 2. **Cross-turn** (`run_cross_turn_checks`) — programmatic relational checks:
    delayed-recall fidelity, standing-instruction adherence, update-overwrite
    correctness.
-3. **Optional holistic judge** (`HolisticJudge`) — off by default; gated/sampled;
+3. **Optional holistic judge** (`HolisticJudge`) — **off by default**; gated/sampled;
    emits a structured rubric. Keep its model/prompt separate from the eval judge.
+
+## Throughput & concurrency (spec §6)
+
+`DataFactory.generate` runs conversations **concurrently** with a
+`ThreadPoolExecutor` (`config.concurrency`, default 64). Conversations are
+independent; the loop within a conversation stays sequential. Each conversation
+gets its own `Random(config.seed + index)` so output is **reproducible**
+regardless of thread scheduling (parallel `generate` produces the same records as
+serial), and per-conversation stats are merged under a lock. The blocking client
+is I/O-bound, so threads suffice.
+
+> Throughput is bounded by the **saturated inference replica**, not the session
+> count: one process at high `concurrency` should keep the endpoint busy. Run more
+> sessions only to drive more replicas, not to speed up a single saturated one. A
+> bounded **per-turn responder budget** (`max_responder_calls_per_turn`, default 8)
+> caps the worst-case calls per turn across intent-resamples and regenerations.
 
 ## Configuration (spec §10)
 
 `FactoryConfig` controls intent/policy weights, the invalidity mask, length bands
 (`basic` 8–12, `generalization` 25–35, `short` 2–3), `lang`, regeneration limit
-`K`, low-yield down-weighting, `min_recall_distance`, responder `max_tokens` /
-`temperature`, `capture_logits`, and the holistic judge. LLM clients are injected
-objects, not config. Load from JSON or YAML via `FactoryConfig.from_file`.
+`K`, `max_responder_calls_per_turn` (per-turn budget), `concurrency`,
+`min_recall_distance`, responder `max_tokens` / `temperature`. Premature features
+are **off by default** and gated behind flags: `capture_logits`,
+`enable_dmpo_pairs`, `holistic_judge_enabled`, `enable_low_yield_downweight`,
+`seed_classifier_enabled` (rule-based seed tagging is the default — no per-seed LLM
+call on the critical path). LLM clients are injected objects, not config. Load from
+JSON or YAML via `FactoryConfig.from_file`.
 
 ## Tests
 

@@ -22,18 +22,20 @@ def test_split_reasoning_answer():
 def test_responder_produces_segments_and_logits_ref():
     client = MockLLMClient(default="<think>step</think> Here is the answer.")
     resp = Responder(client, capture_logits=True)
-    turn = resp.generate([], "What is 2+2?", get_prompt_pack("math"), turn_index=0)
+    out = resp.generate([], "What is 2+2?", get_prompt_pack("math"), turn_index=0)
+    turn = out.turn
     types = [s.segment_type for s in turn.segments]
     assert types == ["query", "reasoning", "answer"]
     assert turn.reasoning_flag is True
+    assert out.malformed is False
     assert turn.topk_logits_ref is not None  # logits captured
 
 
 def test_responder_no_logits_without_flag():
     client = MockLLMClient(default="<think>x</think> y")
-    turn = Responder(client, capture_logits=False).generate(
+    out = Responder(client, capture_logits=False).generate(
         [], "q", get_prompt_pack("general"), 0)
-    assert turn.topk_logits_ref is None
+    assert out.turn.topk_logits_ref is None
 
 
 def test_quality_refusal_and_length():

@@ -54,22 +54,38 @@ class FactoryConfig:
 
     # -- generation control ---------------------------------------------------
     lang: str = "en"
-    regeneration_limit: int = 4  # K: max answer regenerations per turn
+    regeneration_limit: int = 4  # K: max answer regenerations per intent per turn
     min_recall_distance: int = 4  # D for delayed_recall (spec §4.2 requires D>=4)
-    #: a (intent, constraint_type) pair is auto-down-weighted once its pass rate
-    #: over at least ``low_yield_min_samples`` attempts drops below this.
+    #: hard cap on total Responder calls per turn, shared across intent-resamples
+    #: and regenerations (replaces the old max_intent_attempts x (K+1) worst case).
+    max_responder_calls_per_turn: int = 8
+
+    # -- concurrency (spec §6) ------------------------------------------------
+    #: number of conversations generated in parallel via a ThreadPoolExecutor.
+    #: Conversations are independent; the loop within a conversation is sequential.
+    concurrency: int = 64
+
+    # -- low-yield down-weighting (premature; off by default) -----------------
+    #: When enabled, a chronically failing (intent, constraint_type) pair is
+    #: auto-down-weighted. Off by default: it mutates shared sampler state and is
+    #: not needed for the minimal seed -> responder -> simulator -> verify core.
+    enable_low_yield_downweight: bool = False
     low_yield_threshold: float = 0.25
     low_yield_min_samples: int = 8
+
+    # -- premature features (off by default; kept behind flags) ---------------
+    capture_logits: bool = False            # top-K logit capture
+    enable_dmpo_pairs: bool = False         # opportunistic DMPO preference pairs
+    holistic_judge_enabled: bool = False    # holistic LLM judge
+    holistic_judge_sample_rate: float = 0.1
+    holistic_judge_gate_on_programmatic: bool = True
+    #: rule-based seed category tagging only; no per-seed LLM classifier on the
+    #: critical path unless explicitly enabled.
+    seed_classifier_enabled: bool = False
 
     # -- responder generation params ------------------------------------------
     max_tokens: int = 4096
     temperature: float = 0.7
-
-    # -- distillation / holistic judge ----------------------------------------
-    capture_logits: bool = False
-    holistic_judge_enabled: bool = False
-    holistic_judge_sample_rate: float = 0.1
-    holistic_judge_gate_on_programmatic: bool = True
 
     # -- reproducibility ------------------------------------------------------
     seed: Optional[int] = None
