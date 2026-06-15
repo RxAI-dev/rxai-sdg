@@ -25,6 +25,7 @@ This library provides synthetic dataset generators for training Reactive Languag
 | `rxai_sdg.mrl` | Memory Reinforcement Learning datasets | MRL stage |
 | `rxai_sdg.sft` | Supervised Fine-Tuning datasets | Interaction SFT |
 | `rxai_sdg.hybrid` | Hybrid Reasoning & DMPO datasets | RxT-Beta advanced training |
+| `rxai_sdg.factory` | Multi-turn "Data Factory" (taxonomy-driven conversations) | iSFT → Memory Attn Init → SMAT → DMPO + distillation |
 
 ## Quick Start
 
@@ -617,6 +618,48 @@ generator(
     stream=True
 )
 ```
+
+## Data Factory (Multi-Turn Conversation Generator)
+
+The `rxai_sdg.factory` module generates high-quality, multi-turn conversational
+training data for **stateful** Reactive Transformer (RxT / rc-RxT) models. It is
+**stateless** (produces text only — no STM/memory machinery) and orchestrates two
+separate LLMs (a Responder/Teacher and a User-Simulator) in an alternating loop
+seeded from existing datasets, deliberately covering a typed **taxonomy of
+follow-up intents × memory-distance policies** weighted toward the capabilities
+current models fail on.
+
+```python
+import random
+from rxai_sdg.factory import DataFactory, FactoryConfig, MockLLMClient, DatasetSpec
+from rxai_sdg.factory.testing import constraint_satisfying_handler
+
+cfg = FactoryConfig(seed=0)
+# Deterministic, no-network smoke run:
+factory = DataFactory(cfg, MockLLMClient(handler=constraint_satisfying_handler),
+                      rng=random.Random(0))
+records = factory.generate(
+    DatasetSpec(records=[{"query": "Explain how entropy relates to information.",
+                          "category": "stem"}]),
+    n_conversations=4, band="basic",
+)
+factory.write_jsonl(records, "out.jsonl")
+```
+
+Real runs inject two different provider clients (`OpenAILLMClient`) for the
+Responder and Simulator. CLI:
+
+```bash
+python -m rxai_sdg.factory.cli --smoke -n 5 --band basic --out out.jsonl
+python -m rxai_sdg.factory.cli --seeds seeds.jsonl --n 100 --config factory.json \
+    --responder-model gpt-4 --simulator-model gpt-4o-mini --api-key $OPENAI_API_KEY
+```
+
+Each generated reasoning-mode conversation is post-processed into multiple
+derived training records (`reasoning` / `instruct` / `mixed`). See
+[`src/rxai_sdg/factory/README.md`](src/rxai_sdg/factory/README.md) for the full
+architecture, taxonomy, output schema, verification levels, and multilingual
+extension points.
 
 ## License
 
