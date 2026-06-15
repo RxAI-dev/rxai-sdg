@@ -21,12 +21,19 @@ from typing import Any, Callable, Optional, Protocol, Sequence, runtime_checkabl
 class LLMResponse:
     """A single generation result.
 
+    ``text`` is the message content. ``reasoning`` carries the model's chain of
+    thought when the endpoint returns it in a **separate** field (e.g. the
+    OpenAI-compatible ``message.reasoning_content`` emitted by reasoning models);
+    it is ``None`` when the endpoint inlines reasoning in ``text`` (a ``<think>``
+    block) or does not reason at all.
+
     ``logits`` optionally carries top-K logits per token for full-context
     distillation (spec §5.2, ``capture_logits``). It is ``None`` unless the
     client was asked to capture them and supports it.
     """
 
     text: str
+    reasoning: Optional[str] = None
     logits: Optional[Any] = None
     raw: Optional[Any] = None
 
@@ -66,6 +73,7 @@ class OpenAILLMClient:
         api_key: Optional[str] = None,
         use_ollama: bool = False,
         default_top_p: float = 0.9,
+        log_first_raw: bool = True,
     ):
         # Imported lazily to keep the factory package import-light.
         from ..base import BaseDatasetGenerator
@@ -81,6 +89,10 @@ class OpenAILLMClient:
             model_name=model_name, api_url=api_url, api_key=api_key, use_ollama=use_ollama)
         self.model_name = model_name
         self.default_top_p = default_top_p
+        #: log the first raw response so the reasoning-capture path can be verified
+        #: against the live endpoint (field vs inline ``<think>``).
+        self._log_first_raw = log_first_raw
+        self._logged_raw = False
 
     def generate(
         self,
@@ -92,19 +104,52 @@ class OpenAILLMClient:
         capture_logits: bool = False,
         **kwargs: Any,
     ) -> LLMResponse:
-        text = self._backend.generate_items(
-            prompt=prompt,
-            system_prompt=system_prompt,
-            temperature=temperature,
-            top_p=kwargs.get("top_p", self.default_top_p),
-            max_tokens=max_tokens,
-            stream=kwargs.get("stream", False),
-            timeout=kwargs.get("timeout", 120),
-            additional_config={},
-        )
+        # Ollama path: the shared helper returns content only (reasoning, if any,
+        # is inlined as a <think> block the Responder parses).
+        if getattr(self._backend, "use_ollama", False):
+            text = self._backend.generate_items(
+                prompt=prompt, system_prompt=system_prompt, temperature=temperature,
+                top_p=kwargs.get("top_p", self.default_top_p), max_tokens=max_tokens,
+                stream=kwargs.get("stream", False),
+                timeout=kwargs.get("timeout", 120), additional_config={})
+            return LLMResponse(text=text or "", reasoning=None)
+
+        # OpenAI-compatible path: access the RAW response so we can capture
+        # reasoning emitted in a separate ``message.reasoning_content`` field
+        # (reasoning models such as Qwen3.5 do this); fall back to inline parsing
+        # in the Responder when the field is absent.
+        from ..base import default_additional_config
+
+        try:
+            completion = self._backend.client.chat.completions.create(
+                model=self.model_name,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": prompt},
+                ],
+                stream=False,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                top_p=kwargs.get("top_p", self.default_top_p),
+                timeout=kwargs.get("timeout", 120),
+                **default_additional_config,
+            )
+        except Exception as exc:  # pragma: no cover - network dependent
+            print("API Error", exc)
+            return LLMResponse(text="", reasoning=None)
+
+        message = completion.choices[0].message
+        text = getattr(message, "content", None) or ""
+        reasoning = getattr(message, "reasoning_content", None)
+        if self._log_first_raw and not self._logged_raw:  # pragma: no cover
+            self._logged_raw = True
+            has_field = reasoning is not None
+            print(f"[OpenAILLMClient] first raw response: reasoning_content "
+                  f"present={has_field}; content_len={len(text)}; "
+                  f"inline_think={'<think>' in text}")
         # Logit capture is not wired through the shared OpenAI helper; callers
         # who need it should subclass and use the provider's logprobs API.
-        return LLMResponse(text=text, logits=None)
+        return LLMResponse(text=text, reasoning=reasoning, raw=completion)
 
 
 # ---------------------------------------------------------------------------
@@ -125,9 +170,9 @@ class MockLLMClient:
 
     def __init__(
         self,
-        responses: Optional[Sequence[str]] = None,
-        handler: Optional[Callable[..., str]] = None,
-        default: str = "OK.",
+        responses: Optional[Sequence[Any]] = None,
+        handler: Optional[Callable[..., Any]] = None,
+        default: Any = "OK.",
         capture_logits_supported: bool = True,
     ):
         self._responses = list(responses or [])
@@ -149,17 +194,23 @@ class MockLLMClient:
     ) -> LLMResponse:
         self.calls.append({
             "prompt": prompt, "system_prompt": system_prompt,
-            "temperature": temperature, "kwargs": kwargs,
+            "temperature": temperature, "max_tokens": max_tokens, "kwargs": kwargs,
         })
         if self.handler is not None:
-            text = self.handler(prompt, system_prompt=system_prompt, **kwargs)
+            result = self.handler(prompt, system_prompt=system_prompt, **kwargs)
         elif self._responses:
             idx = min(self._idx, len(self._responses) - 1)
-            text = self._responses[idx]
+            result = self._responses[idx]
             self._idx += 1
         else:
-            text = self.default
-        logits = None
-        if capture_logits and self.capture_logits_supported:
-            logits = {"mock": True, "tokens": len(text.split())}
-        return LLMResponse(text=text, logits=logits)
+            result = self.default
+        # A scripted value may be a plain string (content only) or a full
+        # ``LLMResponse`` - the latter lets tests set ``reasoning`` (the separate
+        # ``reasoning_content`` field) to exercise the responder capture path.
+        if isinstance(result, LLMResponse):
+            resp = result
+        else:
+            resp = LLMResponse(text=str(result))
+        if capture_logits and self.capture_logits_supported and resp.logits is None:
+            resp.logits = {"mock": True, "tokens": len(resp.text.split())}
+        return resp

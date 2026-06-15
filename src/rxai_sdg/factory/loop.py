@@ -64,6 +64,9 @@ class LoopStats:
     intent_resamples: int = 0
     malformed_outputs: int = 0
     coherence_failures: int = 0
+    #: responder turns (reasoning mode expected) that yielded an empty reasoning
+    #: segment - surfaces a misconfigured / non-reasoning endpoint.
+    reasoning_missing: int = 0
     downweighted: list[str] = field(default_factory=list)
 
     def merge(self, other: "LoopStats") -> None:
@@ -73,6 +76,7 @@ class LoopStats:
         self.intent_resamples += other.intent_resamples
         self.malformed_outputs += other.malformed_outputs
         self.coherence_failures += other.coherence_failures
+        self.reasoning_missing += other.reasoning_missing
         for tag in other.downweighted:
             if tag not in self.downweighted:
                 self.downweighted.append(tag)
@@ -182,6 +186,8 @@ class ConversationLoop:
                 turn_index=0)
             if out.malformed:
                 stats.malformed_outputs += 1
+            if out.reasoning_missing:
+                stats.reasoning_missing += 1
             ok, detail = self._answer_acceptable(out.turn.answer or "")
             if ok:
                 out.turn.verification = VerifyResult(True, "first answer ok", regenerations)
@@ -228,6 +234,8 @@ class ConversationLoop:
                 attempts += 1
                 if out.malformed:
                     stats.malformed_outputs += 1
+                if out.reasoning_missing:
+                    stats.reasoning_missing += 1
                 turn = out.turn
                 turn.constraint_spec = sim.constraint_spec
                 passed, detail = self._verify_turn(

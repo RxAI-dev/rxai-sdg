@@ -130,6 +130,62 @@ def test_responder_prompt_has_no_qa_checklist_or_disclaimer_instruction():
     assert "never" in sys
 
 
+# ---- reasoning capture (reasoning_content field vs inline <think>) ---------
+
+def test_reasoning_captured_from_reasoning_content_field():
+    # endpoint returns reasoning in a SEPARATE field (the real Qwen3.5 behaviour)
+    client = MockLLMClient(default=LLMResponse(
+        text="The final answer stands alone.",
+        reasoning="step 1: recall context\nstep 2: apply constraint"))
+    out = Responder(client).generate([], "q", get_prompt_pack("general"), 0)
+    assert out.turn.reasoning == "step 1: recall context\nstep 2: apply constraint"
+    assert out.turn.reasoning_flag is True
+    assert out.turn.answer == "The final answer stands alone."
+    assert out.malformed is False
+    assert out.reasoning_missing is False
+    assert [s.segment_type for s in out.turn.segments] == ["query", "reasoning", "answer"]
+
+
+def test_reasoning_field_strips_any_inline_think_from_answer():
+    client = MockLLMClient(default=LLMResponse(
+        text="<think>leftover</think>Clean answer.", reasoning="real reasoning"))
+    out = Responder(client).generate([], "q", get_prompt_pack("general"), 0)
+    assert out.turn.reasoning == "real reasoning"
+    assert "<think>" not in out.turn.answer and "</think>" not in out.turn.answer
+    assert out.turn.answer == "Clean answer."
+
+
+def test_reasoning_falls_back_to_inline_think_block():
+    # no reasoning_content field -> parse the inline <think> block from content
+    client = MockLLMClient(default=LLMResponse(
+        text="<think>inline reasoning here</think>The answer.", reasoning=None))
+    out = Responder(client).generate([], "q", get_prompt_pack("general"), 0)
+    assert out.turn.reasoning == "inline reasoning here"
+    assert out.turn.answer == "The answer."
+    assert out.turn.reasoning_flag is True
+    assert out.reasoning_missing is False
+
+
+def test_reasoning_missing_flagged_when_expected_but_absent():
+    client = MockLLMClient(default="Just an answer with no reasoning at all.")
+    out = Responder(client).generate([], "q", get_prompt_pack("general"), 0)
+    assert out.turn.reasoning is None
+    assert out.turn.reasoning_flag is False
+    assert out.reasoning_missing is True  # reasoning mode expected, none produced
+
+
+def test_reasoning_missing_increments_in_loop_stats():
+    import random
+    cfg = FactoryConfig(seed=0, concurrency=1, regeneration_limit=1)
+    # a well-formed, non-disclaimer answer but with NO reasoning -> reasoning_missing
+    client = MockLLMClient(default="A perfectly fine answer about the topic.")
+    factory = DataFactory(cfg, client,
+                          simulator_client=MockLLMClient(default="Tell me more."),
+                          rng=random.Random(0))
+    factory.generate(["Explain entropy."], band="short")
+    assert factory.stats.loop.reasoning_missing > 0
+
+
 class _DisclaimerClient:
     """Always answers with a memory disclaimer (well-formed think block)."""
 

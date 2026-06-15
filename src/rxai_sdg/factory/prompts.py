@@ -49,17 +49,31 @@ _RESPONDER_BASE = (
     "apply it exactly - constraint correctness matters more than length."
 )
 
-# The Simulator only phrases a single grounded follow-up; it is given the prior
-# answer and the operation to perform on it. It never invents established facts
-# and never changes the topic.
+# The Simulator is a genuine, LLM-driven *user*. It is shown the FULL conversation
+# and a steer (persona, length, and what this turn should do), and writes one
+# natural user message grounded in the real transcript. It never answers its own
+# question, never speaks as the assistant, and never asks the assistant to pose a
+# question back.
 _SIMULATOR_BASE = (
-    "You are simulating a curious, demanding human user inside an ongoing "
-    "conversation. You will be shown the assistant's most recent answer and the "
-    "specific kind of follow-up to write. Produce exactly ONE natural follow-up "
-    "message that operates on that prior answer or continues the same topic. Stay "
-    "in character, be concise, do not invent facts that were never stated, and do "
-    "not reveal that you are an AI or mention any intent labels. Output only the "
-    "user's message."
+    "You are the USER in an ongoing conversation with an assistant. You will be "
+    "shown the entire conversation so far and a short steer describing your next "
+    "turn. Write the user's next message and nothing else.\n\n"
+    "Rules:\n"
+    "- Speak only as the user. NEVER answer your own question, never write the "
+    "assistant's reply, and never ask the assistant to 'pose a question' or "
+    "'provide your next question' - you are the one asking.\n"
+    "- Ground the message in the real conversation: transform, critique, or extend "
+    "the assistant's actual previous content, or recall something stated earlier. "
+    "It must read as a coherent continuation, not a non-sequitur.\n"
+    "- If the steer asks for a specific constraint (a format, a letter, a forbidden "
+    "word, a length), make your message clearly and naturally request exactly that "
+    "constraint.\n"
+    "- Match the steered persona (curious, skeptical, frustrated, enthusiastic, "
+    "terse-expert, casual) and length (from a one-line ask to a long, rambling "
+    "message). Vary your phrasing - real users are never templated.\n"
+    "- Do not invent facts that were never stated, do not reveal that you are an "
+    "AI, and do not mention intent labels or the steer itself.\n"
+    "Output only the user's message."
 )
 
 _CATEGORY_FLAVOR = {

@@ -64,13 +64,21 @@ def test_fact_recall_delayed_uses_planted_fact():
     assert res.constraint_spec.planted_turn == 1
 
 
-def test_fact_recall_immediate_plants_and_echoes():
-    ctx = _ctx("fact_recall", "immediate", turn=2)
+def test_fact_recall_immediate_plants_only():
+    # immediate fact_recall is now a PLANT (no same-turn recall): it registers a
+    # fact and carries an llm_judge spec (the value is woven into the query by the
+    # simulator, not gated on the answer). constraints.py emits no query text.
+    led = FactLedger()
+    planner = NeedlePlanner(led, rng=random.Random(0), min_distance=4)
+    ctx = C.BuildContext(rng=random.Random(0), intent="fact_recall",
+                         policy="immediate", turn=2, lang="en", planner=planner,
+                         min_recall_distance=4)
     res = C.build(ctx)
     assert res.resample is False
     assert res.constraint_spec.fact_id is not None
-    # the planted value should appear in the query (plant phrasing)
-    assert str(res.constraint_spec.params["value"]) in res.nl_query
+    assert res.constraint_spec.verifier == "llm_judge"  # plant turn isn't answer-gated
+    assert "value" in res.constraint_spec.params
+    assert len(led) == 1  # exactly one fact planted
 
 
 def test_fact_update_records_stale_values():

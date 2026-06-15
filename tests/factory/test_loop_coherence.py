@@ -10,6 +10,7 @@ from rxai_sdg.factory.prompts import get_prompt_pack
 from rxai_sdg.factory.responder import Responder
 from rxai_sdg.factory.sampler import IntentPolicySampler
 from rxai_sdg.factory.schemas import ConstraintSpec, Segment, Turn
+from rxai_sdg.factory.testing import simulator_user_turn_handler
 from rxai_sdg.factory.user_simulator import UserSimulator
 
 
@@ -48,7 +49,7 @@ def test_per_turn_responder_budget_is_bounded():
     sim = UserSimulator(
         sampler=loop.sampler,
         planner=NeedlePlanner(FactLedger(), rng=rng, min_distance=4),
-        client=None, rng=rng)
+        client=MockLLMClient(handler=simulator_user_turn_handler), rng=rng)
     prior = [Turn(0, [Segment("query", "Explain entropy."),
                       Segment("answer", "Entropy is disorder.")])]
 

@@ -3,7 +3,9 @@
 import random
 
 from rxai_sdg.factory import DataFactory, FactoryConfig, MockLLMClient
-from rxai_sdg.factory.testing import constraint_satisfying_handler
+from rxai_sdg.factory.testing import (
+    constraint_satisfying_handler, simulator_user_turn_handler,
+)
 
 SEEDS = [
     "Explain how entropy relates to information.",
@@ -17,9 +19,10 @@ SEEDS = [
 
 def _generate(concurrency, seed=11, band="generalization"):
     cfg = FactoryConfig(seed=seed, concurrency=concurrency)
-    # a pure-function handler is thread-safe and deterministic
-    client = MockLLMClient(handler=constraint_satisfying_handler)
-    factory = DataFactory(cfg, client, rng=random.Random(seed))
+    # pure-function handlers are thread-safe and deterministic
+    responder = MockLLMClient(handler=constraint_satisfying_handler)
+    simulator = MockLLMClient(handler=simulator_user_turn_handler)
+    factory = DataFactory(cfg, responder, simulator_client=simulator, rng=random.Random(seed))
     records = factory.generate(SEEDS, band=band)
     return records, factory
 

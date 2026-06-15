@@ -81,10 +81,17 @@ class ParsedResponse:
 
 @dataclass
 class ResponderOutput:
-    """A generated turn plus the parser's malformed flag (§4.1)."""
+    """A generated turn plus the parser's malformed flag (§4.1).
+
+    ``reasoning_missing`` is set when the responder runs in reasoning mode (the
+    default) but the response carried **no** reasoning - neither a separate
+    ``reasoning_content`` field nor an inline ``<think>`` block. It surfaces
+    endpoint misconfiguration (reasoning silently dropped or disabled).
+    """
 
     turn: Turn
     malformed: bool
+    reasoning_missing: bool = False
 
 
 def format_transcript(turns: list[Turn]) -> str:
@@ -143,13 +150,33 @@ def has_cot_leak(answer: str) -> bool:
     return bool(_COT_LEAK_RE.search(answer or ""))
 
 
+def _segment_response(reasoning_field: Optional[str], content: str) -> ParsedResponse:
+    """Segment a raw response, preferring a separate ``reasoning_content`` field.
+
+    Reasoning models on OpenAI-compatible endpoints (e.g. Qwen3.5) return the
+    chain of thought in ``message.reasoning_content`` rather than inline. When that
+    field is populated we use it directly and strip any ``<think>`` block/tag from
+    the content to form the answer; otherwise we fall back to inline ``<think>``
+    parsing (:func:`parse_response`).
+    """
+    if reasoning_field is not None and reasoning_field.strip().lower() not in _EMPTY_REASONING:
+        reasoning = reasoning_field.strip()
+        answer = _strip_think_tags(_THINK_BLOCK_RE.sub("", content or ""))
+        return ParsedResponse(reasoning=reasoning, answer=answer, well_formed=True)
+    return parse_response(content)
+
+
 class Responder:
     def __init__(self, client: LLMClient, capture_logits: bool = False,
-                 max_tokens: int = 4096, temperature: float = 0.7):
+                 max_tokens: int = 4096, temperature: float = 0.7,
+                 reasoning_mode: bool = True):
         self.client = client
         self.capture_logits = capture_logits
         self.max_tokens = max_tokens
         self.temperature = temperature
+        #: the responder model reasons by default, so a reasoning segment is
+        #: expected on every turn; an empty one is counted as ``reasoning_missing``.
+        self.reasoning_mode = reasoning_mode
 
     def generate(
         self,
@@ -186,7 +213,10 @@ class Responder:
             max_tokens=self.max_tokens,
             capture_logits=self.capture_logits,
         )
-        parsed = parse_response(resp.text)
+        parsed = _segment_response(getattr(resp, "reasoning", None), resp.text)
+
+        reasoning_flag = bool(parsed.reasoning and parsed.reasoning.strip())
+        reasoning_missing = self.reasoning_mode and not reasoning_flag
 
         segments = [Segment("query", query)]
         if parsed.reasoning is not None:
@@ -202,7 +232,9 @@ class Responder:
             segments=segments,
             intent=intent,
             policy=policy,
-            reasoning_flag=parsed.well_formed and parsed.reasoning is not None,
+            reasoning_flag=reasoning_flag,
             topk_logits_ref=logits_ref,
         )
-        return ResponderOutput(turn=turn, malformed=not parsed.well_formed)
+        return ResponderOutput(
+            turn=turn, malformed=not parsed.well_formed,
+            reasoning_missing=reasoning_missing)
