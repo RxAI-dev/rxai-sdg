@@ -87,6 +87,7 @@ class DataFactory:
         self,
         seeds: Iterable[SeedInput],
         band: Optional[str] = None,
+        verbose: bool = True,
     ) -> list[ConversationRecord]:
         """Generate one conversation record per (curated) seed, concurrently.
 
@@ -114,9 +115,16 @@ class DataFactory:
                     self.stats.loop.merge(local_stats)
                     if record is None:
                         self.stats.conversations_discarded += 1
+                        if verbose:
+                            print(f'Conversation {idx} failed. Total failed examples: {self.stats.conversations_discarded}')
                     else:
                         self.stats.conversations_built += 1
+                        if verbose:
+                            print(f'Conversation {idx} accepted. Total accepted examples: {self.stats.conversations_built}')
                         results[idx] = record
+
+                    if verbose:
+                        print(f'Processed {self.stats.conversations_built + self.stats.conversations_discarded} / {len(curated)}')
 
         out = [results[i] for i in sorted(results)]
         self.stats.records_emitted = len(out)

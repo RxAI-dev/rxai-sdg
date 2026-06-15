@@ -100,6 +100,7 @@ class OpenAILLMClient:
             max_tokens=max_tokens,
             stream=kwargs.get("stream", False),
             timeout=kwargs.get("timeout", 120),
+            additional_config={},
         )
         # Logit capture is not wired through the shared OpenAI helper; callers
         # who need it should subclass and use the provider's logprobs API.
