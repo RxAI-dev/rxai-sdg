@@ -101,7 +101,7 @@ factory = DataFactory(FactoryConfig(seed=0),
 records = factory.generate(["Explain how entropy relates to information."], band="basic")
 for rec in records:
     validate_record(rec.to_dict())
-factory.write_jsonl(records, "out.jsonl")
+factory.write_jsonl("out.jsonl")
 ```
 
 ### HuggingFace output
@@ -176,11 +176,11 @@ must be native.
 
 ## Configuration (spec §10)
 
-`FactoryConfig` controls intent/policy weights, the invalidity mask,
-length bands (`basic` 8–12, `generalization` 25–35, `short` 2–3), domain mix,
-haystack fraction, regeneration limit `K`, low-yield down-weighting, derived
-variants + mixed ratio, `capture_logits`, and the holistic judge. Load from JSON
-or YAML via `FactoryConfig.from_file`.
+`FactoryConfig` controls intent/policy weights, the invalidity mask, length bands
+(`basic` 8–12, `generalization` 25–35, `short` 2–3), `lang`, regeneration limit
+`K`, low-yield down-weighting, `min_recall_distance`, responder `max_tokens` /
+`temperature`, `capture_logits`, and the holistic judge. LLM clients are injected
+objects, not config. Load from JSON or YAML via `FactoryConfig.from_file`.
 
 ## Tests
 

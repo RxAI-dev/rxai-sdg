@@ -4,14 +4,16 @@ Examples
 --------
 Smoke test (no network; deterministic mock that satisfies constraints)::
 
-    python -m rxai_sdg.factory.cli --smoke -n 5 --out out.jsonl
+    python -m rxai_sdg.factory.cli --smoke --out out.jsonl
 
-Real run from a JSONL seed file with an OpenAI-compatible endpoint::
+Real run from a JSONL seed file (one conversation per seed) with an
+OpenAI-compatible endpoint, pushing to a HuggingFace dataset::
 
     python -m rxai_sdg.factory.cli \
-        --seeds seeds.jsonl --n 100 --config factory.json \
+        --seeds seeds.jsonl --config factory.json \
         --responder-model gpt-4 --simulator-model gpt-4o-mini \
-        --api-key $OPENAI_API_KEY --out conversations.jsonl
+        --api-key $OPENAI_API_KEY --out conversations.jsonl \
+        --hf-dataset org/rxt-factory --hf-token $HF_TOKEN
 """
 
 from __future__ import annotations
@@ -26,11 +28,10 @@ from .clients import MockLLMClient, OpenAILLMClient
 from .config import FactoryConfig
 from .factory_runner import DataFactory
 from .schemas import validate_record
-from .seed_curator import DatasetSpec
 from .testing import constraint_satisfying_handler
 
 
-def _load_seed_records(path: str) -> list[dict]:
+def _load_seed_records(path: str) -> list:
     records: list[dict] = []
     with open(path, "r", encoding="utf-8") as fh:
         text = fh.read().strip()
@@ -48,8 +49,8 @@ def _load_seed_records(path: str) -> list[dict]:
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Data Factory batch runner")
-    p.add_argument("--seeds", help="path to a JSONL/JSON seed file")
-    p.add_argument("-n", "--n", type=int, default=5, help="number of conversations")
+    p.add_argument("--seeds", help="path to a JSONL/JSON seed file (one conversation per seed)")
+    p.add_argument("--limit", type=int, default=None, help="only use the first N seeds")
     p.add_argument("--config", help="path to a JSON/YAML FactoryConfig file")
     p.add_argument("--band", default=None, help="length band (basic|generalization|short)")
     p.add_argument("--out", default="factory_out.jsonl", help="output JSONL path")
@@ -85,16 +86,16 @@ def run(args: argparse.Namespace) -> int:
     rng = random.Random(config.seed)
 
     if args.seeds:
-        seed_records = _load_seed_records(args.seeds)
+        seeds = _load_seed_records(args.seeds)
     else:
-        seed_records = [
-            {"query": "Explain how entropy relates to information.", "category": "stem"},
-            {"query": "Write a short paragraph about lighthouses.", "category": "writing"},
-            {"query": "What is 17 * 23, and why does the method work?", "category": "math"},
-            {"query": "Outline a function to reverse a linked list.", "category": "coding"},
+        seeds = [
+            "Explain how entropy relates to information.",
+            "Write a short paragraph about lighthouses.",
+            "What is 17 * 23, and why does the method work?",
+            "Outline a function to reverse a linked list.",
         ]
-    dataset_spec = DatasetSpec(name="cli_seeds", records=seed_records,
-                               lang=config.lang, haystack_fraction=config.haystack_fraction)
+    if args.limit is not None:
+        seeds = seeds[:args.limit]
 
     if args.smoke:
         responder_client = MockLLMClient(handler=constraint_satisfying_handler)
@@ -109,14 +110,13 @@ def run(args: argparse.Namespace) -> int:
 
     factory = DataFactory(
         config, responder_client, simulator_client=simulator_client, rng=rng)
-    records = factory.generate(
-        dataset_spec, n_conversations=args.n, band=args.band)
+    records = factory.generate(seeds, band=args.band)
 
     if args.validate:
         for rec in records:
             validate_record(rec.to_dict())
 
-    n = factory.write_jsonl(records, args.out)
+    n = factory.write_jsonl(args.out)
 
     if args.hf_dataset:
         factory.save_to_hub(

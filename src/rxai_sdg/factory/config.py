@@ -1,10 +1,13 @@
 """Configuration object for the Data Factory (spec §10).
 
-A single :class:`FactoryConfig` controls intent/policy weights, the invalidity
-mask, conversation-length bands, domain mix, regeneration limits, derived-variant
-sets, logit capture, and the holistic judge. It can be constructed in code, from
-a plain ``dict`` (``FactoryConfig.from_dict``) or a JSON/YAML file
-(``FactoryConfig.from_file``), making the whole pipeline reproducible.
+A single :class:`FactoryConfig` controls the taxonomy weights / mask, conversation
+length bands, generation limits, and the optional holistic judge. LLM clients are
+**not** configured here - they are concrete objects injected into
+:class:`~rxai_sdg.factory.factory_runner.DataFactory` (so the Responder and
+Simulator are simply two different client instances).
+
+Construct it in code, from a ``dict`` (``FactoryConfig.from_dict``) or a JSON/YAML
+file (``FactoryConfig.from_file``).
 """
 
 from __future__ import annotations
@@ -28,31 +31,6 @@ class LengthBand:
     min: int
     max: int
 
-    def clamp(self, n: int) -> int:
-        return max(self.min, min(self.max, n))
-
-
-@dataclass
-class ClientConfig:
-    """Pluggable LLM client configuration (Responder or Simulator).
-
-    The Responder and Simulator should be *different* models where possible to
-    avoid self-collusion (spec §5.3). ``provider`` is advisory metadata; the
-    actual client object is injected at construction time.
-    """
-
-    model_name: str = "gpt-4"
-    provider: str = "openai"
-    api_url: str = "https://api.openai.com/v1"
-    api_key: Optional[str] = None
-    use_ollama: bool = False
-    temperature: float = 0.7
-    top_p: float = 0.9
-    max_tokens: int = 4096
-
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
-
 
 @dataclass
 class FactoryConfig:
@@ -73,48 +51,25 @@ class FactoryConfig:
         "short": LengthBand(2, 3),
     })
     default_band: str = "basic"
-    #: when importing short reasoning datasets, expand them to ~this length
-    expand_short_to: int = 10
-
-    # -- seeds / domains ------------------------------------------------------
-    domain_mix: dict[str, float] = field(default_factory=lambda: {
-        "writing": 1.0, "math": 1.5, "coding": 1.0, "extraction": 1.0,
-        "stem": 1.0, "humanities": 1.0, "reasoning": 1.5, "roleplay": 1.0,
-    })
-    haystack_fraction: float = 0.15
-    lang: str = "en"
 
     # -- generation control ---------------------------------------------------
-    regeneration_limit: int = 4  # K
-    #: a (intent_type, constraint_type) pair is auto-down-weighted once its pass
-    #: rate over at least ``low_yield_min_samples`` attempts drops below this.
+    lang: str = "en"
+    regeneration_limit: int = 4  # K: max answer regenerations per turn
+    min_recall_distance: int = 4  # D for delayed_recall (spec §4.2 requires D>=4)
+    #: a (intent, constraint_type) pair is auto-down-weighted once its pass rate
+    #: over at least ``low_yield_min_samples`` attempts drops below this.
     low_yield_threshold: float = 0.25
     low_yield_min_samples: int = 8
-    #: minimum distance D for delayed_recall (spec §4.2 requires D>=4)
-    min_recall_distance: int = 4
 
-    # -- HuggingFace output dataset (spec §10) --------------------------------
-    hf_dataset_id: Optional[str] = None
-    hf_config_name: Optional[str] = None
-    hf_split: str = "train"
-
-    # -- derived variants / reasoning post-processing (spec §8) ---------------
-    # NOTE: deriving instruct/mixed variants is a SEPARATE post-processing step
-    # (see rxai_sdg.factory.variants), not part of the generation pipeline. These
-    # settings configure that optional step when it is run independently later.
-    derived_variants: list[str] = field(default_factory=lambda: ["reasoning", "instruct", "mixed"])
-    mixed_mode_keep_ratio: float = 0.5  # fraction of turns that keep reasoning in "mixed"
+    # -- responder generation params ------------------------------------------
+    max_tokens: int = 4096
+    temperature: float = 0.7
 
     # -- distillation / holistic judge ----------------------------------------
     capture_logits: bool = False
     holistic_judge_enabled: bool = False
-    holistic_judge_sample_rate: float = 0.1  # only score this fraction
-    holistic_judge_gate_on_programmatic: bool = True  # only score conversations that pass
-
-    # -- clients (separate models) --------------------------------------------
-    responder: ClientConfig = field(default_factory=lambda: ClientConfig(model_name="gpt-4"))
-    simulator: ClientConfig = field(
-        default_factory=lambda: ClientConfig(model_name="gpt-4o-mini"))
+    holistic_judge_sample_rate: float = 0.1
+    holistic_judge_gate_on_programmatic: bool = True
 
     # -- reproducibility ------------------------------------------------------
     seed: Optional[int] = None
@@ -143,7 +98,6 @@ class FactoryConfig:
     # ------------------------------------------------------------- (de)serial
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
-        # asdict turns LengthBand into nested dicts already; keep tuples as lists
         d["extra_invalid_pairs"] = [list(p) for p in self.extra_invalid_pairs]
         return d
 
@@ -155,13 +109,9 @@ class FactoryConfig:
                 k: (v if isinstance(v, LengthBand) else LengthBand(**v))
                 for k, v in d["length_bands"].items()
             }
-        for key in ("responder", "simulator"):
-            if key in d and not isinstance(d[key], ClientConfig):
-                d[key] = ClientConfig(**d[key])
         if "extra_invalid_pairs" in d:
             d["extra_invalid_pairs"] = [tuple(p) for p in d["extra_invalid_pairs"]]
-        # ignore unknown keys defensively
-        known = {f for f in cls.__dataclass_fields__}  # type: ignore[attr-defined]
+        known = set(cls.__dataclass_fields__)  # type: ignore[attr-defined]
         return cls(**{k: v for k, v in d.items() if k in known})
 
     @classmethod

@@ -14,10 +14,9 @@ lives here (spec non-goals).
 Quick start
 -----------
 >>> from rxai_sdg.factory import DataFactory, FactoryConfig, MockLLMClient
->>> from rxai_sdg.factory import DatasetSpec
 >>> cfg = FactoryConfig(seed=0)
 >>> records = DataFactory(cfg, MockLLMClient(default="<think>x</think> Answer.")) \
-...     .generate(DatasetSpec(records=[{"query": "Explain entropy."}]), n_conversations=1)
+...     .generate(["Explain entropy."])
 
 The package's core (schemas, taxonomy, sampler, verifiers) imports with only the
 Python standard library, so it can be unit-tested without ``openai`` /
@@ -51,7 +50,7 @@ from .taxonomy import (
     POLICY_TO_SCOPE,
     default_invalid_pairs,
 )
-from .config import FactoryConfig, ClientConfig, LengthBand
+from .config import FactoryConfig, LengthBand
 
 # clients
 from .clients import LLMClient, LLMResponse, MockLLMClient, OpenAILLMClient
@@ -60,7 +59,7 @@ from .clients import LLMClient, LLMResponse, MockLLMClient, OpenAILLMClient
 from .verifiers import ConstraintVerifier, register_language_stubs, registered_types
 from .sampler import IntentPolicySampler, SamplerDraw
 from .ledger import FactLedger, NeedlePlanner
-from .seed_curator import SeedCurator, DatasetSpec, EVAL_CATEGORIES
+from .seed_curator import SeedCurator, EVAL_CATEGORIES
 from .prompts import PromptPack, get_prompt_pack
 from .responder import Responder
 from .user_simulator import UserSimulator
@@ -86,14 +85,14 @@ __all__ = [
     # taxonomy / config
     "Taxonomy", "BaseIntent", "DistancePolicy", "BASE_INTENTS", "DISTANCE_POLICIES",
     "TRANSFORMATION_INTENTS", "FACT_INTENTS", "POLICY_TO_SCOPE", "default_invalid_pairs",
-    "FactoryConfig", "ClientConfig", "LengthBand",
+    "FactoryConfig", "LengthBand",
     # clients
     "LLMClient", "LLMResponse", "MockLLMClient", "OpenAILLMClient",
     # components
     "ConstraintVerifier", "register_language_stubs", "registered_types",
     "IntentPolicySampler", "SamplerDraw",
     "FactLedger", "NeedlePlanner",
-    "SeedCurator", "DatasetSpec", "EVAL_CATEGORIES",
+    "SeedCurator", "EVAL_CATEGORIES",
     "PromptPack", "get_prompt_pack",
     "Responder", "UserSimulator",
     "run_cross_turn_checks", "cross_turn_pass_rate",

@@ -1,21 +1,20 @@
 """Seed curation (spec §5.1).
 
-The :class:`SeedCurator` turns raw dataset records into typed :class:`Seed`
-objects: it extracts the first user query, deduplicates near-identical seeds,
-tags ``category``/``domain``/``lang``, flags ``is_haystack`` seeds, and loads the
-relevant :class:`PromptPack`. It also supports balancing domain coverage toward
-the eval categories and injecting extra math/reasoning seeds.
+The :class:`SeedCurator` turns the raw seeds you provide - a list of prompt
+strings, or dicts with a ``"query"`` field - into typed :class:`Seed` objects.
+It extracts the first user query, deduplicates near-identical seeds, **infers**
+the category/domain (a keyword heuristic with an optional LLM fallback), flags
+long "haystack" seeds, and loads the per-category :class:`PromptPack`.
 
-Dataset loading is abstracted behind ``dataset_spec`` so the curator works with
-plain Python iterables (used in tests) or, lazily, with a HuggingFace dataset.
+There is intentionally no dataset-loading abstraction here: load your seeds
+however you like (e.g. ``list(load_dataset(...)["query"])``) and pass them in.
 """
 
 from __future__ import annotations
 
 import random
 import re
-from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable, Iterator, Optional
+from typing import Any, Iterable, Optional, Union
 
 from .schemas import Seed
 from .prompts import PromptPack, get_prompt_pack
@@ -25,8 +24,13 @@ EVAL_CATEGORIES = [
     "reasoning", "roleplay",
 ]
 
-# Lightweight keyword-based domain tagging. This is a heuristic fallback; an
-# explicit ``category`` field on a record always wins.
+# A seed whose first query is at least this many characters is treated as a
+# "haystack" seed (interaction 1 is a long document) to preserve needle-retrieval
+# coverage. A dict seed may also set ``"is_haystack": True`` explicitly.
+HAYSTACK_MIN_CHARS = 1500
+
+# Keyword-based domain tagging. Heuristic; an explicit ``"category"`` on a dict
+# seed always wins, and the optional LLM classifier handles the rest.
 _DOMAIN_KEYWORDS = {
     "math": ["calculate", "equation", "integral", "probability", "sum of", "derivative",
              "solve for", "prime", "factor", "%", "how many"],
@@ -42,123 +46,60 @@ _DOMAIN_KEYWORDS = {
     "writing": ["write", "poem", "story", "essay", "draft", "compose"],
 }
 
-
-@dataclass
-class DatasetSpec:
-    """How to obtain seeds.
-
-    Exactly one source is used, checked in order: ``records`` (an in-memory
-    iterable of dicts), then ``hf_dataset`` (loaded lazily via ``datasets``).
-    """
-
-    name: str = "in_memory"
-    records: Optional[Iterable[dict[str, Any]]] = None
-    hf_dataset: Optional[str] = None
-    hf_split: str = "train"
-    #: name of the field holding the first user query
-    query_field: str = "query"
-    #: optional explicit category field on each record
-    category_field: Optional[str] = "category"
-    lang: str = "en"
-    haystack_fraction: float = 0.0
-    #: a record is a haystack seed when its query length exceeds this (chars)
-    haystack_min_chars: int = 1500
+SeedInput = Union[str, dict]
 
 
 class SeedCurator:
-    """Curates seeds from raw records.
-
-    In practice the input is just a list of prompts (no explicit ``category``
-    field), so the category/domain is **inferred**. A fast keyword heuristic runs
-    first; when it cannot decide (returns ``"general"``) and an optional
-    ``classifier_client`` (an :class:`~rxai_sdg.factory.clients.LLMClient`) is
-    provided, an LLM classifies the query into one of :data:`EVAL_CATEGORIES`.
-    """
-
     def __init__(
         self,
         rng: Optional[random.Random] = None,
-        prompt_pack_loader: Callable[[str, str], PromptPack] = get_prompt_pack,
         dedup_threshold: float = 0.9,
         classifier_client: Any = None,
     ):
         self.rng = rng or random.Random()
-        self.prompt_pack_loader = prompt_pack_loader
         self.dedup_threshold = dedup_threshold
         self.classifier_client = classifier_client
 
     # ------------------------------------------------------------------ public
-    def load_seeds(self, dataset_spec: DatasetSpec) -> list[Seed]:
-        raw = list(self._iter_records(dataset_spec))
-        seeds: list[Seed] = []
+    def curate(self, seeds: Iterable[SeedInput], lang: str = "en") -> list[Seed]:
+        """Normalise, dedup and tag the provided seeds."""
+        out: list[Seed] = []
         seen_norms: list[set[str]] = []
-        for rec in raw:
-            query = self._extract_query(rec, dataset_spec.query_field)
+        for raw in seeds:
+            rec = {"query": raw} if isinstance(raw, str) else dict(raw)
+            query = self._extract_query(rec)
             if not query:
                 continue
             norm = self._normalise_tokens(query)
             if self._is_near_duplicate(norm, seen_norms):
                 continue
             seen_norms.append(norm)
-            seeds.append(self._build_seed(rec, query, dataset_spec))
-        return seeds
-
-    def load_prompt_pack(self, seed: Seed) -> PromptPack:
-        return self.prompt_pack_loader(seed.category, seed.lang)
-
-    def balance_domains(
-        self,
-        seeds: list[Seed],
-        domain_mix: dict[str, float],
-        rng: Optional[random.Random] = None,
-    ) -> list[Seed]:
-        """Resample ``seeds`` to approximate the configured ``domain_mix``.
-
-        Domains with no seeds are skipped. The result preserves the total count
-        where possible by sampling (with replacement when a domain is short).
-        """
-        rng = rng or self.rng
-        by_domain: dict[str, list[Seed]] = {}
-        for s in seeds:
-            by_domain.setdefault(s.domain, []).append(s)
-        present = {d: w for d, w in domain_mix.items() if by_domain.get(d)}
-        if not present:
-            return list(seeds)
-        total = len(seeds)
-        weight_sum = sum(present.values())
-        out: list[Seed] = []
-        for domain, weight in present.items():
-            n = max(1, round(total * weight / weight_sum))
-            pool = by_domain[domain]
-            for _ in range(n):
-                out.append(rng.choice(pool))
-        rng.shuffle(out)
+            category = rec.get("category") or self.infer_category(query)
+            out.append(Seed(
+                dataset=rec.get("dataset", "seeds"),
+                first_query=query,
+                category=category,
+                domain=category,
+                lang=rec.get("lang") or lang,
+                is_haystack=bool(rec.get("is_haystack")) or len(query) >= HAYSTACK_MIN_CHARS,
+            ))
         return out
 
-    def inject_seeds(self, seeds: list[Seed], extra: list[Seed]) -> list[Seed]:
-        """Append explicitly provided extra seeds (e.g. math/reasoning)."""
-        return list(seeds) + list(extra)
+    def load_prompt_pack(self, seed: Seed) -> PromptPack:
+        return get_prompt_pack(seed.category, seed.lang)
+
+    def infer_category(self, query: str) -> str:
+        """Infer an eval category. Keyword heuristic, then optional LLM fallback."""
+        category = self._infer_domain(query)
+        if category == "general" and self.classifier_client is not None:
+            category = self._classify_llm(query)
+        return category
 
     # ----------------------------------------------------------------- helpers
-    def _iter_records(self, spec: DatasetSpec) -> Iterator[dict[str, Any]]:
-        if spec.records is not None:
-            yield from spec.records
-            return
-        if spec.hf_dataset is not None:  # pragma: no cover - exercised only with datasets installed
-            from datasets import load_dataset  # lazy import
-            ds = load_dataset(spec.hf_dataset, split=spec.hf_split)
-            for rec in ds:
-                yield dict(rec)
-            return
-        raise ValueError("DatasetSpec must provide either records or hf_dataset")
-
     @staticmethod
-    def _extract_query(rec: dict[str, Any], field_name: str) -> Optional[str]:
-        if field_name in rec and isinstance(rec[field_name], str):
-            return rec[field_name].strip()
-        # common conversational layouts
+    def _extract_query(rec: dict[str, Any]) -> Optional[str]:
         for key in ("query", "prompt", "question", "instruction", "text"):
-            if isinstance(rec.get(key), str):
+            if isinstance(rec.get(key), str) and rec[key].strip():
                 return rec[key].strip()
         msgs = rec.get("messages") or rec.get("conversation")
         if isinstance(msgs, list) and msgs:
@@ -183,40 +124,6 @@ class SeedCurator:
                 return True
         return False
 
-    def _build_seed(self, rec: dict[str, Any], query: str, spec: DatasetSpec) -> Seed:
-        # An explicit category is honoured if present, but in practice records
-        # are bare prompts, so the category is inferred (keyword heuristic, with
-        # an optional LLM fallback).
-        category = None
-        if spec.category_field and isinstance(rec.get(spec.category_field), str):
-            category = rec[spec.category_field]
-        if not category:
-            category = self.infer_category(query)
-        lang = rec.get("lang") or spec.lang
-        is_haystack = bool(rec.get("is_haystack"))
-        if not is_haystack and spec.haystack_fraction > 0:
-            if len(query) >= spec.haystack_min_chars or self.rng.random() < spec.haystack_fraction:
-                is_haystack = len(query) >= spec.haystack_min_chars
-        return Seed(
-            dataset=spec.name,
-            first_query=query,
-            category=category,
-            domain=category,
-            lang=lang,
-            is_haystack=is_haystack,
-        )
-
-    def infer_category(self, query: str) -> str:
-        """Infer an eval category for a query.
-
-        Fast keyword heuristic first; if it cannot decide and a
-        ``classifier_client`` is configured, fall back to an LLM classifier.
-        """
-        category = self._infer_domain(query)
-        if category == "general" and self.classifier_client is not None:
-            category = self._classify_llm(query)
-        return category
-
     @staticmethod
     def _infer_domain(query: str) -> str:
         low = query.lower()
@@ -228,7 +135,6 @@ class SeedCurator:
         return best
 
     def _classify_llm(self, query: str) -> str:
-        """Classify ``query`` into one of :data:`EVAL_CATEGORIES` via the LLM."""
         options = ", ".join(EVAL_CATEGORIES)
         prompt = (
             f"Classify the following user request into exactly one of these "
@@ -236,8 +142,7 @@ class SeedCurator:
             f"Request: {query}")
         try:
             resp = self.classifier_client.generate(
-                prompt,
-                system_prompt="You are a precise text classifier.",
+                prompt, system_prompt="You are a precise text classifier.",
                 temperature=0.0, max_tokens=8)
             text = (resp.text or "").strip().lower()
         except Exception:
