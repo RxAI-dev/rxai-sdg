@@ -1,14 +1,23 @@
 """Fact ledger and needle planner (spec §5.5).
 
-The :class:`FactLedger` registers salient facts with stable ``fact_id``s, tracks
-value history for overwrites, and exposes recall checks. The
+The :class:`FactLedger` is the **single source of truth** for facts planted in a
+conversation. It registers facts with stable ``fact_id``s, tracks value history
+for overwrites, exposes recall checks, and - critically - records which facts
+have actually been **injected** into the conversation text. The
 :class:`NeedlePlanner` schedules ``delayed_recall`` queries at distance
-``D >= min_distance`` and ``update_overwrite`` sequences (plant -> update ->
-query), so long conversations actually train slow-timescale memory rather than a
-sequence of independent depth-1 transitions.
+``D >= min_distance`` and ``update`` sequences (plant -> update -> query).
 
-This module is stateless with respect to the model: it only plans and bookkeeps
-text-level facts. No STM / memory machinery lives here.
+The enforced lifecycle is::
+
+    plant(fact_id, value, turn)          # registered, value_history started
+    -> mark_injected(fact_id)            # only after the exact value appears in text
+    -> recallable_fact / updatable_fact  # only ever return *injected* facts
+    -> recall_question / update_phrasing  # templated from the ledger value
+
+A recall / update is therefore never scheduled against a fact whose plant string
+did not appear in a prior turn (the "Meridian" desync bug). This module is
+stateless with respect to the model: it only plans and bookkeeps text-level
+facts. No STM / memory machinery lives here.
 """
 
 from __future__ import annotations
@@ -20,9 +29,8 @@ from .schemas import Fact
 from .verifiers.universal import _value_present
 
 
-# A small pool of plantable facts. Each entry yields a (fact_type, value,
-# plant phrasing, recall question) tuple builder. Values are chosen to be
-# distinctive and exact-matchable.
+# A small pool of plantable facts. Each entry yields a (fact_type, value)
+# builder. Values are chosen to be distinctive and exact-matchable.
 _FACT_KINDS = [
     ("favorite_color", lambda r: r.choice(
         ["teal", "crimson", "amber", "indigo", "magenta", "olive"])),
@@ -44,6 +52,8 @@ class FactLedger:
     def __init__(self) -> None:
         self._facts: dict[str, Fact] = {}
         self._counter = 0
+        #: fact_ids whose exact plant/update value has appeared in conversation text
+        self._injected: set[str] = set()
 
     def __len__(self) -> int:
         return len(self._facts)
@@ -81,6 +91,18 @@ class FactLedger:
     def facts(self) -> list[Fact]:
         return list(self._facts.values())
 
+    # -- injection lifecycle ---------------------------------------------------
+    def mark_injected(self, fact_id: str) -> None:
+        """Record that ``fact_id``'s current value has appeared in the text."""
+        if fact_id in self._facts:
+            self._injected.add(fact_id)
+
+    def is_injected(self, fact_id: str) -> bool:
+        return fact_id in self._injected
+
+    def injected_facts(self) -> list[Fact]:
+        return [self._facts[fid] for fid in self._injected if fid in self._facts]
+
     def recall_check(self, answer: str, fact_id: str, match: str = "exact") -> tuple[bool, str]:
         """Programmatic check that ``answer`` recalls the latest value."""
         value = self.latest(fact_id)
@@ -106,8 +128,9 @@ class NeedlePlanner:
     def plant_fact(self, turn: int, fact_type: Optional[str] = None) -> Fact:
         """Create and register a new fact, returning it.
 
-        The caller is responsible for surfacing the fact's plant phrasing in the
-        conversation text (see :meth:`plant_phrasing`).
+        The caller must surface the fact's plant phrasing in the conversation text
+        and then call :meth:`FactLedger.mark_injected` (see
+        :meth:`UserSimulator` for the enforced confirm-then-mark step).
         """
         if fact_type is None:
             fact_type, value_fn = self.rng.choice(_FACT_KINDS)
@@ -135,21 +158,45 @@ class NeedlePlanner:
         return f"What is my {readable}?"
 
     # --------------------------------------------------------------- selecting
-    def recallable_fact(self, turn: int, min_distance: Optional[int] = None) -> Optional[Fact]:
+    def recallable_fact(
+        self,
+        turn: int,
+        min_distance: Optional[int] = None,
+        require_injected: bool = False,
+    ) -> Optional[Fact]:
         """Return a fact planted far enough in the past to be a long-range recall.
 
         Picks the oldest eligible fact (planted at ``turn - min_distance`` or
-        earlier). Returns ``None`` when no fact qualifies yet.
+        earlier). When ``require_injected`` is set, only facts whose plant string
+        actually appeared in the text are eligible. Returns ``None`` when no fact
+        qualifies yet.
         """
         dist = self.min_distance if min_distance is None else min_distance
         eligible = [
             f for f in self.ledger.facts()
             if turn - f.planted_turn >= dist
+            and (not require_injected or self.ledger.is_injected(f.fact_id))
         ]
         if not eligible:
             return None
         eligible.sort(key=lambda f: f.planted_turn)
         return eligible[0]
+
+    def updatable_fact(self, turn: int, require_injected: bool = True) -> Optional[Fact]:
+        """Return the most recent fact eligible to be updated/overwritten.
+
+        Defaults to requiring the fact to have been injected, so an update never
+        references a value that never appeared in the conversation.
+        """
+        candidates = [
+            f for f in self.ledger.facts()
+            if f.planted_turn <= turn
+            and (not require_injected or self.ledger.is_injected(f.fact_id))
+        ]
+        if not candidates:
+            return None
+        candidates.sort(key=lambda f: f.planted_turn)
+        return candidates[-1]  # most recently planted injected fact
 
     def any_fact(self) -> Optional[Fact]:
         facts = self.ledger.facts()

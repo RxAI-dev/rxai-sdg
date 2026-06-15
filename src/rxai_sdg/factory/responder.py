@@ -1,26 +1,90 @@
 """Responder / Teacher component (spec §5.2).
 
-Generates the reference answer for a turn with full-context (stateless)
-generation. It must be a strong model that satisfies constraints correctly. The
+Generates the reference answer for a turn with full-context generation. It must
+be a strong, **memory-enabled** model that satisfies constraints correctly. The
 provider is injected as an :class:`~rxai_sdg.factory.clients.LLMClient`.
 
-All generation happens in *reasoning mode*: the teacher emits a
-``<think>...</think>`` block followed by the final answer. The two are parsed
-into separate ``reasoning`` and ``answer`` segments. Derived instruct/mixed
-variants are produced later by the writer (spec §8).
+Generation happens in *reasoning mode*: the teacher emits a single
+``<think>...</think>`` block followed by the final answer. The output contract is
+exactly ``<think>\\n{reasoning}\\n</think>\\n{answer}`` and the answer must stand
+alone. :func:`parse_response` enforces strict, robust segmentation:
+
+* exactly one well-formed ``<think>...</think>`` block with non-trivial content
+  -> ``reasoning`` = block content, ``answer`` = the remainder, ``well_formed`` =
+  True;
+* otherwise -> the whole (tag-stripped) output is the ``answer``, no reasoning
+  segment, ``well_formed`` = False (a *malformed* output).
+
+A ``</think>`` tag (or other chain-of-thought marker) is **never** left inside an
+``answer`` segment. The conversation loop counts malformed outputs and treats
+memory-disclaimer answers as failures to be regenerated (§4.1, §4.4).
 """
 
 from __future__ import annotations
 
 import re
 import uuid
+from dataclasses import dataclass
 from typing import Optional
 
 from .clients import LLMClient
 from .prompts import PromptPack
 from .schemas import Segment, Turn
 
-_THINK_RE = re.compile(r"<think>(.*?)</think>", re.DOTALL | re.IGNORECASE)
+# A single, non-greedy think block. DOTALL so reasoning may span lines.
+_THINK_BLOCK_RE = re.compile(r"<think\s*>(.*?)</think\s*>", re.DOTALL | re.IGNORECASE)
+# Any stray opening/closing think tag (used to detect / scrub leakage).
+_THINK_TAG_RE = re.compile(r"</?think\s*>", re.IGNORECASE)
+# Reasoning content that is effectively empty.
+_EMPTY_REASONING = {"", ".", "..", "...", "…"}
+
+# Chain-of-thought / internal-QA markers that must never appear in an answer.
+_COT_LEAK_PATTERNS = [
+    r"</?think\s*>",
+    r"\bdraft\s*\d+\b",
+    r"\blet'?s (?:verify|double-check|check)\b",
+    r"\bself-?contained\??\b",
+    r"\bno reference to (?:the )?reasoning\b",
+    r"\bfinal answer self-contained\b",
+    r"\bscratchpad\b",
+    r"\bchain[- ]of[- ]thought\b",
+]
+_COT_LEAK_RE = re.compile("|".join(_COT_LEAK_PATTERNS), re.IGNORECASE)
+
+# Memory-disclaimer phrasing. Fatal for a memory-model dataset (§4.1): any answer
+# matching these is treated as a failed turn and regenerated.
+_MEMORY_DISCLAIMER_PATTERNS = [
+    r"\bi (?:can'?t|cannot|don'?t|do not|am not able to|won'?t) "
+    r"(?:store|retain|remember|recall|keep|save|hold on to|access) [^.?!\n]*"
+    r"(?:between|across|from) (?:[^.?!\n]*?)(?:conversations?|sessions?|chats?|interactions?)",
+    r"\bi (?:don'?t|do not) (?:have|retain|keep) (?:any )?memory of "
+    r"(?:our )?(?:previous|past|earlier|prior) (?:conversations?|sessions?|chats?|messages?|turns?)",
+    r"\beach (?:conversation|session|chat) is (?:independent|separate|isolated)\b",
+    r"\bi (?:have no|don'?t have a) memory (?:of|between|across)\b",
+    r"\bi (?:start|begin) (?:each|every) (?:conversation|session|chat) (?:fresh|anew|from scratch)\b",
+    r"\bas an ai,? i (?:can'?t|cannot|don'?t|do not) (?:store|retain|remember|recall) [^.?!\n]*"
+    r"(?:information|details|data)\b",
+    r"\bi (?:can'?t|cannot|don'?t|do not) remember (?:anything|information|details) "
+    r"(?:from|between|across) (?:previous|past|earlier|prior|separate) ",
+]
+_MEMORY_DISCLAIMER_RE = re.compile("|".join(_MEMORY_DISCLAIMER_PATTERNS), re.IGNORECASE)
+
+
+@dataclass
+class ParsedResponse:
+    """Result of strictly segmenting a raw generation."""
+
+    reasoning: Optional[str]
+    answer: str
+    well_formed: bool
+
+
+@dataclass
+class ResponderOutput:
+    """A generated turn plus the parser's malformed flag (§4.1)."""
+
+    turn: Turn
+    malformed: bool
 
 
 def format_transcript(turns: list[Turn]) -> str:
@@ -34,20 +98,49 @@ def format_transcript(turns: list[Turn]) -> str:
     return "\n".join(lines)
 
 
-def split_reasoning_answer(text: str) -> tuple[str, str]:
-    """Split a raw generation into ``(reasoning, answer)``.
+def _strip_think_tags(text: str) -> str:
+    """Remove stray ``<think>`` / ``</think>`` tag markers (content preserved)."""
+    return _THINK_TAG_RE.sub("", text).strip()
 
-    Supports an explicit ``<think>...</think>`` block. When no block is present,
-    reasoning is empty and the whole text is the answer.
+
+def parse_response(text: Optional[str]) -> ParsedResponse:
+    """Strictly split a raw generation into reasoning / answer segments.
+
+    See the module docstring for the exact contract. The returned ``answer`` is
+    guaranteed to contain no ``<think>``/``</think>`` tag.
     """
-    if text is None:
-        return "", ""
-    m = _THINK_RE.search(text)
-    if m:
+    if not text:
+        return ParsedResponse(reasoning=None, answer="", well_formed=False)
+
+    blocks = list(_THINK_BLOCK_RE.finditer(text))
+    if len(blocks) == 1:
+        m = blocks[0]
         reasoning = m.group(1).strip()
-        answer = _THINK_RE.sub("", text, count=1).strip()
-        return reasoning, answer
-    return "", text.strip()
+        remainder = (text[: m.start()] + text[m.end():]).strip()
+        answer = _strip_think_tags(remainder)
+        if reasoning.lower() not in _EMPTY_REASONING:
+            # Well-formed: one block, non-trivial reasoning, tag-free answer.
+            return ParsedResponse(reasoning=reasoning, answer=answer, well_formed=True)
+
+    # Malformed: zero / multiple blocks, or an empty reasoning block. Treat the
+    # whole (tag-stripped) output as the answer; no reasoning segment.
+    return ParsedResponse(reasoning=None, answer=_strip_think_tags(text), well_formed=False)
+
+
+def split_reasoning_answer(text: str) -> tuple[str, str]:
+    """Back-compat helper returning ``(reasoning, answer)`` (reasoning ``""`` if none)."""
+    parsed = parse_response(text)
+    return (parsed.reasoning or ""), parsed.answer
+
+
+def is_memory_disclaimer(answer: str) -> bool:
+    """True if ``answer`` denies having conversational memory (§4.1)."""
+    return bool(_MEMORY_DISCLAIMER_RE.search(answer or ""))
+
+
+def has_cot_leak(answer: str) -> bool:
+    """True if ``answer`` leaks chain-of-thought / internal-QA markers (§4.1)."""
+    return bool(_COT_LEAK_RE.search(answer or ""))
 
 
 class Responder:
@@ -67,7 +160,13 @@ class Responder:
         intent: Optional[str] = None,
         policy: Optional[str] = None,
         active_constraints_note: str = "",
-    ) -> Turn:
+    ) -> ResponderOutput:
+        """Generate one turn. Returns the parsed :class:`Turn` and a malformed flag.
+
+        The prompt carries only the conversation context, any still-active standing
+        instructions, and the bare reasoning/answer output contract - never our
+        internal QA checklist.
+        """
         transcript = format_transcript(prior_turns)
         parts = []
         if transcript:
@@ -76,8 +175,8 @@ class Responder:
             parts.append(active_constraints_note)
         parts.append(f"User: {query}")
         parts.append(
-            "Respond as the Assistant. Think inside <think>...</think>, then give "
-            "the final answer. The final answer must be self-contained.")
+            "Respond as the assistant. Reason inside a single <think>...</think> "
+            "block, then write the final answer after the closing </think> tag.")
         prompt = "\n\n".join(parts)
 
         resp = self.client.generate(
@@ -87,22 +186,23 @@ class Responder:
             max_tokens=self.max_tokens,
             capture_logits=self.capture_logits,
         )
-        reasoning, answer = split_reasoning_answer(resp.text)
+        parsed = parse_response(resp.text)
 
         segments = [Segment("query", query)]
-        if reasoning:
-            segments.append(Segment("reasoning", reasoning))
-        segments.append(Segment("answer", answer))
+        if parsed.reasoning is not None:
+            segments.append(Segment("reasoning", parsed.reasoning))
+        segments.append(Segment("answer", parsed.answer))
 
         logits_ref = None
         if self.capture_logits and resp.logits is not None:
             logits_ref = f"logits://{uuid.uuid4()}"
 
-        return Turn(
+        turn = Turn(
             turn_index=turn_index,
             segments=segments,
             intent=intent,
             policy=policy,
-            reasoning_flag=bool(reasoning),
+            reasoning_flag=parsed.well_formed and parsed.reasoning is not None,
             topk_logits_ref=logits_ref,
         )
+        return ResponderOutput(turn=turn, malformed=not parsed.well_formed)

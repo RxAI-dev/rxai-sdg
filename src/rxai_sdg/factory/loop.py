@@ -1,20 +1,23 @@
 """The conversation loop (spec §3, §11.7).
 
-Wires the Responder, User-Simulator, Verifier and Fact-Ledger/Needle-Planner
-into the alternating generation loop with:
+Wires the Responder, grounded User-Simulator, Verifier and Fact-Ledger/Needle-
+Planner into the alternating generation loop:
 
-* per-response verification fired only for machine-checkable constraints, plus a
-  general quality gate that always applies;
-* regeneration of the *Responder's answer* up to ``K`` times on failure;
-* intent-resampling on terminal failure mid-conversation (the conversation is
-  **not** discarded);
-* whole-conversation discard only when the **first** answer is unsalvageable;
-* enforcement of active ``standing``/``cumulative`` constraints on later answers;
-* low-yield down-weighting of chronically failing constraint types.
+* the grounded simulator emits a follow-up that operates on real prior content and
+  a temporally-valid ``(intent, policy)`` (cumulative/standing/delayed_recall are
+  resampled when they have nothing to operate on);
+* per-response verification = the programmatic constraint **plus** an always-on
+  quality gate **plus** a coherence gate (no memory-disclaimer, no chain-of-thought
+  leakage into the answer), so ``passed`` reflects conversational coherence;
+* a single **bounded per-turn budget** caps total Responder calls per turn, shared
+  across intent-resamples and answer regenerations;
+* the substantive seed topic is carried forward, so standing/cumulative constraints
+  modify answers *about that topic* rather than becoming the whole conversation;
+* whole-conversation discard only when the **first** answer is unsalvageable.
 
-The loop produces a single reasoning-mode :class:`ConversationRecord`; derived
-instruct/mixed variants are created afterwards by the
-:class:`~rxai_sdg.factory.writer.SegmentWriter`.
+The loop is **thread-safe**: :meth:`run` takes a per-conversation RNG and returns a
+per-conversation :class:`LoopStats`, mutating no shared state. The injected
+sampler/responder/verifier are used read-only.
 """
 
 from __future__ import annotations
@@ -29,7 +32,7 @@ from .holistic import HolisticJudge
 from .ledger import FactLedger, NeedlePlanner
 from .prompts import PromptPack
 from .quality import QualityConfig, check_quality
-from .responder import Responder
+from .responder import Responder, has_cot_leak, is_memory_disclaimer
 from .sampler import IntentPolicySampler
 from .schemas import ConstraintSpec, ConversationRecord, Seed, Turn, VerifyResult
 from .user_simulator import UserSimulator
@@ -59,7 +62,20 @@ class LoopStats:
     discarded_first_answer: int = 0
     total_regenerations: int = 0
     intent_resamples: int = 0
+    malformed_outputs: int = 0
+    coherence_failures: int = 0
     downweighted: list[str] = field(default_factory=list)
+
+    def merge(self, other: "LoopStats") -> None:
+        """Accumulate ``other`` into this aggregate (called under a lock)."""
+        self.discarded_first_answer += other.discarded_first_answer
+        self.total_regenerations += other.total_regenerations
+        self.intent_resamples += other.intent_resamples
+        self.malformed_outputs += other.malformed_outputs
+        self.coherence_failures += other.coherence_failures
+        for tag in other.downweighted:
+            if tag not in self.downweighted:
+                self.downweighted.append(tag)
 
 
 class ConversationLoop:
@@ -81,7 +97,7 @@ class ConversationLoop:
         self.simulator_client = simulator_client
         self.holistic = holistic
         self.quality_config = quality_config or QualityConfig()
-        self.rng = rng or random.Random(config.seed)
+        #: aggregate stats merged from each conversation's per-run stats
         self.stats = LoopStats()
 
     # ------------------------------------------------------------------- public
@@ -89,46 +105,46 @@ class ConversationLoop:
         self,
         seed: Seed,
         prompt_pack: PromptPack,
-        target_length: Optional[int] = None,
-    ) -> Optional[ConversationRecord]:
-        if target_length is None:
-            band = self.config.band()
-            target_length = self.rng.randint(band.min, band.max)
+        target_length: int,
+        rng: random.Random,
+    ) -> tuple[Optional[ConversationRecord], LoopStats]:
+        """Generate one conversation. Returns ``(record_or_None, per_run_stats)``.
 
+        Uses only the supplied ``rng`` and a fresh :class:`LoopStats`, so it may be
+        called concurrently for independent conversations.
+        """
+        stats = LoopStats()
         ledger = FactLedger()
         planner = NeedlePlanner(
-            ledger, rng=self.rng, min_distance=self.config.min_recall_distance)
+            ledger, rng=rng, min_distance=self.config.min_recall_distance)
         simulator = UserSimulator(
             sampler=self.sampler, planner=planner, client=self.simulator_client,
-            rng=self.rng, lang=seed.lang,
+            rng=rng, lang=seed.lang,
             min_recall_distance=self.config.min_recall_distance,
-            naturalize=self.simulator_client is not None,
         )
 
         turns: list[Turn] = []
         active_constraints: list[ConstraintSpec] = []
-        dmpo_pairs: list[dict] = []
 
         # -- turn 0: seed --------------------------------------------------
-        first = self._first_turn(seed, prompt_pack)
+        first = self._first_turn(seed, prompt_pack, stats)
         if first is None:
-            self.stats.discarded_first_answer += 1
-            return None
+            stats.discarded_first_answer += 1
+            return None, stats
         turns.append(first)
 
         # -- follow-up turns ----------------------------------------------
         for idx in range(1, target_length):
             turn = self._followup_turn(
-                simulator, prompt_pack, turns, idx, active_constraints, dmpo_pairs)
+                simulator, prompt_pack, turns, idx, active_constraints, stats)
             turns.append(turn)
             cs = turn.constraint_spec
             if cs is not None and cs.scope in ("standing", "cumulative") \
                     and cs.verifier in ("programmatic", "hybrid"):
-                # A newer standing/cumulative constraint supersedes any active
-                # one it mutually excludes (e.g. "always answer in markdown"
-                # replaces an earlier "always answer in JSON"). Without this,
-                # two exclusive form constraints would be impossible to satisfy
-                # together on every later turn.
+                # A newer standing/cumulative constraint supersedes any active one
+                # it mutually excludes (e.g. "always markdown" replaces "always
+                # JSON"); otherwise two exclusive form constraints could never both
+                # hold on later turns.
                 active_constraints = [
                     a for a in active_constraints
                     if not constraints_conflict(a.type, cs.type)
@@ -137,8 +153,6 @@ class ConversationLoop:
 
         # -- cross-turn checks --------------------------------------------
         cross = run_cross_turn_checks(turns, ledger, self.verifier)
-        if dmpo_pairs:
-            cross["dmpo_pairs"] = dmpo_pairs  # opportunistic byproduct (spec §6.3)
         programmatic_passed = cross_turn_pass_rate(cross) == 1.0 and all(
             (t.verification is None or t.verification.passed) for t in turns)
 
@@ -150,23 +164,32 @@ class ConversationLoop:
             cross_turn_checks=cross,
         )
 
-        # -- optional holistic judge --------------------------------------
         if self.holistic is not None and self.holistic.should_score(programmatic_passed):
             record.holistic_score = self.holistic.score(turns)
 
-        return record
+        return record, stats
 
     # -------------------------------------------------------------- internals
-    def _first_turn(self, seed: Seed, prompt_pack: PromptPack) -> Optional[Turn]:
-        for attempt in range(self.config.regeneration_limit + 1):
-            turn = self.responder.generate(
+    def _first_turn(
+        self, seed: Seed, prompt_pack: PromptPack, stats: LoopStats,
+    ) -> Optional[Turn]:
+        budget = min(self.config.regeneration_limit + 1,
+                     self.config.max_responder_calls_per_turn)
+        regenerations = 0
+        for _ in range(budget):
+            out = self.responder.generate(
                 prior_turns=[], query=seed.first_query, prompt_pack=prompt_pack,
                 turn_index=0)
-            ok, detail = check_quality(turn.answer or "", self.quality_config)
+            if out.malformed:
+                stats.malformed_outputs += 1
+            ok, detail = self._answer_acceptable(out.turn.answer or "")
             if ok:
-                turn.verification = VerifyResult(True, "first answer ok", attempt)
-                return turn
-            self.stats.total_regenerations += 1
+                out.turn.verification = VerifyResult(True, "first answer ok", regenerations)
+                return out.turn
+            if "coherence" in detail:
+                stats.coherence_failures += 1
+            regenerations += 1
+            stats.total_regenerations += 1
         return None  # unsalvageable first answer -> discard conversation
 
     def _followup_turn(
@@ -176,117 +199,106 @@ class ConversationLoop:
         prior_turns: list[Turn],
         idx: int,
         active_constraints: list[ConstraintSpec],
-        dmpo_pairs: list[dict],
+        stats: LoopStats,
     ) -> Turn:
-        avoid: set[str] = set()
-        max_intent_attempts = 4
-        for intent_attempt in range(max_intent_attempts):
-            sim = simulator.next_query(
-                prior_turns, prompt_pack, idx, avoid_intents=avoid)
-            turn, ok, rejected = self._generate_and_verify(
-                prompt_pack, prior_turns, idx, sim.nl_query, sim.constraint_spec,
-                sim.draw.intent, sim.draw.policy, active_constraints)
-            if rejected is not None:
-                dmpo_pairs.append(rejected)
-            if ok:
-                return turn
-            # terminal failure for this intent: resample a different intent.
-            self.stats.intent_resamples += 1
-            avoid.add(sim.draw.intent)
-        # Could not satisfy any sampled intent; emit the last (verified-failed)
-        # turn so the conversation is not discarded (spec §3).
-        return turn
-
-    def _generate_and_verify(
-        self,
-        prompt_pack: PromptPack,
-        prior_turns: list[Turn],
-        idx: int,
-        nl_query: str,
-        constraint_spec: Optional[ConstraintSpec],
-        intent: str,
-        policy: str,
-        active_constraints: list[ConstraintSpec],
-    ):
+        budget = self.config.max_responder_calls_per_turn
         note = self._active_constraints_note(active_constraints)
-        rejected_pair: Optional[dict] = None
+        avoid: set[str] = set()
         last_turn: Optional[Turn] = None
-        regenerations = 0
-        for attempt in range(self.config.regeneration_limit + 1):
-            turn = self.responder.generate(
-                prior_turns=prior_turns, query=nl_query, prompt_pack=prompt_pack,
-                turn_index=idx, intent=intent, policy=policy,
-                active_constraints_note=note)
-            turn.constraint_spec = constraint_spec
-            passed, detail, own_passed = self._verify_turn(
-                turn, constraint_spec, active_constraints)
-            # Low-yield bookkeeping reflects only the turn's OWN constraint, so a
-            # failure caused by a conflicting active constraint never penalises
-            # the current intent/constraint type.
-            self._record_yield(intent, constraint_spec, own_passed)
-            last_turn = turn
-            if passed:
-                turn.verification = VerifyResult(True, detail, regenerations)
-                return turn, True, rejected_pair
-            # capture a DMPO preference pair opportunistically (rejected answer)
-            if rejected_pair is None:
-                rejected_pair = {
-                    "turn_index": idx, "query": nl_query,
-                    "rejected": turn.answer, "reason": detail,
-                }
-            regenerations += 1
-            self.stats.total_regenerations += 1
-        # terminal failure
+        last_regen = 0
+        first_intent = True
+
+        while budget > 0:
+            if not first_intent:
+                stats.intent_resamples += 1
+            first_intent = False
+            sim = simulator.next_query(
+                prior_turns, prompt_pack, idx,
+                active_constraints=active_constraints, avoid_intents=avoid)
+
+            attempts = 0
+            regenerations = 0
+            while budget > 0:
+                out = self.responder.generate(
+                    prior_turns=prior_turns, query=sim.nl_query,
+                    prompt_pack=prompt_pack, turn_index=idx,
+                    intent=sim.draw.intent, policy=sim.draw.policy,
+                    active_constraints_note=note)
+                budget -= 1
+                attempts += 1
+                if out.malformed:
+                    stats.malformed_outputs += 1
+                turn = out.turn
+                turn.constraint_spec = sim.constraint_spec
+                passed, detail = self._verify_turn(
+                    turn, sim.constraint_spec, active_constraints)
+                last_turn = turn
+                last_regen = regenerations
+                if passed:
+                    turn.verification = VerifyResult(True, detail, regenerations)
+                    return turn
+                if "coherence" in detail:
+                    stats.coherence_failures += 1
+                regenerations += 1
+                stats.total_regenerations += 1
+                if attempts > self.config.regeneration_limit:
+                    break  # stop regenerating this intent; try another if budget left
+            avoid.add(sim.draw.intent)
+
+        # Budget exhausted without a pass: emit the last (verified-failed) turn so
+        # the conversation is not discarded mid-stream (spec §3).
         if last_turn is not None:
-            last_turn.verification = VerifyResult(False, "terminal fail", regenerations)
-            if rejected_pair is not None and last_turn.answer != rejected_pair["rejected"]:
-                rejected_pair = None  # only keep pair when a later attempt accepted
-        return last_turn, False, None
+            last_turn.verification = VerifyResult(False, "budget exhausted", last_regen)
+        return last_turn  # type: ignore[return-value]
+
+    # ----------------------------------------------------------- verification
+    def _answer_acceptable(self, answer: str) -> tuple[bool, str]:
+        """Quality + coherence gate shared by the seed turn and follow-ups."""
+        ok, detail = check_quality(answer, self.quality_config)
+        if not ok:
+            return False, f"quality: {detail}"
+        if is_memory_disclaimer(answer):
+            return False, "coherence: memory disclaimer present"
+        if has_cot_leak(answer):
+            return False, "coherence: chain-of-thought leaked into answer"
+        return True, "ok"
 
     def _verify_turn(
         self,
         turn: Turn,
         constraint_spec: Optional[ConstraintSpec],
         active_constraints: list[ConstraintSpec],
-    ) -> tuple[bool, str, bool]:
-        """Return ``(passed, detail, own_constraint_passed)``."""
+    ) -> tuple[bool, str]:
+        """Return ``(passed, detail)``.
+
+        ``passed`` reflects coherence, not just literal constraint satisfaction: a
+        memory-disclaimer or chain-of-thought leak fails the turn even when the
+        narrow constraint holds.
+        """
         answer = turn.answer or ""
         own_type = constraint_spec.type if constraint_spec is not None else None
-        # always-on quality gate
-        ok, detail = check_quality(answer, self.quality_config)
+
+        # always-on quality + coherence gate
+        ok, detail = self._answer_acceptable(answer)
         if not ok:
-            return False, f"quality: {detail}", True
-        # this turn's own constraint
-        own_passed = True
+            return False, detail
+
+        # this turn's own constraint (the recall/transform "reference prior content"
+        # check: for recall the value-presence checker enforces it directly)
         if constraint_spec is not None and constraint_spec.verifier in ("programmatic", "hybrid"):
             res = self.verifier.verify(answer, constraint_spec, turn)
-            own_passed = res.passed
             if not res.passed:
-                return False, f"own constraint: {res.detail}", False
+                return False, f"own constraint: {res.detail}"
+
         # active standing/cumulative constraints must still hold, except those
-        # that are structurally superseded by this turn's own transformation
-        # (e.g. a standing "answer in JSON" cannot co-exist with "rewrite as a
-        # limerick"; the newer explicit request wins for this turn).
+        # structurally superseded by this turn's own transformation.
         for cs in active_constraints:
             if own_type is not None and constraints_conflict(cs.type, own_type):
                 continue
             res = self.verifier.verify(answer, cs)
             if not res.passed:
-                return False, f"active {cs.type}: {res.detail}", own_passed
-        return True, "verified", own_passed
-
-    def _record_yield(self, intent: str, constraint_spec: Optional[ConstraintSpec],
-                      passed: bool) -> None:
-        if constraint_spec is None or constraint_spec.verifier == "llm_judge":
-            return
-        ctype = constraint_spec.type
-        self.sampler.record_outcome(intent, ctype, passed)
-        if self.sampler.maybe_downweight(
-                intent, ctype, self.config.low_yield_threshold,
-                self.config.low_yield_min_samples):
-            tag = f"{intent}:{ctype}"
-            if tag not in self.stats.downweighted:
-                self.stats.downweighted.append(tag)
+                return False, f"active {cs.type}: {res.detail}"
+        return True, "verified"
 
     @staticmethod
     def _active_constraints_note(active: list[ConstraintSpec]) -> str:
@@ -295,5 +307,5 @@ class ConversationLoop:
         bullets = []
         for cs in active:
             bullets.append(f"- ({cs.scope}) {cs.type} {cs.params}")
-        return ("Standing instructions still in force (keep satisfying them):\n"
-                + "\n".join(bullets))
+        return ("Standing instructions still in force (keep satisfying them while "
+                "still addressing the user's request):\n" + "\n".join(bullets))

@@ -68,20 +68,27 @@ class IntentPolicySampler:
         return rng.choices(keys, weights=vals, k=1)[0]
 
     # ------------------------------------------------------------------- sample
-    def sample(self, lang: str = "en") -> SamplerDraw:
-        """Draw a valid ``(intent, policy)`` pair respecting weights + mask."""
+    def sample(self, lang: str = "en", rng: Optional[random.Random] = None) -> SamplerDraw:
+        """Draw a valid ``(intent, policy)`` pair respecting weights + mask.
+
+        ``rng`` overrides the sampler's own RNG so each conversation can draw from
+        its own ``Random(seed + index)`` stream (thread-safe, reproducible). The
+        sampler itself holds no draw state, so concurrent ``sample`` calls with
+        distinct RNGs are independent.
+        """
+        rng = rng or self.rng
         intent_weights = self._effective_intent_weights(lang)
         if not intent_weights:
             raise ValueError(f"no valid intents available for lang={lang!r}")
         for _ in range(self.max_resamples):
-            intent = self._weighted_choice(self.rng, intent_weights)
-            policy = self._weighted_choice(self.rng, self.policy_weights)
+            intent = self._weighted_choice(rng, intent_weights)
+            policy = self._weighted_choice(rng, self.policy_weights)
             if self.taxonomy.is_valid(intent, policy):
                 return SamplerDraw(intent, policy)
         # Fallback: intent fixed, choose uniformly among its valid policies.
-        intent = self._weighted_choice(self.rng, intent_weights)
+        intent = self._weighted_choice(rng, intent_weights)
         valid = self.taxonomy.valid_policies_for(intent)
-        return SamplerDraw(intent, self.rng.choice(valid))
+        return SamplerDraw(intent, rng.choice(valid))
 
     # -------------------------------------------------------------- low-yield
     def record_outcome(self, intent: str, constraint_type: str, passed: bool) -> None:

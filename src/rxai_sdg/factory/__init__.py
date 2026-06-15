@@ -61,8 +61,17 @@ from .sampler import IntentPolicySampler, SamplerDraw
 from .ledger import FactLedger, NeedlePlanner
 from .seed_curator import SeedCurator, EVAL_CATEGORIES
 from .prompts import PromptPack, get_prompt_pack
-from .responder import Responder
-from .user_simulator import UserSimulator
+from .responder import (
+    Responder,
+    ResponderOutput,
+    ParsedResponse,
+    parse_response,
+    split_reasoning_answer,
+    is_memory_disclaimer,
+    has_cot_leak,
+    format_transcript,
+)
+from .user_simulator import UserSimulator, SimulatorResult, GROUNDING_KINDS
 from .cross_turn import run_cross_turn_checks, cross_turn_pass_rate
 from .holistic import HolisticJudge, RUBRIC_AXES
 from .writer import SegmentWriter, flag_dangling_references
@@ -94,7 +103,10 @@ __all__ = [
     "FactLedger", "NeedlePlanner",
     "SeedCurator", "EVAL_CATEGORIES",
     "PromptPack", "get_prompt_pack",
-    "Responder", "UserSimulator",
+    "Responder", "ResponderOutput", "ParsedResponse", "parse_response",
+    "split_reasoning_answer", "is_memory_disclaimer", "has_cot_leak",
+    "format_transcript",
+    "UserSimulator", "SimulatorResult", "GROUNDING_KINDS",
     "run_cross_turn_checks", "cross_turn_pass_rate",
     "HolisticJudge", "RUBRIC_AXES",
     "SegmentWriter", "flag_dangling_references", "derive_variants",
