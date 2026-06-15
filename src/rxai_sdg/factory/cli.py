@@ -63,6 +63,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--seed", type=int, default=0, help="RNG seed")
     p.add_argument("--validate", action="store_true", default=True,
                    help="validate every emitted record against the schema")
+    # optional HuggingFace output
+    p.add_argument("--hf-dataset", default=None,
+                   help="push the generated records to this HuggingFace dataset id")
+    p.add_argument("--hf-config", default=None, help="HuggingFace dataset config/subset name")
+    p.add_argument("--hf-split", default="train", help="HuggingFace dataset split")
+    p.add_argument("--hf-token", default=None, help="HuggingFace auth token")
+    p.add_argument("--no-append", action="store_true",
+                   help="create/overwrite instead of appending to the existing dataset")
     return p
 
 
@@ -109,6 +117,13 @@ def run(args: argparse.Namespace) -> int:
             validate_record(rec.to_dict())
 
     n = factory.write_jsonl(records, args.out)
+
+    if args.hf_dataset:
+        factory.save_to_hub(
+            dataset_id=args.hf_dataset, config_name=args.hf_config,
+            split=args.hf_split, token=args.hf_token, append=not args.no_append)
+        print(f"pushed {len(records)} records -> {args.hf_dataset} "
+              f"(split={args.hf_split}, append={not args.no_append})", file=sys.stderr)
 
     stats = factory.stats
     print(f"seeds_used={stats.seeds_used} built={stats.conversations_built} "

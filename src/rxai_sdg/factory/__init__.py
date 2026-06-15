@@ -67,6 +67,12 @@ from .user_simulator import UserSimulator
 from .cross_turn import run_cross_turn_checks, cross_turn_pass_rate
 from .holistic import HolisticJudge, RUBRIC_AXES
 from .writer import SegmentWriter, flag_dangling_references
+from .variants import derive_variants
+from .dataset import (
+    FactoryDatasetPostprocessor,
+    record_to_row,
+    row_to_record,
+)
 from .quality import QualityConfig, check_quality
 
 # orchestration
@@ -92,7 +98,8 @@ __all__ = [
     "Responder", "UserSimulator",
     "run_cross_turn_checks", "cross_turn_pass_rate",
     "HolisticJudge", "RUBRIC_AXES",
-    "SegmentWriter", "flag_dangling_references",
+    "SegmentWriter", "flag_dangling_references", "derive_variants",
+    "FactoryDatasetPostprocessor", "record_to_row", "row_to_record",
     "QualityConfig", "check_quality",
     # orchestration
     "ConversationLoop", "LoopStats", "DataFactory", "FactoryRunStats",

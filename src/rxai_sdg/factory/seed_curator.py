@@ -66,15 +66,26 @@ class DatasetSpec:
 
 
 class SeedCurator:
+    """Curates seeds from raw records.
+
+    In practice the input is just a list of prompts (no explicit ``category``
+    field), so the category/domain is **inferred**. A fast keyword heuristic runs
+    first; when it cannot decide (returns ``"general"``) and an optional
+    ``classifier_client`` (an :class:`~rxai_sdg.factory.clients.LLMClient`) is
+    provided, an LLM classifies the query into one of :data:`EVAL_CATEGORIES`.
+    """
+
     def __init__(
         self,
         rng: Optional[random.Random] = None,
         prompt_pack_loader: Callable[[str, str], PromptPack] = get_prompt_pack,
         dedup_threshold: float = 0.9,
+        classifier_client: Any = None,
     ):
         self.rng = rng or random.Random()
         self.prompt_pack_loader = prompt_pack_loader
         self.dedup_threshold = dedup_threshold
+        self.classifier_client = classifier_client
 
     # ------------------------------------------------------------------ public
     def load_seeds(self, dataset_spec: DatasetSpec) -> list[Seed]:
@@ -173,11 +184,14 @@ class SeedCurator:
         return False
 
     def _build_seed(self, rec: dict[str, Any], query: str, spec: DatasetSpec) -> Seed:
+        # An explicit category is honoured if present, but in practice records
+        # are bare prompts, so the category is inferred (keyword heuristic, with
+        # an optional LLM fallback).
         category = None
         if spec.category_field and isinstance(rec.get(spec.category_field), str):
             category = rec[spec.category_field]
         if not category:
-            category = self._infer_domain(query)
+            category = self.infer_category(query)
         lang = rec.get("lang") or spec.lang
         is_haystack = bool(rec.get("is_haystack"))
         if not is_haystack and spec.haystack_fraction > 0:
@@ -192,6 +206,17 @@ class SeedCurator:
             is_haystack=is_haystack,
         )
 
+    def infer_category(self, query: str) -> str:
+        """Infer an eval category for a query.
+
+        Fast keyword heuristic first; if it cannot decide and a
+        ``classifier_client`` is configured, fall back to an LLM classifier.
+        """
+        category = self._infer_domain(query)
+        if category == "general" and self.classifier_client is not None:
+            category = self._classify_llm(query)
+        return category
+
     @staticmethod
     def _infer_domain(query: str) -> str:
         low = query.lower()
@@ -201,3 +226,23 @@ class SeedCurator:
             if hits > best_hits:
                 best, best_hits = domain, hits
         return best
+
+    def _classify_llm(self, query: str) -> str:
+        """Classify ``query`` into one of :data:`EVAL_CATEGORIES` via the LLM."""
+        options = ", ".join(EVAL_CATEGORIES)
+        prompt = (
+            f"Classify the following user request into exactly one of these "
+            f"categories: {options}. Reply with only the single category word.\n\n"
+            f"Request: {query}")
+        try:
+            resp = self.classifier_client.generate(
+                prompt,
+                system_prompt="You are a precise text classifier.",
+                temperature=0.0, max_tokens=8)
+            text = (resp.text or "").strip().lower()
+        except Exception:
+            return "general"
+        for cat in EVAL_CATEGORIES:
+            if cat in text:
+                return cat
+        return "general"

@@ -630,33 +630,32 @@ follow-up intents × memory-distance policies** weighted toward the capabilities
 current models fail on.
 
 ```python
-import random
-from rxai_sdg.factory import DataFactory, FactoryConfig, MockLLMClient, DatasetSpec
-from rxai_sdg.factory.testing import constraint_satisfying_handler
+from rxai_sdg.factory import DataFactory, FactoryConfig, OpenAILLMClient
 
 cfg = FactoryConfig(seed=0)
-# Deterministic, no-network smoke run:
-factory = DataFactory(cfg, MockLLMClient(handler=constraint_satisfying_handler),
-                      rng=random.Random(0))
-records = factory.generate(
-    DatasetSpec(records=[{"query": "Explain how entropy relates to information.",
-                          "category": "stem"}]),
-    n_conversations=4, band="basic",
-)
-factory.write_jsonl(records, "out.jsonl")
+responder = OpenAILLMClient(model_name="gpt-4", api_key="sk-...")        # strong teacher
+simulator = OpenAILLMClient(model_name="gpt-4o-mini", api_key="sk-...")  # different model
+factory = DataFactory(cfg, responder, simulator_client=simulator)
+
+# seeds: a list of prompt strings or dicts with a 'query' field (category inferred)
+seeds = ["Explain how entropy relates to information.",
+         {"query": "Outline a function to reverse a linked list."}]
+
+records = factory.generate(seeds, band="generalization")  # one record per conversation
+factory.save_to_hub("org/rxt-factory", token="hf_...", append=True)  # append or create
 ```
 
-Real runs inject two different provider clients (`OpenAILLMClient`) for the
-Responder and Simulator. CLI:
+CLI (including a deterministic, no-network smoke test and optional HF push):
 
 ```bash
 python -m rxai_sdg.factory.cli --smoke -n 5 --band basic --out out.jsonl
 python -m rxai_sdg.factory.cli --seeds seeds.jsonl --n 100 --config factory.json \
-    --responder-model gpt-4 --simulator-model gpt-4o-mini --api-key $OPENAI_API_KEY
+    --responder-model gpt-4 --simulator-model gpt-4o-mini --api-key $OPENAI_API_KEY \
+    --hf-dataset org/rxt-factory --hf-token $HF_TOKEN
 ```
 
-Each generated reasoning-mode conversation is post-processed into multiple
-derived training records (`reasoning` / `instruct` / `mixed`). See
+Each conversation yields one reasoning-mode record; deriving `instruct` / `mixed`
+training variants is a separate post-processing step (`factory.variants`). See
 [`src/rxai_sdg/factory/README.md`](src/rxai_sdg/factory/README.md) for the full
 architecture, taxonomy, output schema, verification levels, and multilingual
 extension points.

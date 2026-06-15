@@ -93,7 +93,15 @@ class FactoryConfig:
     #: minimum distance D for delayed_recall (spec §4.2 requires D>=4)
     min_recall_distance: int = 4
 
+    # -- HuggingFace output dataset (spec §10) --------------------------------
+    hf_dataset_id: Optional[str] = None
+    hf_config_name: Optional[str] = None
+    hf_split: str = "train"
+
     # -- derived variants / reasoning post-processing (spec §8) ---------------
+    # NOTE: deriving instruct/mixed variants is a SEPARATE post-processing step
+    # (see rxai_sdg.factory.variants), not part of the generation pipeline. These
+    # settings configure that optional step when it is run independently later.
     derived_variants: list[str] = field(default_factory=lambda: ["reasoning", "instruct", "mixed"])
     mixed_mode_keep_ratio: float = 0.5  # fraction of turns that keep reasoning in "mixed"
 

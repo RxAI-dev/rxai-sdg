@@ -2,6 +2,7 @@
 
 import random
 
+from rxai_sdg.factory.clients import MockLLMClient
 from rxai_sdg.factory.seed_curator import SeedCurator, DatasetSpec
 
 
@@ -44,6 +45,33 @@ def test_explicit_category_field_wins():
     recs = [{"query": "anything", "category": "humanities"}]
     seeds = SeedCurator().load_seeds(DatasetSpec(records=recs, category_field="category"))
     assert seeds[0].category == "humanities"
+
+
+def test_llm_classifier_fallback_when_heuristic_inconclusive():
+    # a vague prompt the keyword heuristic cannot place -> falls back to the LLM
+    client = MockLLMClient(default="humanities")
+    curator = SeedCurator(classifier_client=client)
+    recs = [{"query": "Tell me your thoughts on the meaning of it all."}]
+    seeds = curator.load_seeds(DatasetSpec(records=recs))
+    assert seeds[0].category == "humanities"
+    assert client.calls, "classifier should have been invoked"
+
+
+def test_llm_classifier_not_called_when_heuristic_succeeds():
+    client = MockLLMClient(default="humanities")
+    curator = SeedCurator(classifier_client=client)
+    recs = [{"query": "Write a python function to sort a list."}]  # clearly coding
+    seeds = curator.load_seeds(DatasetSpec(records=recs))
+    assert seeds[0].category == "coding"
+    assert not client.calls  # heuristic was sufficient
+
+
+def test_llm_classifier_invalid_response_defaults_to_general():
+    client = MockLLMClient(default="banana")  # not a valid category
+    curator = SeedCurator(classifier_client=client)
+    recs = [{"query": "Some vague musing without keywords."}]
+    seeds = curator.load_seeds(DatasetSpec(records=recs))
+    assert seeds[0].category == "general"
 
 
 def test_haystack_flag_on_long_query():

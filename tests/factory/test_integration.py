@@ -40,26 +40,24 @@ def test_end_to_end_records_validate():
         validate_record(rec.to_dict())
 
 
-def test_derived_variants_per_conversation():
+def test_one_reasoning_record_per_conversation():
     factory, cfg = _factory(1)
     records = factory.generate(DatasetSpec(records=SEED_RECORDS),
                                n_conversations=3, band="basic")
-    # 3 variants (reasoning, instruct, mixed) per built conversation
-    modes = [r.mode for r in records]
-    assert modes.count("reasoning") == modes.count("instruct") == modes.count("mixed")
-    assert len(records) == 3 * factory.stats.conversations_built
+    # exactly one reasoning-mode record per built conversation (no variants)
+    assert all(r.mode == "reasoning" for r in records)
+    assert len(records) == factory.stats.conversations_built
+    assert factory.records == records  # collected on the factory for later saving
 
 
-def test_instruct_variant_has_no_reasoning_and_is_self_consistent():
+def test_accepts_string_and_dict_seeds():
     factory, _ = _factory(2)
-    records = factory.generate(DatasetSpec(records=SEED_RECORDS),
-                               n_conversations=4, band="basic")
-    instruct = [r for r in records if r.mode == "instruct"]
-    assert instruct
-    for rec in instruct:
-        for turn in rec.turns:
-            assert turn.reasoning is None
-            assert turn.answer is not None  # answer stands alone
+    records = factory.generate(
+        ["Explain entropy.", {"query": "Reverse a linked list."}],
+        n_conversations=2, band="basic")
+    assert len(records) == 2
+    for rec in records:
+        validate_record(rec.to_dict())
 
 
 def test_ledger_facts_have_history_and_recalls_resolve():

@@ -35,7 +35,9 @@ Seed Curator → [ Responder → Verifier → User-Simulator → Fact-Ledger/Nee
 | `ConstraintVerifier` | `verifiers/` | Per-response, language-aware programmatic checkers |
 | `UserSimulator` | `user_simulator.py` | `(intent × policy)` sampler + structured `constraint_spec` emission |
 | `FactLedger` / `NeedlePlanner` | `ledger.py` | Plant / recall / update facts; schedule delayed recalls |
-| `SegmentWriter` | `writer.py` | Typed segments + derived reasoning/instruct/mixed variants |
+| `SegmentWriter` | `writer.py` | Typed segments + JSONL writing |
+| `FactoryDatasetPostprocessor` | `dataset.py` | Build / append a HuggingFace dataset |
+| `derive_variants` | `variants.py` | **Separate** reasoning→instruct/mixed post-processing |
 | `ConversationLoop` | `loop.py` | Orchestrates the alternating loop with regen / resample / discard rules |
 | `DataFactory` | `factory_runner.py` | High-level entry point |
 
@@ -53,40 +55,80 @@ Seed Curator → [ Responder → Verifier → User-Simulator → Fact-Ledger/Nee
   hardcoded `if`s. The sampler draws the two axes independently and resamples on
   an invalid pair.
 
-## Quick start (deterministic, no network)
+## Typical workflow (one of many parallel sessions)
+
+In practice you run 10-20 notebook sessions of this factory in parallel, each
+generating conversations and appending them to a shared HuggingFace dataset:
 
 ```python
 import random
-from rxai_sdg.factory import (
-    DataFactory, FactoryConfig, MockLLMClient, DatasetSpec, validate_record,
-)
+from rxai_sdg.factory import DataFactory, FactoryConfig, OpenAILLMClient
+
+# 1. initialise factory + clients (Responder and Simulator are different models)
+cfg = FactoryConfig(seed=0)
+responder = OpenAILLMClient(model_name="gpt-4", api_key="sk-...")        # strong teacher
+simulator = OpenAILLMClient(model_name="gpt-4o-mini", api_key="sk-...")  # different model
+factory = DataFactory(cfg, responder, simulator_client=simulator)        # simulator also
+                                                                          # serves as the
+                                                                          # category classifier
+
+# 2. provide seeds as a list of strings or dicts with a 'query' field
+seeds = ["Explain how entropy relates to information.",
+         {"query": "Outline a function to reverse a linked list."}]
+
+# 3. run the pipeline over all seeds -> ONE reasoning-mode record per conversation
+records = factory.generate(seeds, band="generalization")
+
+# 4. save to a HuggingFace dataset: append to an existing one or create a new one
+factory.save_to_hub("org/rxt-factory", config_name="default", split="train",
+                    token="hf_...", append=True)
+```
+
+The category/domain of each seed is **inferred** (a keyword heuristic, with an
+optional LLM classifier fallback when the heuristic is inconclusive) — you do not
+need to tag seeds.
+
+### Deterministic, no-network example
+
+```python
+import random
+from rxai_sdg.factory import DataFactory, FactoryConfig, MockLLMClient, validate_record
 from rxai_sdg.factory.testing import constraint_satisfying_handler
 
-cfg = FactoryConfig(seed=0)
-client = MockLLMClient(handler=constraint_satisfying_handler)
-factory = DataFactory(cfg, client, rng=random.Random(0))
-
-records = factory.generate(
-    DatasetSpec(records=[{"query": "Explain how entropy relates to information.",
-                          "category": "stem"}]),
-    n_conversations=4, band="basic",
-)
+factory = DataFactory(FactoryConfig(seed=0),
+                      MockLLMClient(handler=constraint_satisfying_handler),
+                      rng=random.Random(0))
+records = factory.generate(["Explain how entropy relates to information."], band="basic")
 for rec in records:
     validate_record(rec.to_dict())
 factory.write_jsonl(records, "out.jsonl")
 ```
 
-## Real run (two separate models)
+### HuggingFace output
+
+Records are written to a stable, append-safe row schema: scalar/seed fields are
+native columns; the variable-keyed nested parts (`turns`, `fact_ledger`,
+`cross_turn_checks`, `holistic_score`) are stored as JSON strings so that many
+independent sessions can append to the same dataset without Arrow schema
+conflicts. Use `FactoryDatasetPostprocessor` directly for more control, and
+`record_to_row` / `row_to_record` to convert.
 
 ```python
-from rxai_sdg.factory import DataFactory, FactoryConfig, OpenAILLMClient, DatasetSpec
+from rxai_sdg.factory import FactoryDatasetPostprocessor
+post = FactoryDatasetPostprocessor(records, dataset_id="org/rxt-factory", token="hf_...")
+post.push_to_hf_hub(append=True)   # load existing + concatenate, or create new
+```
 
-cfg = FactoryConfig(seed=0)
-responder = OpenAILLMClient(model_name="gpt-4", api_key="sk-...")          # strong teacher
-simulator = OpenAILLMClient(model_name="gpt-4o-mini", api_key="sk-...")    # different model
-factory = DataFactory(cfg, responder, simulator_client=simulator)
-records = factory.generate(DatasetSpec(records=my_records), n_conversations=500,
-                           band="generalization")
+## Derived training variants are a separate step (spec §8)
+
+Generation emits exactly **one** reasoning-mode record per conversation. Deriving
+the `instruct` (reasoning stripped) and `mixed` variants is a deterministic
+post-processing step you run independently later, over an already-generated
+dataset:
+
+```python
+from rxai_sdg.factory.variants import derive_variants
+reasoning, instruct, mixed = derive_variants(record, ["reasoning", "instruct", "mixed"])
 ```
 
 ## CLI / batch runner
@@ -103,11 +145,12 @@ python -m rxai_sdg.factory.cli --seeds seeds.jsonl --n 100 --config factory.json
 
 ## Reasoning → derived training examples (spec §8)
 
-Every conversation is generated in **reasoning mode**; the writer then derives
-multiple self-consistent training records by deterministic post-processing:
-`reasoning` (all `<think>` kept), `instruct` (all stripped), `mixed` (a sampled
-subset kept). A regex self-containment pass flags answers with dangling
-references to removed reasoning ("as computed above", "from step 2").
+Every conversation is generated in **reasoning mode** and the factory emits one
+such record per conversation. The derived `instruct` (all `<think>` stripped) and
+`mixed` (a sampled subset kept) variants are produced later by the **separate**
+`rxai_sdg.factory.variants.derive_variants` post-processing step. That step runs a
+regex self-containment pass flagging answers with dangling references to removed
+reasoning ("as computed above", "from step 2").
 
 ## Multilingual surface (spec §9)
 
