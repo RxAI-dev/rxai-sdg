@@ -134,7 +134,6 @@ class OpenAILLMClient:
                 temperature=temperature,
                 top_p=kwargs.get("top_p", self.default_top_p),
                 timeout=kwargs.get("timeout", 120),
-                **default_additional_config,
             )
         except Exception as exc:  # pragma: no cover - network dependent
             print("API Error", exc)
