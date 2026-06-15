@@ -23,6 +23,68 @@ from typing import Any
 _RECALL_RE = re.compile(r"[Ww]hat is my ([^?]+)\?")
 _ACTIVE_LINE_RE = re.compile(r"-\s*\((?:standing|cumulative)\)\s*(\w+)\s*(\{[^}]*\})?")
 
+# --- user-simulator side -----------------------------------------------------
+# The simulator embeds a machine-readable STEER block in its prompt; this handler
+# realises the same turn deterministically (no LLM) for the integration / quality
+# / concurrency tests, producing user messages that the responder handler below
+# can satisfy. Verbosity is reflected so generated lengths vary across a batch.
+
+_STEER_RE = re.compile(r"=== STEER ===\n(.*?)\n=== END STEER ===", re.DOTALL)
+
+_MEDIUM_FILLER = "Take your time and be precise about it."
+_LONG_FILLER = (
+    "I have been mulling this over for a while and I want to get it exactly right, "
+    "so please do not rush the explanation and feel free to add any nuance that "
+    "you think genuinely matters here, even if it makes the reply longer.")
+
+
+def _parse_steer(prompt: str) -> dict[str, str]:
+    m = _STEER_RE.search(prompt)
+    if not m:
+        return {}
+    steer: dict[str, str] = {}
+    for line in m.group(1).splitlines():
+        if ":" in line:
+            key, _, val = line.partition(":")
+            steer[key.strip()] = val.strip()
+    return steer
+
+
+def _lengthen(base: str, length: str) -> str:
+    if length == "short":
+        return base
+    if length == "long":
+        return f"{base} {_LONG_FILLER}"
+    return f"{base} {_MEDIUM_FILLER}"
+
+
+def simulator_user_turn_handler(prompt: str, system_prompt: str = "", **kwargs: Any) -> str:
+    """Realise the simulator's STEER into a natural, responder-parseable user turn."""
+    steer = _parse_steer(prompt)
+    op = steer.get("op", "request_constraint")
+    length = steer.get("length", "medium")
+
+    if op == "plant_fact":
+        label, value = steer.get("fact_label", "note"), steer.get("fact_value", "")
+        base = (f"Before we go on, there is one detail worth recording: my {label} "
+                f"is {value}. Anyway, back to the matter at hand.")
+    elif op == "recall_fact":
+        label = steer.get("fact_label", "note")
+        base = f"Quick memory check before we continue. What is my {label}?"
+    elif op == "update_fact":
+        label, value = steer.get("fact_label", "note"), steer.get("fact_value", "")
+        base = (f"One change on my side: please update my {label} to {value}. "
+                f"What is my {label}?")
+    elif op == "continue_topic":
+        topic = steer.get("topic", "this")
+        base = f"Staying on {topic}, what else really matters here?"
+    else:  # request_constraint / continue_topic
+        # ``say`` is already a direct second-person request ("reformat your previous
+        # answer as ...") naming the exact constraint; phrase it as a polite ask.
+        say = steer.get("say", "revise your previous answer")
+        base = f"Could you {say}?"
+    return _lengthen(base, length)
+
 
 def _last_fact_value(prompt: str, readable: str) -> str | None:
     pat = re.compile(rf"my {re.escape(readable)} (?:is|to) ([^.?!\n]+)", re.IGNORECASE)

@@ -110,3 +110,124 @@ overwritten again; `cross_turn.py` (preserved) re-checks against the final ledge
 value, a conservative metric artifact — the turn itself recalls the correct value
 and is marked `passed`, and every value did appear in the text (no desync).
 Parallel and serial runs produce byte-identical records and identical stats.
+
+---
+
+# PASS 2 — User-Simulator rewrite + responder reasoning capture
+
+Two concentrated problems from the previous pass remained: the User-Simulator was
+still effectively templated (it emitted canned query strings, was denied the
+conversation history, capped queries at 192 tokens, and planted facts as
+same-turn non-sequiturs), and responder `reasoning` segments were empty. This
+pass rewrites the simulator to be genuinely LLM-driven and fixes the reasoning
+capture path.
+
+## 1. User-Simulator — deleted vs rewritten
+
+### Deleted (the bug)
+- **All hardcoded query strings in `constraints.py`.** `BuildResult.nl_query` is
+  gone; every `build_*` now returns only the machine-checkable `constraint_spec`.
+  `constraints.py` emits **no user-facing query text**.
+- `UserSimulator._open_chat_query` and `_chained_compute_query` (the second
+  hardcoded overwrite in `_finalize`).
+- The `max_tokens=192` cap in the LLM phrasing call (it biased toward short
+  queries). The simulator passes **no** `max_tokens`; the sampled **verbosity
+  target** controls length.
+- The deterministic fact templates ("By the way, my X is V. What is my X?") and
+  the value-verbatim-by-construction approach. Facts are now woven in **by the
+  LLM**.
+- The old `_phrase_with_llm` design that passed **only `prior_turns[-1].answer`**.
+- The whole `fact_recall + immediate` plant-and-recall-in-one-turn path — it
+  tested no memory.
+
+### Rewritten (`user_simulator.py`, query side of `constraints.py`)
+The simulator is now a **genuine, LLM-driven user that sees the full transcript**.
+Per turn it:
+1. samples a temporally-valid `(intent, policy)` (`_temporally_valid` kept as-is);
+2. builds the exact `constraint_spec` **programmatically** (params chosen in code:
+   `first_letter='A'`, `format='json'`, `forbidden_token='important'`,
+   `max_words=30`, …) — the spec stays machine-checkable;
+3. samples a **persona** (curious / skeptical / frustrated / enthusiastic /
+   terse-expert / casual, no immediate repeat) and a **verbosity** target
+   (short ↔ long);
+4. drives the instruct LLM with the **entire conversation** + a steer that, for
+   verifiable constraints, instructs it to *explicitly and naturally request that
+   exact constraint*; for `llm_judge` intents it writes a natural follow-up of
+   that type grounded in the prior answer/topic;
+5. runs a **post-generation coherence check** (verifiable: query mentions the
+   format/letter/forbidden word/length; fact: value present for plant/update,
+   absent for recall, fact named) and **regenerates once, then resamples** the
+   intent (reusing the existing resample budget). There is **no second pass** and
+   **no canned-string fallback** (the fallback is itself an LLM call).
+
+The simulator **system prompt** now enforces the user role ("never answer your
+own question, never ask the assistant to pose a question, never speak as the
+assistant"), grounding in real content, intent realisation, and persona/length
+diversity.
+
+### Fact lifecycle (across turns, never same-turn)
+- **Plant** (`fact_recall + immediate`): the LLM weaves the exact value into a
+  natural, topical turn; the value is asserted present and the fact marked
+  `injected`. The plant turn carries an `llm_judge` spec (it is *not* answer-gated
+  — the assistant just acknowledges).
+- **Recall** (`fact_recall + delayed_recall`, ≥ `min_recall_distance` later, a
+  different turn): the LLM asks about the fact **without restating the value**;
+  the recall only fires against an already-`injected` fact (no desync).
+- **Update** (`fact_update`): the LLM states a new value; a subsequent recall
+  returns the latest. `NeedlePlanner.update_value_for` now picks a value distinct
+  from the **entire history** (not just the current value), so an "update" never
+  coincides with a stale value (which the `fact_update` checker would flag).
+
+### Fact diversity
+The plant pool grew from 6 to 13 varied kinds (names, places, numbers,
+preferences, dates, codenames, tiers, seats, …) and is sampled **without
+immediate repetition** across a batch.
+
+## 2. Responder reasoning capture (`responder.py`, `clients.py`)
+
+Root cause: the OpenAI-compatible endpoint returns reasoning in a **separate
+`message.reasoning_content` field**, but the text-only helper
+(`BaseDatasetGenerator.generate_items`) returned `content` only and dropped it.
+
+Fix — **both paths implemented, the field preferred**:
+- `OpenAILLMClient.generate` now accesses the **raw** chat-completion. It sets
+  `LLMResponse.reasoning = message.reasoning_content` when present; the Ollama
+  path is left to inline parsing. It **logs the first raw response**
+  (`reasoning_content present=…; inline_think=…`) so the live path can be
+  verified against the endpoint.
+- `Responder._segment_response` prefers the `reasoning_content` field (stripping
+  any `<think>` block/tag from the answer); when absent it falls back to inline
+  `<think>…</think>` parsing. `reasoning_flag = bool(reasoning.strip())`.
+- New `LoopStats.reasoning_missing` counter (incremented when a reasoning-mode
+  responder turn yields empty reasoning) makes endpoint misconfiguration visible.
+- The simulator client stays on the **instruct** model — no reasoning captured
+  for it.
+
+## 3. Tests (`tests/factory/`)
+
+| File | Coverage added/updated |
+|------|------------------------|
+| `test_user_simulator_grounding.py` | Rewritten for the LLM-driven contract (scripted Mock realising the STEER): full transcript reaches the client; **no** `max_tokens` cap; verifiable turns mention the exact constraint; plant/recall are **separate** turns and recall never restates the value; update states the new value; persona + length + query-length diversity; user role never inverted; **grep test** that no hardcoded query strings remain in `constraints.py` / `user_simulator.py`. |
+| `test_responder_parsing.py` | `reasoning_content` field → non-empty `reasoning`, `reasoning_flag=True`, think stripped from answer; inline `<think>` fallback; `reasoning_missing` set when expected-but-absent; `reasoning_missing` increments in `LoopStats`. |
+| `test_constraints.py` | `fact_recall + immediate` is a plant-only `llm_judge` spec; no `nl_query`. |
+| `test_integration.py`, `test_sample_quality.py`, `test_concurrency.py`, `test_loop_coherence.py` | Now pass a dedicated simulator Mock (`simulator_user_turn_handler`). |
+
+`python -m pytest tests -q` → **140 passed**.
+
+## 4. Measured behaviour (deterministic Mock, 6 seeds × generalization band 25–35)
+
+- conversations = 6, turns = 192; **reasoning segment present on 192/192 turns**;
+  `reasoning_missing = 0`, `malformed = 0`.
+- query length (words): min 9, p50 20, mean 29, max 66 — genuinely variable, no
+  192-token cap.
+- persona spread over 59 turns: curious 7 / skeptical 10 / frustrated 10 /
+  enthusiastic 11 / terse-expert 9 / casual 12; verbosity short 17 / medium 18 /
+  long 24.
+- all 12 intents and all 4 distance policies covered.
+- cross-turn: `update_overwrite` 12/12, `standing` 265/279, `delayed_recall` 6/10
+  — the `delayed_recall` misses are the same preserved-`cross_turn.py` artifact
+  (a recall that was correct at its turn, re-checked against a value the fact was
+  later updated to); those recall turns themselves pass at turn level.
+- reasoning-capture path: implemented field-first with inline fallback; the
+  `OpenAILLMClient` one-shot raw log confirms which path fires on the live
+  endpoint (offline here, so verified via unit tests for both branches).

@@ -28,7 +28,7 @@ from .clients import MockLLMClient, OpenAILLMClient
 from .config import FactoryConfig
 from .factory_runner import DataFactory
 from .schemas import validate_record
-from .testing import constraint_satisfying_handler
+from .testing import constraint_satisfying_handler, simulator_user_turn_handler
 
 
 def _load_seed_records(path: str) -> list:
@@ -99,7 +99,9 @@ def run(args: argparse.Namespace) -> int:
 
     if args.smoke:
         responder_client = MockLLMClient(handler=constraint_satisfying_handler)
-        simulator_client = None  # use deterministic templates
+        # the simulator is fully LLM-driven; the smoke run scripts a deterministic
+        # mock that realises the STEER into a natural user turn.
+        simulator_client = MockLLMClient(handler=simulator_user_turn_handler)
     else:
         responder_client = OpenAILLMClient(
             model_name=args.responder_model, api_url=args.api_url,

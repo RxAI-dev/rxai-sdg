@@ -29,8 +29,11 @@ from .schemas import Fact
 from .verifiers.universal import _value_present
 
 
-# A small pool of plantable facts. Each entry yields a (fact_type, value)
-# builder. Values are chosen to be distinctive and exact-matchable.
+# A varied pool of plantable facts spanning names, places, numbers, preferences,
+# dates and project codenames. Each entry yields a (fact_type, value) builder;
+# values are chosen to be distinctive and exact-matchable. A larger, varied pool
+# (sampled without immediate repetition, see ``plant_fact``) keeps the planted
+# memories diverse across a batch rather than reusing deadline / favourite colour.
 _FACT_KINDS = [
     ("favorite_color", lambda r: r.choice(
         ["teal", "crimson", "amber", "indigo", "magenta", "olive"])),
@@ -43,6 +46,18 @@ _FACT_KINDS = [
         ["Tuesday", "the 14th", "next Friday", "March 3rd", "end of quarter"])),
     ("pet_name", lambda r: r.choice(
         ["Biscuit", "Nimbus", "Pebble", "Mango", "Sergeant", "Waffles"])),
+    ("mentor_name", lambda r: r.choice(
+        ["Okafor", "Priya", "Halloran", "Agnès", "Devlin", "Whitlock"])),
+    ("office_city", lambda r: r.choice(
+        ["Trondheim", "Cordoba", "Nagasaki", "Wellington", "Reykjavik", "Salta"])),
+    ("badge_number", lambda r: str(r.randint(10000, 99999))),
+    ("subscription_tier", lambda r: r.choice(
+        ["Bronze", "Platinum", "Founder", "Sapphire", "Tier-3"])),
+    ("anniversary_date", lambda r: r.choice(
+        ["June 9th", "the 22nd", "October 1st", "next spring", "December 30th"])),
+    ("preferred_language", lambda r: r.choice(
+        ["Rust", "Basque", "Esperanto", "Haskell", "Swahili", "Kotlin"])),
+    ("seat_number", lambda r: f"{r.choice('ABCDEF')}{r.randint(1, 42)}"),
 ]
 
 
@@ -123,6 +138,8 @@ class NeedlePlanner:
         self.ledger = ledger
         self.rng = rng or random.Random()
         self.min_distance = min_distance
+        #: last randomly-chosen fact type, to avoid immediate repetition in a batch
+        self._last_kind: Optional[str] = None
 
     # ---------------------------------------------------------------- planting
     def plant_fact(self, turn: int, fact_type: Optional[str] = None) -> Fact:
@@ -133,7 +150,11 @@ class NeedlePlanner:
         :meth:`UserSimulator` for the enforced confirm-then-mark step).
         """
         if fact_type is None:
-            fact_type, value_fn = self.rng.choice(_FACT_KINDS)
+            # sample without immediate repetition so a batch sees a varied pool
+            choices = [(ft, fn) for ft, fn in _FACT_KINDS if ft != self._last_kind] \
+                or _FACT_KINDS
+            fact_type, value_fn = self.rng.choice(choices)
+            self._last_kind = fact_type
         else:
             value_fn = next(
                 (fn for ft, fn in _FACT_KINDS if ft == fact_type),
@@ -203,15 +224,20 @@ class NeedlePlanner:
         return facts[-1] if facts else None
 
     def update_value_for(self, fact: Fact, turn: int) -> Fact:
-        """Pick a fresh distinct value and apply it as an overwrite."""
+        """Pick a fresh value distinct from **every** prior value and overwrite.
+
+        Distinct-from-history (not merely from the current value) matters because
+        the ``fact_update`` checker requires all stale values to be absent: a "new"
+        value that coincides with an earlier one would read as a stale leak.
+        """
         value_fn = next(
             (fn for ft, fn in _FACT_KINDS if ft == fact.fact_type),
             lambda r: r.randint(1, 999),
         )
+        seen = {str(h["value"]) for h in fact.value_history}
         new_value = value_fn(self.rng)
-        # ensure it differs from the current value
-        for _ in range(5):
-            if str(new_value) != str(fact.value):
+        for _ in range(20):
+            if str(new_value) not in seen:
                 break
             new_value = value_fn(self.rng)
         return self.ledger.update(fact.fact_id, new_value, turn)

@@ -20,7 +20,9 @@ from rxai_sdg.factory.responder import has_cot_leak, is_memory_disclaimer
 from rxai_sdg.factory.taxonomy import (
     FACT_INTENTS, TRANSFORMATION_INTENTS,
 )
-from rxai_sdg.factory.testing import constraint_satisfying_handler
+from rxai_sdg.factory.testing import (
+    constraint_satisfying_handler, simulator_user_turn_handler,
+)
 
 SEEDS = [
     "Explain how entropy relates to information.",
@@ -36,8 +38,9 @@ _OPERATES_ON_PRIOR = {"chained_compute", "self_critique", "deepen"}
 @pytest.fixture(scope="module")
 def batch():
     cfg = FactoryConfig(seed=5, concurrency=8)
-    client = MockLLMClient(handler=constraint_satisfying_handler)
-    factory = DataFactory(cfg, client, rng=random.Random(5))
+    responder = MockLLMClient(handler=constraint_satisfying_handler)
+    simulator = MockLLMClient(handler=simulator_user_turn_handler)
+    factory = DataFactory(cfg, responder, simulator_client=simulator, rng=random.Random(5))
     return factory.generate(SEEDS, band="generalization")
 
 

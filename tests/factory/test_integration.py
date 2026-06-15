@@ -10,7 +10,9 @@ import random
 from rxai_sdg.factory import (
     DataFactory, FactoryConfig, MockLLMClient, validate_record,
 )
-from rxai_sdg.factory.testing import constraint_satisfying_handler
+from rxai_sdg.factory.testing import (
+    constraint_satisfying_handler, simulator_user_turn_handler,
+)
 
 
 SEEDS = [
@@ -23,8 +25,9 @@ SEEDS = [
 
 def _factory(seed=0):
     cfg = FactoryConfig(seed=seed)
-    client = MockLLMClient(handler=constraint_satisfying_handler)
-    return DataFactory(cfg, client, rng=random.Random(seed))
+    responder = MockLLMClient(handler=constraint_satisfying_handler)
+    simulator = MockLLMClient(handler=simulator_user_turn_handler)
+    return DataFactory(cfg, responder, simulator_client=simulator, rng=random.Random(seed))
 
 
 def test_one_record_per_seed_and_records_validate():
