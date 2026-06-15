@@ -10,7 +10,15 @@ Modules:
 
 __version__ = "0.1.33"
 
-from .base import BaseDatasetGenerator, default_additional_config
+# The base module pulls in optional heavy dependencies (openai / ollama). Keep
+# the top-level import resilient so dependency-light subpackages such as
+# ``rxai_sdg.factory`` remain importable (and unit-testable) even when those
+# providers are not installed.
+try:
+    from .base import BaseDatasetGenerator, default_additional_config
+except ImportError:  # pragma: no cover - exercised only without openai/ollama
+    BaseDatasetGenerator = None  # type: ignore[assignment]
+    default_additional_config = None  # type: ignore[assignment]
 
 __all__ = [
     "BaseDatasetGenerator",

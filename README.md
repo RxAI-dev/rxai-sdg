@@ -25,6 +25,7 @@ This library provides synthetic dataset generators for training Reactive Languag
 | `rxai_sdg.mrl` | Memory Reinforcement Learning datasets | MRL stage |
 | `rxai_sdg.sft` | Supervised Fine-Tuning datasets | Interaction SFT |
 | `rxai_sdg.hybrid` | Hybrid Reasoning & DMPO datasets | RxT-Beta advanced training |
+| `rxai_sdg.factory` | Multi-turn "Data Factory" (taxonomy-driven conversations) | iSFT → Memory Attn Init → SMAT → DMPO + distillation |
 
 ## Quick Start
 
@@ -617,6 +618,47 @@ generator(
     stream=True
 )
 ```
+
+## Data Factory (Multi-Turn Conversation Generator)
+
+The `rxai_sdg.factory` module generates high-quality, multi-turn conversational
+training data for **stateful** Reactive Transformer (RxT / rc-RxT) models. It is
+**stateless** (produces text only — no STM/memory machinery) and orchestrates two
+separate LLMs (a Responder/Teacher and a User-Simulator) in an alternating loop
+seeded from existing datasets, deliberately covering a typed **taxonomy of
+follow-up intents × memory-distance policies** weighted toward the capabilities
+current models fail on.
+
+```python
+from rxai_sdg.factory import DataFactory, FactoryConfig, OpenAILLMClient
+
+cfg = FactoryConfig(seed=0)
+responder = OpenAILLMClient(model_name="gpt-4", api_key="sk-...")        # strong teacher
+simulator = OpenAILLMClient(model_name="gpt-4o-mini", api_key="sk-...")  # different model
+factory = DataFactory(cfg, responder, simulator_client=simulator)
+
+# seeds: a list of prompt strings or dicts with a 'query' field (category inferred)
+seeds = ["Explain how entropy relates to information.",
+         {"query": "Outline a function to reverse a linked list."}]
+
+records = factory.generate(seeds, band="generalization")  # one record per conversation
+factory.save_to_hub("org/rxt-factory", token="hf_...", append=True)  # append or create
+```
+
+CLI (including a deterministic, no-network smoke test and optional HF push):
+
+```bash
+python -m rxai_sdg.factory.cli --smoke -n 5 --band basic --out out.jsonl
+python -m rxai_sdg.factory.cli --seeds seeds.jsonl --n 100 --config factory.json \
+    --responder-model gpt-4 --simulator-model gpt-4o-mini --api-key $OPENAI_API_KEY \
+    --hf-dataset org/rxt-factory --hf-token $HF_TOKEN
+```
+
+Each conversation yields one reasoning-mode record; deriving `instruct` / `mixed`
+training variants is a separate post-processing step (`factory.variants`). See
+[`src/rxai_sdg/factory/README.md`](src/rxai_sdg/factory/README.md) for the full
+architecture, taxonomy, output schema, verification levels, and multilingual
+extension points.
 
 ## License
 
