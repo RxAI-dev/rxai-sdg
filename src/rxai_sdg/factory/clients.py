@@ -73,7 +73,8 @@ class OpenAILLMClient:
         api_key: Optional[str] = None,
         use_ollama: bool = False,
         default_top_p: float = 0.9,
-        log_first_raw: bool = True,
+        log_first_raw: bool = False,
+        reasoning_field_name: str = 'reasoning',
     ):
         # Imported lazily to keep the factory package import-light.
         from ..base import BaseDatasetGenerator
@@ -93,6 +94,7 @@ class OpenAILLMClient:
         #: against the live endpoint (field vs inline ``<think>``).
         self._log_first_raw = log_first_raw
         self._logged_raw = False
+        self._reasoning_field_name = reasoning_field_name
 
     def generate(
         self,
@@ -140,11 +142,11 @@ class OpenAILLMClient:
 
         message = completion.choices[0].message
         text = getattr(message, "content", None) or ""
-        reasoning = getattr(message, "reasoning_content", None)
+        reasoning = getattr(message, self._reasoning_field_name, None)
         if self._log_first_raw and not self._logged_raw:  # pragma: no cover
             self._logged_raw = True
             has_field = reasoning is not None
-            print(f"[OpenAILLMClient] first raw response: reasoning_content "
+            print(f"[OpenAILLMClient] first raw response: {self._reasoning_field_name} "
                   f"present={has_field}; content_len={len(text)}; "
                   f"inline_think={'<think>' in text}")
         # Logit capture is not wired through the shared OpenAI helper; callers
