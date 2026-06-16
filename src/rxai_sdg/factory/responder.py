@@ -140,6 +140,22 @@ def split_reasoning_answer(text: str) -> tuple[str, str]:
     return (parsed.reasoning or ""), parsed.answer
 
 
+# "standing instruction" is reserved schema vocabulary in this system (it named
+# the old raw-spec note). A native-reasoning model occasionally uses it as plain
+# English when an active standing constraint exists. That is not a schema leak,
+# but it collides with our reserved term, so we normalize the exact phrase to a
+# meaning-preserving synonym in the captured reasoning. The genuine schema tokens
+# (json_valid, top_type, forbidden_token, constraint_spec) are never English and
+# are handled by the loop's spec-leak coherence gate instead.
+_RESERVED_PHRASE_RE = re.compile(r"\bstanding (instruction)", re.IGNORECASE)
+
+
+def _normalize_reasoning(text: Optional[str]) -> Optional[str]:
+    if not text:
+        return text
+    return _RESERVED_PHRASE_RE.sub(r"ongoing \1", text)
+
+
 def is_memory_disclaimer(answer: str) -> bool:
     """True if ``answer`` denies having conversational memory (§4.1)."""
     return bool(_MEMORY_DISCLAIMER_RE.search(answer or ""))
@@ -214,6 +230,7 @@ class Responder:
             capture_logits=self.capture_logits,
         )
         parsed = _segment_response(getattr(resp, "reasoning", None), resp.text)
+        parsed.reasoning = _normalize_reasoning(parsed.reasoning)
 
         reasoning_flag = bool(parsed.reasoning and parsed.reasoning.strip())
         reasoning_missing = self.reasoning_mode and not reasoning_flag
