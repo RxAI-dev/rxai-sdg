@@ -61,19 +61,20 @@ def build_factory(args) -> DataFactory:
     judge_base = os.environ.get("JUDGE_BASE_URL") or base
     judge_key = os.environ.get("JUDGE_API_KEY") or key
 
+    t = args.request_timeout
     responder = OpenAILLMClient(
         model_name=_env("RESPONDER_MODEL", "Qwen3.5-397B-A17B"),
         api_url=base, api_key=key, reasoning_field_name="reasoning",
-        log_first_raw=args.log_raw)
+        log_first_raw=args.log_raw, timeout=t)
     simulator = OpenAILLMClient(
         model_name=_env("SIMULATOR_MODEL", "Qwen3-Coder-30B-A3B-Instruct"),
-        api_url=base, api_key=key)
+        api_url=base, api_key=key, timeout=t)
     curator = OpenAILLMClient(
-        model_name=_env("CURATOR_MODEL", "Qwen3.6-27B"),
-        api_url=base, api_key=key)
+        model_name=_env("CURATOR_MODEL", "Mistral-Small-3.2-24B-Instruct-2506"),
+        api_url=base, api_key=key, timeout=t)
     judge = OpenAILLMClient(
         model_name=_env("JUDGE_MODEL", "gpt-oss-120b"),
-        api_url=judge_base, api_key=judge_key)
+        api_url=judge_base, api_key=judge_key, timeout=t)
 
     cfg = FactoryConfig(
         seed=args.seed,
@@ -104,6 +105,7 @@ def main(argv=None) -> int:
     ap.add_argument("--min-turns", type=int, default=6)
     ap.add_argument("--max-turns", type=int, default=9)
     ap.add_argument("--max-tokens", type=int, default=8000)
+    ap.add_argument("--request-timeout", type=float, default=240)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--memory-ratio", type=float, default=0.2)
     ap.add_argument("--transform-ratio", type=float, default=0.3)

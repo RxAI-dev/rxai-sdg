@@ -75,6 +75,7 @@ class OpenAILLMClient:
         default_top_p: float = 0.9,
         log_first_raw: bool = False,
         reasoning_field_name: str = 'reasoning',
+        timeout: float = 120,
     ):
         # Imported lazily to keep the factory package import-light.
         from ..base import BaseDatasetGenerator
@@ -95,6 +96,9 @@ class OpenAILLMClient:
         self._log_first_raw = log_first_raw
         self._logged_raw = False
         self._reasoning_field_name = reasoning_field_name
+        #: default per-request timeout (seconds); slow reasoning models under high
+        #: concurrency need a generous value or calls time out and regenerate.
+        self.timeout = timeout
 
     def generate(
         self,
@@ -113,7 +117,7 @@ class OpenAILLMClient:
                 prompt=prompt, system_prompt=system_prompt, temperature=temperature,
                 top_p=kwargs.get("top_p", self.default_top_p), max_tokens=max_tokens,
                 stream=kwargs.get("stream", False),
-                timeout=kwargs.get("timeout", 120), additional_config={})
+                timeout=kwargs.get("timeout", self.timeout), additional_config={})
             return LLMResponse(text=text or "", reasoning=None)
 
         # OpenAI-compatible path: access the RAW response so we can capture
@@ -133,7 +137,7 @@ class OpenAILLMClient:
                 max_tokens=max_tokens,
                 temperature=temperature,
                 top_p=kwargs.get("top_p", self.default_top_p),
-                timeout=kwargs.get("timeout", 120),
+                timeout=kwargs.get("timeout", self.timeout),
             )
         except Exception as exc:  # pragma: no cover - network dependent
             print("API Error", exc)
