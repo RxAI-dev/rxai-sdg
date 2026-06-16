@@ -191,6 +191,7 @@ class ConversationLoop:
             sampler=self.sampler, planner=planner, client=self.simulator_client,
             rng=rng, lang=seed.lang,
             min_recall_distance=self.config.min_recall_distance,
+            max_intent_resamples=self.config.max_intent_resamples,
             topic=topic, seed_allowed_intents=seed_allowed,
         )
 

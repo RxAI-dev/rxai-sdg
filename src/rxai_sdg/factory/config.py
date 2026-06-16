@@ -68,6 +68,10 @@ class FactoryConfig:
     #: hard cap on total Responder calls per turn, shared across intent-resamples
     #: and regenerations (replaces the old max_intent_attempts x (K+1) worst case).
     max_responder_calls_per_turn: int = 8
+    #: hard cap on simulator intent draws per turn before falling back to an
+    #: always-valid recall-of-content turn. Bounds the per-turn *simulator* cost so
+    #: a weaker simulator model cannot explode latency with endless resamples.
+    max_intent_resamples: int = 6
 
     # -- concurrency (spec §6) ------------------------------------------------
     #: number of conversations generated in parallel via a ThreadPoolExecutor.
