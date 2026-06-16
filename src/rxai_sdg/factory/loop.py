@@ -123,6 +123,8 @@ class LoopStats:
     #: responder turns (reasoning mode expected) that yielded an empty reasoning
     #: segment - surfaces a misconfigured / non-reasoning endpoint.
     reasoning_missing: int = 0
+    #: conversations dropped by the holistic quality gate (below the score floor).
+    holistic_gated: int = 0
     downweighted: list[str] = field(default_factory=list)
 
     def merge(self, other: "LoopStats") -> None:
@@ -133,6 +135,7 @@ class LoopStats:
         self.malformed_outputs += other.malformed_outputs
         self.coherence_failures += other.coherence_failures
         self.reasoning_missing += other.reasoning_missing
+        self.holistic_gated += other.holistic_gated
         for tag in other.downweighted:
             if tag not in self.downweighted:
                 self.downweighted.append(tag)
@@ -251,8 +254,26 @@ class ConversationLoop:
         # -- holistic judge: always-on, whole conversation (fix G) --------
         if self.holistic is not None:
             record.holistic_score = self.holistic.score(turns)
+            # Quality gate: the judge is the semantic gate (it catches failures the
+            # programmatic verifier misses). Drop conversations below the floor so
+            # the emitted dataset is clean by construction.
+            if self.config.holistic_gate_enabled and not self._holistic_ok(
+                    record.holistic_score):
+                stats.holistic_gated += 1
+                return None, stats
 
         return record, stats
+
+    def _holistic_ok(self, score: Optional[dict]) -> bool:
+        if not score:
+            return True  # no score (judge unavailable) -> do not gate
+        coh = score.get("coherence")
+        appr = score.get("appropriateness")
+        if isinstance(coh, (int, float)) and coh < self.config.holistic_min_coherence:
+            return False
+        if isinstance(appr, (int, float)) and appr < self.config.holistic_min_appropriateness:
+            return False
+        return True
 
     # -------------------------------------------------------------- internals
     def _first_turn(
@@ -294,7 +315,6 @@ class ConversationLoop:
         target_length: Optional[int] = None,
     ) -> Turn:
         budget = self.config.max_responder_calls_per_turn
-        note = self._active_constraints_note(active_constraints)
         avoid: set[str] = set()
         last_turn: Optional[Turn] = None
         last_regen = 0
@@ -308,6 +328,18 @@ class ConversationLoop:
                 prior_turns, prompt_pack, idx,
                 active_constraints=active_constraints, avoid_intents=avoid,
                 turn_plan=turn_plan, target_length=target_length)
+
+            # The responder note must stay consistent with verification: when this
+            # turn's own request conflicts with an active standing/cumulative form
+            # (e.g. the user now asks for markdown while "always JSON" stands), drop
+            # the superseded rule from the prompt so the model doesn't emit a
+            # confused hybrid that satisfies neither cleanly.
+            own_type = sim.constraint_spec.type if sim.constraint_spec else None
+            applicable = [
+                a for a in active_constraints
+                if not (own_type and constraints_conflict(a.type, own_type))
+            ]
+            note = self._active_constraints_note(applicable)
 
             attempts = 0
             regenerations = 0

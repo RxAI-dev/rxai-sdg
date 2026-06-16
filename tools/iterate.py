@@ -131,6 +131,7 @@ def main(argv=None) -> int:
     print(f"\n=== generation: {n} records in {dt:.0f}s "
           f"(seeds={st.seeds_used} skipped={st.seeds_skipped} "
           f"discarded={st.conversations_discarded} "
+          f"holistic_gated={st.loop.holistic_gated} "
           f"reasoning_missing={st.loop.reasoning_missing} "
           f"malformed={st.loop.malformed_outputs} "
           f"regen={st.loop.total_regenerations} resamples={st.loop.intent_resamples}) ===\n")

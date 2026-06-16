@@ -88,6 +88,12 @@ class FactoryConfig:
     holistic_judge_enabled: bool = False    # holistic LLM judge
     holistic_judge_sample_rate: float = 0.1
     holistic_judge_gate_on_programmatic: bool = True
+    #: drop a conversation whose holistic score is below the quality floor (the
+    #: judge is the semantic gate). The thresholds mirror the ``judge_low`` detector
+    #: so the emitted dataset is clean by construction.
+    holistic_gate_enabled: bool = True
+    holistic_min_coherence: int = 6
+    holistic_min_appropriateness: int = 7
     #: rule-based seed category tagging only; no per-seed LLM classifier on the
     #: critical path unless explicitly enabled.
     seed_classifier_enabled: bool = False
