@@ -46,6 +46,11 @@ class BuildResult:
     #: When True the draw could not be satisfied (e.g. no fact far enough in the
     #: past for a delayed recall); the simulator should resample the intent.
     resample: bool = False
+    #: A natural-language *steer* (fix D): describes, in the second person, the
+    #: request the user should make this turn ("reformat your previous answer as a
+    #: single valid JSON object"). It is one input to the simulator LLM, never a
+    #: user-facing query and never raw spec internals.
+    directive: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -189,7 +194,10 @@ def build_genre_convert(ctx: BuildContext) -> BuildResult:
 
 def build_fact_recall(ctx: BuildContext) -> BuildResult:
     if ctx.policy == "delayed_recall":
-        fact = ctx.planner.recallable_fact(ctx.turn, ctx.min_recall_distance)
+        # Only ever recall a fact whose exact value already appeared in the text
+        # (no desync, never a same-turn plant+recall).
+        fact = ctx.planner.recallable_fact(
+            ctx.turn, ctx.min_recall_distance, require_injected=True)
         if fact is None:
             return BuildResult(None, resample=True)
         match = ctx.rng.choice(["exact", "fuzzy"])
@@ -197,9 +205,9 @@ def build_fact_recall(ctx: BuildContext) -> BuildResult:
             ctx, "fact_recall", {"value": fact.value, "match": match}, "programmatic",
             fact_id=fact.fact_id, planted_turn=fact.planted_turn)
         return BuildResult(spec)
-    # immediate: PLANT a new fact in this turn (no same-turn recall - the recall
-    # is a separate, later delayed_recall turn). The plant turn is not gated on
-    # the answer (the assistant just acknowledges), so it carries an llm_judge
+    # immediate: PLANT a new personal fact in this turn (no same-turn recall - the
+    # recall is a separate, later delayed_recall turn). The plant turn is not gated
+    # on the answer (the assistant just acknowledges), so it carries an llm_judge
     # spec that documents the fact without forcing the value into the answer.
     fact = ctx.planner.plant_fact(ctx.turn)
     spec = _make_spec(
@@ -209,15 +217,21 @@ def build_fact_recall(ctx: BuildContext) -> BuildResult:
 
 
 def build_fact_update(ctx: BuildContext) -> BuildResult:
-    fact = ctx.planner.recallable_fact(ctx.turn, 1) or ctx.planner.any_fact()
+    # An update only makes sense against a fact whose value actually appeared in
+    # the conversation; otherwise the stale value would be a phantom. Resample if
+    # nothing injected is updatable yet.
+    fact = ctx.planner.updatable_fact(ctx.turn, require_injected=True)
     if fact is None:
-        # nothing to update yet -> plant first, then overwrite to a new value.
-        fact = ctx.planner.plant_fact(ctx.turn)
-    stale = list(ctx.planner.ledger.stale_values(fact.fact_id)) + [fact.value]
-    ctx.planner.update_value_for(fact, ctx.turn)
+        return BuildResult(None, resample=True)
+    # The (injected) current value becomes the single stale value after overwrite.
+    # NB: we only *peek* the new value here; the ledger is overwritten by the
+    # simulator after the turn passes, so a failed/resampled update leaves no
+    # phantom value behind (which would otherwise surface as a phantom stale value).
+    stale = [fact.value]
+    new_value = ctx.planner.next_update_value(fact)
     spec = _make_spec(
         ctx, "fact_update",
-        {"value": fact.value, "match": "exact", "stale_values": stale},
+        {"value": new_value, "match": "exact", "stale_values": stale},
         "programmatic", fact_id=fact.fact_id, planted_turn=fact.planted_turn)
     return BuildResult(spec)
 
@@ -263,4 +277,60 @@ def build(ctx: BuildContext) -> BuildResult:
     builder = BUILDERS.get(ctx.intent)
     if builder is None:
         raise KeyError(f"no constraint builder for intent {ctx.intent!r}")
-    return builder(ctx)
+    result = builder(ctx)
+    if result.constraint_spec is not None and not result.directive:
+        result.directive = directive_for(ctx.intent, result.constraint_spec)
+    return result
+
+
+# ---------------------------------------------------------------------------
+# directive_for: spec -> natural-language steer (fix D)
+# ---------------------------------------------------------------------------
+#
+# The directive is the *content of the user's request* this turn, phrased in the
+# second person ("your previous answer"). It is a steer the simulator LLM rewrites
+# into a natural, persona-flavoured user message - never a ready-to-send query and
+# never raw spec internals (no ``json_valid`` / ``forbidden_token`` / ``top_type``).
+
+def directive_for(intent: str, spec: ConstraintSpec) -> str:
+    t, p = spec.type, spec.params
+    if intent == "chained_compute":
+        return ("build on your previous answer with the next logical step or "
+                "computation, and show your work")
+    if intent == "self_critique":
+        return ("look back at YOUR (the assistant's) previous answer, point out a "
+                "weakness in it, and improve it - you are asking the assistant to "
+                "self-critique, not critiquing your own writing")
+    if intent == "deepen":
+        return ("go deeper on one key point from your (the assistant's) previous "
+                "answer with a concrete example")
+    if intent == "expand":
+        return "expand your previous answer with more detail and a concrete example"
+    if t == "style":
+        return f"restyle your previous answer in {p.get('style', 'a different tone')}"
+    if t in ("genre", "limerick_structure"):
+        return f"rewrite your previous answer as a {p.get('genre', 'limerick')}"
+    if t == "json_valid":
+        return "reformat your previous answer as a single valid JSON object"
+    if t == "yaml_valid":
+        return "reformat your previous answer as valid YAML"
+    if t == "markdown_table":
+        return "reformat your previous answer as a markdown table"
+    if t == "markdown_format":
+        return "reformat your previous answer using markdown formatting (headings and bullets)"
+    if t == "first_letter":
+        return (f"rewrite your previous answer so that every sentence starts with the "
+                f"letter '{p.get('letter', 'A')}'")
+    if t == "alphabetical_sentence_starts":
+        return "rewrite your previous answer so consecutive sentences start in alphabetical order"
+    if t == "max_words_per_sentence":
+        return f"rewrite your previous answer keeping every sentence to at most {p.get('max_words')} words"
+    if t == "forbidden_token":
+        return f"rewrite your previous answer without ever using the word '{p.get('token')}'"
+    if t == "no_gendered_pronouns":
+        return "rewrite your previous answer using no gendered pronouns"
+    if t == "length_tokens":
+        return f"compress your previous answer to at most {p.get('max_words')} words"
+    if t == "n_bullets":
+        return f"compress your previous answer into exactly {p.get('n')} bullet points"
+    return "revise your previous answer"

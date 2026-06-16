@@ -145,7 +145,7 @@ def test_delayed_recall_fact_requires_distant_injected_fact():
 
 # ---- fact lifecycle (across separate turns) --------------------------------
 
-def test_planted_fact_string_appears_in_planting_turn_and_is_injected():
+def test_planted_fact_string_appears_in_planting_turn_injection_deferred():
     sim, planner, ledger = _sim(7)
     prior = _seed_turns()
     res = sim.next_query(prior, get_prompt_pack("general"), turn_index=2,
@@ -156,7 +156,9 @@ def test_planted_fact_string_appears_in_planting_turn_and_is_injected():
     assert res.grounding == "plants_fact"
     value = str(cs.params["value"])
     assert value.lower() in res.nl_query.lower()         # exact string woven in
-    assert ledger.is_injected(cs.fact_id) is True        # marked injected
+    # injection is committed by the LOOP only once the turn is accepted, so the
+    # simulator alone must NOT mark the fact injected (no phantom on a discarded turn).
+    assert ledger.is_injected(cs.fact_id) is False
 
 
 def test_recall_only_scheduled_against_injected_fact():
@@ -180,6 +182,7 @@ def test_plant_and_recall_are_separate_turns():
     fid = plant.constraint_spec.fact_id
     value = str(plant.constraint_spec.params["value"])
     assert value.lower() in plant.nl_query.lower()
+    ledger.mark_injected(fid)  # the loop commits injection once the plant is accepted
     # turn 8 (>= min_recall_distance later): recall the SAME fact, value absent
     recall = sim.next_query(prior, get_prompt_pack("general"), turn_index=8,
                             active_constraints=[],
@@ -189,11 +192,12 @@ def test_plant_and_recall_are_separate_turns():
     assert value.lower() not in recall.nl_query.lower()  # never restates the value
 
 
-def test_update_value_appears_in_query_and_marks_injected():
+def test_update_value_appears_in_query_commit_deferred():
     sim, planner, ledger = _sim(8)
     prior = _seed_turns()
     f = planner.plant_fact(turn=1, fact_type="favorite_color")
     ledger.mark_injected(f.fact_id)
+    original = f.value
     res = sim.next_query(prior, get_prompt_pack("general"), turn_index=3,
                          active_constraints=[],
                          forced_draw=SamplerDraw("fact_update", "immediate"))
@@ -201,7 +205,10 @@ def test_update_value_appears_in_query_and_marks_injected():
     assert cs.intent == "fact_update"
     new_value = str(cs.params["value"])
     assert new_value.lower() in res.nl_query.lower()   # the NEW value is stated
-    assert ledger.latest(cs.fact_id) == cs.params["value"]
+    assert new_value != original
+    # the overwrite is committed by the LOOP on acceptance, not by the simulator
+    assert ledger.latest(cs.fact_id) == original
+    assert cs.params["stale_values"] == [original]
 
 
 # ---- full transcript / no token cap / role / diversity (Part 3) ------------

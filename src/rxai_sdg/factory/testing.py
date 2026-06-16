@@ -21,7 +21,23 @@ import re
 from typing import Any
 
 _RECALL_RE = re.compile(r"[Ww]hat is my ([^?]+)\?")
-_ACTIVE_LINE_RE = re.compile(r"-\s*\((?:standing|cumulative)\)\s*(\w+)\s*(\{[^}]*\})?")
+
+# The active-constraints note is now rendered to natural language (fix F), so the
+# mock teacher detects standing/cumulative rules from their NL phrasing.
+_NL_RULE_PATTERNS: list[tuple[str, str]] = [
+    (r"single valid JSON object", "json_valid"),
+    (r"valid YAML", "yaml_valid"),
+    (r"markdown table", "markdown_table"),
+    (r"markdown \(headings", "markdown_format"),
+    (r"Never use the word '([^']+)'", "forbidden_token"),
+    (r"Never use gendered pronouns", "no_gendered_pronouns"),
+    (r"every sentence to at most (\d+) words", "max_words_per_sentence"),
+    (r"whole response to at most (\d+) words", "length_tokens"),
+    (r"exactly (\d+) bullet", "n_bullets"),
+    (r"Start every sentence with the letter '([A-Za-z])'", "first_letter"),
+    (r"alphabetical order", "alphabetical_sentence_starts"),
+]
+_NL_RULE_RES = [(re.compile(p), t) for p, t in _NL_RULE_PATTERNS]
 
 # --- user-simulator side -----------------------------------------------------
 # The simulator embeds a machine-readable STEER block in its prompt; this handler
@@ -78,6 +94,10 @@ def simulator_user_turn_handler(prompt: str, system_prompt: str = "", **kwargs: 
     elif op == "continue_topic":
         topic = steer.get("topic", "this")
         base = f"Staying on {topic}, what else really matters here?"
+    elif op == "recall_content":
+        topic = steer.get("topic", "this")
+        base = (f"Earlier you mentioned something about {topic}; could you expand on "
+                f"that point you made?")
     else:  # request_constraint / continue_topic
         # ``say`` is already a direct second-person request ("reformat your previous
         # answer as ...") naming the exact constraint; phrase it as a polite ask.
@@ -110,7 +130,14 @@ def constraint_satisfying_handler(prompt: str, system_prompt: str = "", **kwargs
 
 
 def _active_constraints(prompt: str) -> list[tuple[str, str]]:
-    return [(m.group(1), m.group(2) or "") for m in _ACTIVE_LINE_RE.finditer(prompt)]
+    """Detect active standing/cumulative rules from their NL rendering (fix F)."""
+    out: list[tuple[str, str]] = []
+    for rx, ctype in _NL_RULE_RES:
+        m = rx.search(prompt)
+        if m:
+            param = m.group(1) if m.groups() else ""
+            out.append((ctype, param))
+    return out
 
 
 def _wrap_form(body: str, ctype: str) -> str | None:
@@ -138,10 +165,8 @@ def _apply_active_constraint(body: str, prompt: str, kind: str) -> str:
             wrapped = _wrap_form(body, ctype)
             if wrapped is not None:
                 return wrapped
-        if kind == "plain" and ctype == "first_letter":
-            lm = re.search(r"'([A-Za-z])'", params_raw)
-            if lm:
-                return _sentences_starting_with(lm.group(1).upper())
+        if kind == "plain" and ctype == "first_letter" and params_raw:
+            return _sentences_starting_with(params_raw.upper())
         if kind == "plain" and ctype == "alphabetical_sentence_starts":
             return "Apples open it. Bananas build it. Cats close it."
     return body

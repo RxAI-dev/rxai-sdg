@@ -34,30 +34,32 @@ from .verifiers.universal import _value_present
 # values are chosen to be distinctive and exact-matchable. A larger, varied pool
 # (sampled without immediate repetition, see ``plant_fact``) keeps the planted
 # memories diverse across a batch rather than reusing deadline / favourite colour.
+#
+# IMPORTANT: only **personal details a user legitimately shares in passing** -
+# names, places, preferences, dates, pet names. NEVER account / subscription /
+# billing / system data (those correctly trigger "I can't access your account"
+# refusals from a well-aligned assistant), so types like ``subscription_tier`` and
+# ``badge_number`` are deliberately excluded.
 _FACT_KINDS = [
     ("favorite_color", lambda r: r.choice(
         ["teal", "crimson", "amber", "indigo", "magenta", "olive"])),
-    ("lucky_number", lambda r: str(r.randint(100, 9999))),
-    ("project_codename", lambda r: r.choice(
-        ["Falcon", "Meridian", "Lighthouse", "Granite", "Juniper", "Halcyon"])),
+    ("lucky_number", lambda r: str(r.randint(2, 99))),
     ("hometown", lambda r: r.choice(
         ["Brindale", "Coverton", "Ashmoor", "Veldon", "Pellbrook", "Marrow"])),
-    ("deadline", lambda r: r.choice(
-        ["Tuesday", "the 14th", "next Friday", "March 3rd", "end of quarter"])),
     ("pet_name", lambda r: r.choice(
         ["Biscuit", "Nimbus", "Pebble", "Mango", "Sergeant", "Waffles"])),
     ("mentor_name", lambda r: r.choice(
-        ["Okafor", "Priya", "Halloran", "Agnès", "Devlin", "Whitlock"])),
-    ("office_city", lambda r: r.choice(
+        ["Okafor", "Priya", "Halloran", "Agnes", "Devlin", "Whitlock"])),
+    ("hometown_city", lambda r: r.choice(
         ["Trondheim", "Cordoba", "Nagasaki", "Wellington", "Reykjavik", "Salta"])),
-    ("badge_number", lambda r: str(r.randint(10000, 99999))),
-    ("subscription_tier", lambda r: r.choice(
-        ["Bronze", "Platinum", "Founder", "Sapphire", "Tier-3"])),
-    ("anniversary_date", lambda r: r.choice(
-        ["June 9th", "the 22nd", "October 1st", "next spring", "December 30th"])),
+    ("favorite_food", lambda r: r.choice(
+        ["ramen", "paella", "dumplings", "tiramisu", "shakshuka", "pho"])),
+    ("favorite_author", lambda r: r.choice(
+        ["Le Guin", "Borges", "Calvino", "Murakami", "Atwood", "Pratchett"])),
     ("preferred_language", lambda r: r.choice(
         ["Rust", "Basque", "Esperanto", "Haskell", "Swahili", "Kotlin"])),
-    ("seat_number", lambda r: f"{r.choice('ABCDEF')}{r.randint(1, 42)}"),
+    ("childhood_street", lambda r: r.choice(
+        ["Maple Lane", "Birch Row", "Halcyon Drive", "Juniper Court", "Granite Way"])),
 ]
 
 
@@ -223,12 +225,14 @@ class NeedlePlanner:
         facts = self.ledger.facts()
         return facts[-1] if facts else None
 
-    def update_value_for(self, fact: Fact, turn: int) -> Fact:
-        """Pick a fresh value distinct from **every** prior value and overwrite.
+    def next_update_value(self, fact: Fact) -> Any:
+        """Pick a fresh value distinct from **every** prior value, WITHOUT committing.
 
-        Distinct-from-history (not merely from the current value) matters because
-        the ``fact_update`` checker requires all stale values to be absent: a "new"
-        value that coincides with an earlier one would read as a stale leak.
+        The caller commits the overwrite (``FactLedger.update``) only once the
+        update turn actually passes - otherwise a failed/resampled update would
+        leave a phantom value in the ledger (which a later update would then list as
+        a stale value that never appeared in the text). Distinct-from-history (not
+        just from the current value) keeps the ``fact_update`` checker happy.
         """
         value_fn = next(
             (fn for ft, fn in _FACT_KINDS if ft == fact.fact_type),
@@ -240,4 +244,8 @@ class NeedlePlanner:
             if str(new_value) not in seen:
                 break
             new_value = value_fn(self.rng)
-        return self.ledger.update(fact.fact_id, new_value, turn)
+        return new_value
+
+    def update_value_for(self, fact: Fact, turn: int) -> Fact:
+        """Pick a fresh value and commit it immediately (back-compat helper)."""
+        return self.ledger.update(fact.fact_id, self.next_update_value(fact), turn)

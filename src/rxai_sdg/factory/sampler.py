@@ -47,11 +47,15 @@ class IntentPolicySampler:
         self.lang_valid_intents: dict[str, set[str]] = {}
 
     # ------------------------------------------------------------------ weights
-    def _effective_intent_weights(self, lang: str) -> dict[str, float]:
-        allowed = self.lang_valid_intents.get(lang)
+    def _effective_intent_weights(
+        self, lang: str, allowed_intents: Optional[set[str]] = None,
+    ) -> dict[str, float]:
+        lang_allowed = self.lang_valid_intents.get(lang)
         out: dict[str, float] = {}
         for intent, w in self.intent_weights.items():
-            if allowed is not None and intent not in allowed:
+            if lang_allowed is not None and intent not in lang_allowed:
+                continue
+            if allowed_intents is not None and intent not in allowed_intents:
                 continue
             if not self.taxonomy.has_any_valid_pair(intent):
                 continue
@@ -68,18 +72,25 @@ class IntentPolicySampler:
         return rng.choices(keys, weights=vals, k=1)[0]
 
     # ------------------------------------------------------------------- sample
-    def sample(self, lang: str = "en", rng: Optional[random.Random] = None) -> SamplerDraw:
+    def sample(
+        self,
+        lang: str = "en",
+        rng: Optional[random.Random] = None,
+        allowed_intents: Optional[set[str]] = None,
+    ) -> SamplerDraw:
         """Draw a valid ``(intent, policy)`` pair respecting weights + mask.
 
         ``rng`` overrides the sampler's own RNG so each conversation can draw from
-        its own ``Random(seed + index)`` stream (thread-safe, reproducible). The
-        sampler itself holds no draw state, so concurrent ``sample`` calls with
-        distinct RNGs are independent.
+        its own ``Random(seed + index)`` stream (thread-safe, reproducible).
+        ``allowed_intents``, when given, restricts the draw to that intent set
+        (the per-turn composition category and/or a sensitive seed's safe subset).
         """
         rng = rng or self.rng
-        intent_weights = self._effective_intent_weights(lang)
+        intent_weights = self._effective_intent_weights(lang, allowed_intents)
         if not intent_weights:
-            raise ValueError(f"no valid intents available for lang={lang!r}")
+            raise ValueError(
+                f"no valid intents available for lang={lang!r} "
+                f"allowed={sorted(allowed_intents) if allowed_intents else None}")
         for _ in range(self.max_resamples):
             intent = self._weighted_choice(rng, intent_weights)
             policy = self._weighted_choice(rng, self.policy_weights)

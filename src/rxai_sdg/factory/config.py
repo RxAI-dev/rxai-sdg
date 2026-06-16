@@ -52,6 +52,15 @@ class FactoryConfig:
     })
     default_band: str = "basic"
 
+    # -- conversation composition (fix B) -------------------------------------
+    #: target category mix across follow-up turns (exploration dominant).
+    explore_ratio: float = 0.5
+    transform_ratio: float = 0.3
+    memory_ratio: float = 0.2
+    #: hard cap on the fraction of follow-up turns that may be transformations
+    #: (the transformation-density detector fires above 0.6; the planner targets 0.3).
+    max_transform_ratio: float = 0.6
+
     # -- generation control ---------------------------------------------------
     lang: str = "en"
     regeneration_limit: int = 4  # K: max answer regenerations per intent per turn
@@ -82,6 +91,9 @@ class FactoryConfig:
     #: rule-based seed category tagging only; no per-seed LLM classifier on the
     #: critical path unless explicitly enabled.
     seed_classifier_enabled: bool = False
+    #: use the LLM seed curator (CURATOR_MODEL) for domain/topic/skip/sensitivity
+    #: directives (fix A); when off, a transparent heuristic fallback is used.
+    seed_curator_enabled: bool = True
 
     # -- responder generation params ------------------------------------------
     max_tokens: int = 4096

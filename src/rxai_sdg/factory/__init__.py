@@ -50,7 +50,14 @@ from .taxonomy import (
     POLICY_TO_SCOPE,
     default_invalid_pairs,
 )
+from .taxonomy import (
+    COMPOSITION_CATEGORIES,
+    INTENT_TO_CATEGORY,
+    TRANSFORM_CATEGORY_INTENTS,
+    SENSITIVE_ALLOWED_INTENTS,
+)
 from .config import FactoryConfig, LengthBand
+from .planner import plan_conversation, TurnPlan, CompositionRatios
 
 # clients
 from .clients import LLMClient, LLMResponse, MockLLMClient, OpenAILLMClient
@@ -59,7 +66,7 @@ from .clients import LLMClient, LLMResponse, MockLLMClient, OpenAILLMClient
 from .verifiers import ConstraintVerifier, register_language_stubs, registered_types
 from .sampler import IntentPolicySampler, SamplerDraw
 from .ledger import FactLedger, NeedlePlanner
-from .seed_curator import SeedCurator, EVAL_CATEGORIES
+from .seed_curator import SeedCurator, SeedDirective, CuratedSeed, EVAL_CATEGORIES
 from .prompts import PromptPack, get_prompt_pack
 from .responder import (
     Responder,
@@ -94,14 +101,17 @@ __all__ = [
     # taxonomy / config
     "Taxonomy", "BaseIntent", "DistancePolicy", "BASE_INTENTS", "DISTANCE_POLICIES",
     "TRANSFORMATION_INTENTS", "FACT_INTENTS", "POLICY_TO_SCOPE", "default_invalid_pairs",
+    "COMPOSITION_CATEGORIES", "INTENT_TO_CATEGORY", "TRANSFORM_CATEGORY_INTENTS",
+    "SENSITIVE_ALLOWED_INTENTS",
     "FactoryConfig", "LengthBand",
+    "plan_conversation", "TurnPlan", "CompositionRatios",
     # clients
     "LLMClient", "LLMResponse", "MockLLMClient", "OpenAILLMClient",
     # components
     "ConstraintVerifier", "register_language_stubs", "registered_types",
     "IntentPolicySampler", "SamplerDraw",
     "FactLedger", "NeedlePlanner",
-    "SeedCurator", "EVAL_CATEGORIES",
+    "SeedCurator", "SeedDirective", "CuratedSeed", "EVAL_CATEGORIES",
     "PromptPack", "get_prompt_pack",
     "Responder", "ResponderOutput", "ParsedResponse", "parse_response",
     "split_reasoning_answer", "is_memory_disclaimer", "has_cot_leak",

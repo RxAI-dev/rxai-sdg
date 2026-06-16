@@ -32,7 +32,7 @@ SEEDS = [
 ]
 
 # intents that operate on the prior answer's claims (grounded by construction)
-_OPERATES_ON_PRIOR = {"chained_compute", "self_critique", "deepen"}
+_OPERATES_ON_PRIOR = {"chained_compute", "self_critique", "deepen", "recall_content"}
 
 
 @pytest.fixture(scope="module")
@@ -76,8 +76,8 @@ def test_every_followup_is_grounded_via_metadata(batch):
                     assert cs.planted_turn is not None
                     assert turn.turn_index - cs.planted_turn >= 0
             else:
-                # transformation / operates-on-prior / open_chat are grounded by
-                # construction; the intent itself is the structured evidence.
+                # transformation / operates-on-prior / recall-content / open_chat
+                # are grounded by construction; the intent is the structured evidence.
                 assert (turn.intent in TRANSFORMATION_INTENTS
                         or turn.intent in _OPERATES_ON_PRIOR
                         or turn.intent == "open_chat")

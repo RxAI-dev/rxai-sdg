@@ -202,8 +202,8 @@ class Responder:
             parts.append(active_constraints_note)
         parts.append(f"User: {query}")
         parts.append(
-            "Respond as the assistant. Reason inside a single <think>...</think> "
-            "block, then write the final answer after the closing </think> tag.")
+            "Respond as the assistant, drawing on the whole conversation above. "
+            "Write only the final answer.")
         prompt = "\n\n".join(parts)
 
         resp = self.client.generate(
