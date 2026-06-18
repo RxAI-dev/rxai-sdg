@@ -88,11 +88,17 @@ class SeedDirective:
     sensitivity: str = "none"       # none | sensitive
     #: when set, the sampler may only draw intents from this allow-set.
     allowed_intents: Optional[list[str]] = None
+    #: per-conversation, topic-grounded personal facts the user might share, each
+    #: ``{"label", "value", "new_value"}`` (fix: no hardcoded fact pool). The LLM
+    #: curator samples these freshly per seed, so memory plants are diverse across a
+    #: large dataset rather than recycling a fixed handful of values.
+    facts: list[dict[str, str]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "domain": self.domain, "topic": self.topic, "action": self.action,
             "sensitivity": self.sensitivity, "allowed_intents": self.allowed_intents,
+            "facts": self.facts,
         }
 
 
@@ -209,11 +215,23 @@ class SeedCurator:
             "  \"action\": \"keep\" for a substantive message, \"skip\" for a contentless "
             "greeting / empty / malformed message that cannot start a real conversation,\n"
             "  \"sensitivity\": \"sensitive\" for mental-health, self-harm, crisis, "
-            "medical, grief, abuse or minors topics, otherwise \"none\"."
+            "medical, grief, abuse or minors topics, otherwise \"none\",\n"
+            "  \"facts\": a list of EXACTLY 3 personal details that a real person having "
+            "THIS conversation might plausibly mention in passing, used later to test the "
+            "assistant's memory. Each item is an object with:\n"
+            "      \"label\": a short noun phrase completing 'my ___' (e.g. \"pet's name\", "
+            "\"home town\", \"the project I'm building\", \"favorite cuisine\"),\n"
+            "      \"value\": a SPECIFIC, DISTINCTIVE value (a proper noun, name, place, or "
+            "exact number) - invent a fresh, uncommon one, never a generic word,\n"
+            "      \"new_value\": a DIFFERENT specific value of the same kind (used if the "
+            "user later changes it).\n"
+            "    Make the details varied and natural for this topic. They are personal "
+            "details a user shares - NEVER account numbers, subscription tiers, passwords, "
+            "billing, or any system/account data."
         )
         try:
             resp = self.client.generate(
-                user, system_prompt=CURATOR_SYSTEM, temperature=0.0,
+                user, system_prompt=CURATOR_SYSTEM, temperature=0.7,
                 max_tokens=self.max_tokens)
             data = _extract_json(resp.text or "")
         except Exception:
@@ -227,7 +245,8 @@ class SeedCurator:
         sens = str(data.get("sensitivity", "none")).strip().lower()
         sensitivity = "sensitive" if sens.startswith("sens") else "none"
         return SeedDirective(
-            domain=domain, topic=topic, action=action, sensitivity=sensitivity)
+            domain=domain, topic=topic, action=action, sensitivity=sensitivity,
+            facts=_clean_facts(data.get("facts")))
 
     # ----------------------------------------------------------- heuristic
     def _classify_heuristic(self, query: str) -> SeedDirective:
@@ -306,3 +325,42 @@ def _extract_json(text: str) -> Optional[dict[str, Any]]:
     except (ValueError, TypeError):
         return None
     return data if isinstance(data, dict) else None
+
+
+# Account / subscription / billing / system framing that must never be a personal
+# fact (it correctly triggers "I can't access your account" refusals).
+_BAD_FACT_VALUE_RE = re.compile(
+    r"\b(account|subscription|billing|invoice|payment|password|api[ _-]?key|"
+    r"access[ _-]?token|membership|premium|tier[- ]?\d|order[ _-]?number|"
+    r"credit[ _-]?card|ssn|social security|license[ _-]?key)\b",
+    re.IGNORECASE,
+)
+
+
+def _clean_facts(raw: Any) -> list[dict[str, str]]:
+    """Validate/sanitise the curator's facts into ``{label,value,new_value}`` items."""
+    if not isinstance(raw, list):
+        return []
+    out: list[dict[str, str]] = []
+    seen_values: set[str] = set()
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        label = str(item.get("label") or item.get("kind") or "").strip()
+        # the label completes "my ___", so drop a leading article/possessive the
+        # curator sometimes adds ("the recipe book" / "my home town" -> ...).
+        label = re.sub(r"^(?:the|my|your|a|an)\s+", "", label, flags=re.IGNORECASE).strip()
+        value = str(item.get("value") or "").strip()
+        new_value = str(item.get("new_value") or "").strip()
+        if not label or len(value) < 2:
+            continue
+        blob = f"{label} {value} {new_value}"
+        if _BAD_FACT_VALUE_RE.search(blob):
+            continue  # not a personal detail
+        if value.lower() in seen_values:
+            continue
+        seen_values.add(value.lower())
+        out.append({"label": label, "value": value, "new_value": new_value})
+        if len(out) >= 4:
+            break
+    return out

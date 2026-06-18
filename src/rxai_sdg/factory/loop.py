@@ -186,7 +186,8 @@ class ConversationLoop:
 
         ledger = FactLedger()
         planner = NeedlePlanner(
-            ledger, rng=rng, min_distance=self.config.min_recall_distance)
+            ledger, rng=rng, min_distance=self.config.min_recall_distance,
+            fact_pool=(directive.facts if directive else None))
         simulator = UserSimulator(
             sampler=self.sampler, planner=planner, client=self.simulator_client,
             rng=rng, lang=seed.lang,
