@@ -222,3 +222,72 @@ families and concurrency up to 50 — every §4 detector is zero, median coheren
 dip so the emitted dataset is clean by construction. Recommended production settings:
 the default model config, `max_tokens ≥ 8000` for native-reasoning responders,
 `request timeout ≥ 240s`, `max_intent_resamples = 6`, and the holistic gate enabled.
+
+---
+
+## 7. Memory facts: curator-generated, not hardcoded
+
+The planted-fact values were originally drawn from a small **fixed pool** (~10 kinds
+× ~6 values). Across a dataset of hundreds of thousands of conversations those few
+dozen values would repeat constantly, making the memory "retrieval" weak and
+ungrounded — and it was hardcoded, so no detector flagged it.
+
+**Fix:** the LLM **curator now generates the facts**, per conversation, grounded in
+the topic. `SeedDirective.facts` carries a few `{label, value, new_value}` items the
+`NeedlePlanner` plants from; an offline combinatorial fallback yields hundreds of
+distinct values instead of a fixed handful. Account/billing-framed values are
+rejected and leading articles stripped so "my <label>" reads naturally. Real
+examples (one per conversation, all distinct, all topical):
+
+| Seed topic | Curator-planted fact |
+|---|---|
+| thunderstorm paragraph | *my favorite storm memory: "the time lightning struck the lighthouse in Bar Harbor"* |
+| Monty Hall problem | *my favorite probability puzzle: "the birthday problem"* |
+| hash maps | *my project I'm building: "a decentralized social network"* |
+| database indexes | *my company: "DataSync Solutions"* |
+| 2008 crisis | *my home town: "Birmingham, Alabama"* — recalled at t8 as "...Birmingham, Alabama. You mentioned this earlier when discussing how the housing market collapse hit local economies." |
+
+The recall path is unchanged (value is known from the curator JSON, so it stays
+machine-checkable); diversity now comes from the LLM rather than a list.
+
+---
+
+## 8. Judge calibration — are the verdicts too optimistic?
+
+To check whether the holistic scores reflect real quality, the **same 20
+conversations** (Run D's generation) were re-scored by three judges from different
+model families. Mean scores:
+
+| Judge | instr_follow | coherence | naturalness | role | recall | appropr |
+|---|---|---|---|---|---|---|
+| Mistral-Small-3.2-24B | 9.70 | 9.90 | 9.60 | 10.0 | 10.0 | 9.85 |
+| Qwen3-Coder-30B | 9.15 | 9.65 | 9.25 | 10.0 | 9.65 | 9.75 |
+| gpt-oss-120b | 9.50 | 9.78 | 9.11 | 9.94 | 9.83 | 9.83 |
+
+**Findings:**
+- **The three judges agree within ~0.5 on every axis.** Agreement across independent
+  model families is strong evidence the conversations are genuinely high quality —
+  not one judge's bias. Manual reading of full conversations confirms it (accurate
+  deep domain content, instructions followed, memory recalled correctly with
+  context, sensitive topics handled supportively).
+- The judges **do discriminate** (Qwen3-Coder gives 8 conversations
+  `instruction_following = 8`; in pre-gate runs the judges caught real failures —
+  a JSON-wrapped-markdown hybrid at coherence 5, contradictory physics at
+  coherence 3). They are not blindly optimistic; the high means reflect that these
+  are **post-gate survivors**.
+- **Mistral-Small is the mildest optimist** (+0.2–0.3 vs the others) but is a usable
+  judge: it produces parseable scores, gates correctly, and its full run (Run D) is
+  detector-clean.
+- **Qwen3-Coder-30B is the best judge:** strictest and most discriminating, always
+  parseable, and free of the `instruction_following` artifact that gpt-oss-120b
+  shows (gpt-oss produced one spurious `5` and 2 unparseable responses out of 20).
+
+Both judge configs were also validated end-to-end (only the judge differs):
+**Run D** (judge = Mistral-Small) and **Run E** (judge = Qwen3-Coder-30B) are each
+20/20 records, all detectors zero, median coherence 10.
+
+**My opinion:** the generated conversations are genuinely high quality, and the gate
+makes the emitted set clean. For the strictest production filtering I recommend
+**Qwen3-Coder-30B as the judge** (most discriminating, no artifact); Mistral-Small is
+an acceptable lighter-weight alternative. To push average quality even higher, raise
+the gate floor (e.g. coherence ≥ 7) — at the cost of a slightly lower yield.
