@@ -23,6 +23,7 @@ sampler/responder/verifier are used read-only.
 from __future__ import annotations
 
 import random
+import re
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -30,13 +31,33 @@ from .config import FactoryConfig
 from .cross_turn import run_cross_turn_checks, cross_turn_pass_rate
 from .holistic import HolisticJudge
 from .ledger import FactLedger, NeedlePlanner
+from .planner import CompositionRatios, plan_conversation
 from .prompts import PromptPack
 from .quality import QualityConfig, check_quality
 from .responder import Responder, has_cot_leak, is_memory_disclaimer
 from .sampler import IntentPolicySampler
 from .schemas import ConstraintSpec, ConversationRecord, Seed, Turn, VerifyResult
+from .seed_curator import SeedDirective
+from .taxonomy import TRANSFORM_CATEGORY_INTENTS
 from .user_simulator import UserSimulator
 from .verifiers import ConstraintVerifier
+
+
+def _norm_text(s: str) -> str:
+    return " ".join((s or "").split()).lower()
+
+
+# Spec-internal tokens that must never surface in a stored prompt OR in the
+# responder's reasoning (fix F). The four schema names never occur in organic
+# English; "standing instruction" can, rarely - regenerating clears it.
+_SPEC_LEAK_RE = re.compile(
+    r"json_valid|top_type|forbidden_token|constraint_spec|standing instruction",
+    re.IGNORECASE,
+)
+
+
+def has_spec_leak(text: str) -> bool:
+    return bool(_SPEC_LEAK_RE.search(text or ""))
 
 
 # Mutually-exclusive constraint groups: at most one member of a group can hold
@@ -57,6 +78,41 @@ def constraints_conflict(type_a: str, type_b: str) -> bool:
     return any(type_a in g and type_b in g for g in _CONFLICT_GROUPS)
 
 
+def render_constraint_nl(cs: ConstraintSpec) -> str:
+    """Render one active constraint as a plain-language standing rule (fix F).
+
+    Never emits a spec type name or the words "standing instruction".
+    """
+    t, p = cs.type, cs.params
+    if t == "json_valid":
+        return "Always respond as a single valid JSON object."
+    if t == "yaml_valid":
+        return "Always respond as valid YAML."
+    if t == "markdown_table":
+        return "Always present the response as a markdown table."
+    if t == "markdown_format":
+        return "Always format the response with markdown (headings and bullet points)."
+    if t == "forbidden_token":
+        return f"Never use the word '{p.get('token', '')}'."
+    if t == "no_gendered_pronouns":
+        return "Never use gendered pronouns."
+    if t == "max_words_per_sentence":
+        return f"Keep every sentence to at most {p.get('max_words')} words."
+    if t == "length_tokens":
+        return f"Keep the whole response to at most {p.get('max_words')} words."
+    if t == "n_bullets":
+        return f"Present the response as exactly {p.get('n')} bullet points."
+    if t == "first_letter":
+        return f"Start every sentence with the letter '{p.get('letter', 'A')}'."
+    if t == "alphabetical_sentence_starts":
+        return "Start consecutive sentences in alphabetical order."
+    if t in ("limerick_structure", "genre"):
+        return f"Keep the response in {p.get('genre', 'verse')} form."
+    if t == "style":
+        return f"Keep the response in {p.get('style', 'the agreed tone')}."
+    return "Keep following the earlier formatting rule."
+
+
 @dataclass
 class LoopStats:
     discarded_first_answer: int = 0
@@ -67,6 +123,8 @@ class LoopStats:
     #: responder turns (reasoning mode expected) that yielded an empty reasoning
     #: segment - surfaces a misconfigured / non-reasoning endpoint.
     reasoning_missing: int = 0
+    #: conversations dropped by the holistic quality gate (below the score floor).
+    holistic_gated: int = 0
     downweighted: list[str] = field(default_factory=list)
 
     def merge(self, other: "LoopStats") -> None:
@@ -77,6 +135,7 @@ class LoopStats:
         self.malformed_outputs += other.malformed_outputs
         self.coherence_failures += other.coherence_failures
         self.reasoning_missing += other.reasoning_missing
+        self.holistic_gated += other.holistic_gated
         for tag in other.downweighted:
             if tag not in self.downweighted:
                 self.downweighted.append(tag)
@@ -111,20 +170,42 @@ class ConversationLoop:
         prompt_pack: PromptPack,
         target_length: int,
         rng: random.Random,
+        directive: Optional[SeedDirective] = None,
     ) -> tuple[Optional[ConversationRecord], LoopStats]:
         """Generate one conversation. Returns ``(record_or_None, per_run_stats)``.
 
         Uses only the supplied ``rng`` and a fresh :class:`LoopStats`, so it may be
-        called concurrently for independent conversations.
+        called concurrently for independent conversations. ``directive`` carries the
+        curator's topic / sensitivity / allowed-intent steer (fix A).
         """
         stats = LoopStats()
+        sensitive = bool(directive and directive.sensitivity == "sensitive")
+        topic = directive.topic if directive else ""
+        seed_allowed = set(directive.allowed_intents) if (
+            directive and directive.allowed_intents) else None
+
         ledger = FactLedger()
         planner = NeedlePlanner(
-            ledger, rng=rng, min_distance=self.config.min_recall_distance)
+            ledger, rng=rng, min_distance=self.config.min_recall_distance,
+            fact_pool=(directive.facts if directive else None))
         simulator = UserSimulator(
             sampler=self.sampler, planner=planner, client=self.simulator_client,
             rng=rng, lang=seed.lang,
             min_recall_distance=self.config.min_recall_distance,
+            max_intent_resamples=self.config.max_intent_resamples,
+            topic=topic, seed_allowed_intents=seed_allowed,
+        )
+
+        # -- per-conversation composition plan (fix B) --------------------
+        plan = plan_conversation(
+            target_length, rng,
+            ratios=CompositionRatios(
+                explore=self.config.explore_ratio,
+                transform=self.config.transform_ratio,
+                memory=self.config.memory_ratio,
+                max_transform=self.config.max_transform_ratio),
+            min_recall_distance=self.config.min_recall_distance,
+            sensitive=sensitive,
         )
 
         turns: list[Turn] = []
@@ -139,8 +220,10 @@ class ConversationLoop:
 
         # -- follow-up turns ----------------------------------------------
         for idx in range(1, target_length):
+            turn_plan = plan[idx - 1] if idx - 1 < len(plan) else None
             turn = self._followup_turn(
-                simulator, prompt_pack, turns, idx, active_constraints, stats)
+                simulator, prompt_pack, turns, idx, active_constraints, stats,
+                ledger, turn_plan=turn_plan, target_length=target_length)
             turns.append(turn)
             cs = turn.constraint_spec
             if cs is not None and cs.scope in ("standing", "cumulative") \
@@ -157,21 +240,42 @@ class ConversationLoop:
 
         # -- cross-turn checks --------------------------------------------
         cross = run_cross_turn_checks(turns, ledger, self.verifier)
-        programmatic_passed = cross_turn_pass_rate(cross) == 1.0 and all(
-            (t.verification is None or t.verification.passed) for t in turns)
+        if directive is not None:
+            cross["curation"] = directive.to_dict()
 
         record = ConversationRecord(
             source_seed=seed,
             turns=turns,
             mode="reasoning",
-            fact_ledger=ledger.facts(),
+            # only facts whose value actually appeared in the text (a failed/
+            # resampled plant or update never pollutes the emitted ledger).
+            fact_ledger=ledger.injected_facts(),
             cross_turn_checks=cross,
         )
 
-        if self.holistic is not None and self.holistic.should_score(programmatic_passed):
+        # -- holistic judge: always-on, whole conversation (fix G) --------
+        if self.holistic is not None:
             record.holistic_score = self.holistic.score(turns)
+            # Quality gate: the judge is the semantic gate (it catches failures the
+            # programmatic verifier misses). Drop conversations below the floor so
+            # the emitted dataset is clean by construction.
+            if self.config.holistic_gate_enabled and not self._holistic_ok(
+                    record.holistic_score):
+                stats.holistic_gated += 1
+                return None, stats
 
         return record, stats
+
+    def _holistic_ok(self, score: Optional[dict]) -> bool:
+        if not score:
+            return True  # no score (judge unavailable) -> do not gate
+        coh = score.get("coherence")
+        appr = score.get("appropriateness")
+        if isinstance(coh, (int, float)) and coh < self.config.holistic_min_coherence:
+            return False
+        if isinstance(appr, (int, float)) and appr < self.config.holistic_min_appropriateness:
+            return False
+        return True
 
     # -------------------------------------------------------------- internals
     def _first_turn(
@@ -189,6 +293,8 @@ class ConversationLoop:
             if out.reasoning_missing:
                 stats.reasoning_missing += 1
             ok, detail = self._answer_acceptable(out.turn.answer or "")
+            if ok and has_spec_leak(out.turn.reasoning or ""):
+                ok, detail = False, "coherence: spec internals in reasoning"
             if ok:
                 out.turn.verification = VerifyResult(True, "first answer ok", regenerations)
                 return out.turn
@@ -206,9 +312,11 @@ class ConversationLoop:
         idx: int,
         active_constraints: list[ConstraintSpec],
         stats: LoopStats,
+        ledger: Optional[FactLedger] = None,
+        turn_plan=None,
+        target_length: Optional[int] = None,
     ) -> Turn:
         budget = self.config.max_responder_calls_per_turn
-        note = self._active_constraints_note(active_constraints)
         avoid: set[str] = set()
         last_turn: Optional[Turn] = None
         last_regen = 0
@@ -220,7 +328,20 @@ class ConversationLoop:
             first_intent = False
             sim = simulator.next_query(
                 prior_turns, prompt_pack, idx,
-                active_constraints=active_constraints, avoid_intents=avoid)
+                active_constraints=active_constraints, avoid_intents=avoid,
+                turn_plan=turn_plan, target_length=target_length)
+
+            # The responder note must stay consistent with verification: when this
+            # turn's own request conflicts with an active standing/cumulative form
+            # (e.g. the user now asks for markdown while "always JSON" stands), drop
+            # the superseded rule from the prompt so the model doesn't emit a
+            # confused hybrid that satisfies neither cleanly.
+            own_type = sim.constraint_spec.type if sim.constraint_spec else None
+            applicable = [
+                a for a in active_constraints
+                if not (own_type and constraints_conflict(a.type, own_type))
+            ]
+            note = self._active_constraints_note(applicable)
 
             attempts = 0
             regenerations = 0
@@ -238,12 +359,17 @@ class ConversationLoop:
                     stats.reasoning_missing += 1
                 turn = out.turn
                 turn.constraint_spec = sim.constraint_spec
+                prior_answer = prior_turns[-1].answer if prior_turns else None
                 passed, detail = self._verify_turn(
-                    turn, sim.constraint_spec, active_constraints)
+                    turn, sim.constraint_spec, active_constraints,
+                    intent=sim.draw.intent, prior_answer=prior_answer)
                 last_turn = turn
                 last_regen = regenerations
                 if passed:
                     turn.verification = VerifyResult(True, detail, regenerations)
+                    # commit any fact plant/update ONLY now that the turn is
+                    # accepted, so a discarded fact turn never leaves a phantom.
+                    self._commit_fact_turn(ledger, sim, idx)
                     return turn
                 if "coherence" in detail:
                     stats.coherence_failures += 1
@@ -258,6 +384,25 @@ class ConversationLoop:
         if last_turn is not None:
             last_turn.verification = VerifyResult(False, "budget exhausted", last_regen)
         return last_turn  # type: ignore[return-value]
+
+    @staticmethod
+    def _commit_fact_turn(ledger: Optional[FactLedger], sim, idx: int) -> None:
+        """Apply an accepted fact turn's ledger mutation (plant inject / update).
+
+        Called only when a turn passes, so a fact turn discarded by an intent
+        resample never commits a value to the ledger (the root of phantom stale
+        values and desynced recalls).
+        """
+        if ledger is None or sim is None:
+            return
+        spec = sim.constraint_spec
+        if spec is None or not spec.fact_id:
+            return
+        if sim.grounding == "updates_fact":
+            ledger.update(spec.fact_id, spec.params.get("value"), idx)
+            ledger.mark_injected(spec.fact_id)
+        elif sim.grounding == "plants_fact":
+            ledger.mark_injected(spec.fact_id)
 
     # ----------------------------------------------------------- verification
     def _answer_acceptable(self, answer: str) -> tuple[bool, str]:
@@ -276,12 +421,15 @@ class ConversationLoop:
         turn: Turn,
         constraint_spec: Optional[ConstraintSpec],
         active_constraints: list[ConstraintSpec],
+        intent: Optional[str] = None,
+        prior_answer: Optional[str] = None,
     ) -> tuple[bool, str]:
         """Return ``(passed, detail)``.
 
         ``passed`` reflects coherence, not just literal constraint satisfaction: a
-        memory-disclaimer or chain-of-thought leak fails the turn even when the
-        narrow constraint holds.
+        memory-disclaimer, chain-of-thought leak, or a transformation that returns
+        the prior answer byte-for-byte fails the turn even when the narrow
+        constraint holds.
         """
         answer = turn.answer or ""
         own_type = constraint_spec.type if constraint_spec is not None else None
@@ -290,6 +438,17 @@ class ConversationLoop:
         ok, detail = self._answer_acceptable(answer)
         if not ok:
             return False, detail
+
+        # a "rewrite/transform" that reproduces the prior answer verbatim is a
+        # degenerate no-op (fix: identical_rewrite), even if the literal constraint
+        # is vacuously satisfied (e.g. forbidding a word the answer never used).
+        if intent in TRANSFORM_CATEGORY_INTENTS and prior_answer \
+                and _norm_text(answer) == _norm_text(prior_answer):
+            return False, "coherence: transformation identical to prior answer"
+
+        # spec internals must not surface in the stored reasoning (fix F)
+        if has_spec_leak(turn.reasoning or ""):
+            return False, "coherence: spec internals in reasoning"
 
         # this turn's own constraint (the recall/transform "reference prior content"
         # check: for recall the value-presence checker enforces it directly)
@@ -310,10 +469,18 @@ class ConversationLoop:
 
     @staticmethod
     def _active_constraints_note(active: list[ConstraintSpec]) -> str:
+        """Render active standing/cumulative constraints to natural language (fix F).
+
+        Spec type names (``json_valid``, ``forbidden_token``, ...) and the phrase
+        "standing instruction" must never reach the responder prompt, so the model
+        cannot parrot schema internals in its reasoning.
+        """
         if not active:
             return ""
-        bullets = []
-        for cs in active:
-            bullets.append(f"- ({cs.scope}) {cs.type} {cs.params}")
-        return ("Standing instructions still in force (keep satisfying them while "
-                "still addressing the user's request):\n" + "\n".join(bullets))
+        bullets = [f"- {render_constraint_nl(cs)}" for cs in active]
+        # Phrased to be unambiguously persistent so the model does not deliberate
+        # about whether the rule is "standing" (which leaks reserved vocabulary into
+        # its reasoning); see also _normalize_reasoning in responder.py.
+        return ("The user earlier asked you to keep doing the following in every "
+                "reply from now on. Continue to honor each of these while you also "
+                "answer the new question:\n" + "\n".join(bullets))

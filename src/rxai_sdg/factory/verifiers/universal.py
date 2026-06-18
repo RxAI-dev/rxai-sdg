@@ -163,6 +163,23 @@ def _normalise(s: str) -> str:
     return re.sub(r"[^\w]+", " ", s.lower()).strip()
 
 
+# A recall that merely contains the value inside a refusal / "I can't access ..."
+# disclaimer is NOT a real recall (fix H, doc-10 Tier-3-in-a-heading-while-refusing).
+_RECALL_REFUSAL_RE = re.compile(
+    r"\b(?:i (?:can'?t|cannot|don'?t|do not) (?:access|recall|remember|retain|store)|"
+    r"i (?:have no|don'?t have) (?:access|memory|record)|"
+    r"as an ai|i'?m (?:sorry|unable))\b",
+    re.IGNORECASE,
+)
+
+
+def _confirms_value(answer: str, value: Any, match: str) -> bool:
+    """The value is present AND the answer is not a refusal/can't-access disclaimer."""
+    if _RECALL_REFUSAL_RE.search(answer or ""):
+        return False
+    return _value_present(answer, value, match)
+
+
 def _value_present(answer: str, value: Any, match: str) -> bool:
     target = _normalise(str(value))
     hay = _normalise(answer)
@@ -185,6 +202,8 @@ def fact_recall(answer: str, params: dict, conversation: Any) -> tuple[bool, str
     if value is None:
         return False, "no expected value in params"
     match = params.get("match", "exact")
+    if _RECALL_REFUSAL_RE.search(answer or ""):
+        return False, "value not confirmed: answer refuses / disclaims memory"
     if _value_present(answer, value, match):
         return True, f"recalled value present ({match})"
     return False, f"expected value {value!r} not found in answer ({match} match)"
@@ -197,6 +216,8 @@ def fact_update(answer: str, params: dict, conversation: Any) -> tuple[bool, str
     if value is None:
         return False, "no current value in params"
     match = params.get("match", "exact")
+    if _RECALL_REFUSAL_RE.search(answer or ""):
+        return False, "value not confirmed: answer refuses / disclaims memory"
     if not _value_present(answer, value, match):
         return False, f"current value {value!r} not found in answer"
     stale = params.get("stale_values") or []

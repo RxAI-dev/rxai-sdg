@@ -30,7 +30,7 @@ Seed Curator → [ Responder → Verifier → User-Simulator → Fact-Ledger/Nee
 
 | Component | Module | Role |
 |-----------|--------|------|
-| `SeedCurator` | `seed_curator.py` | Load/dedup/tag seeds (rule-based), flag haystacks, load prompt packs |
+| `SeedCurator` | `seed_curator.py` | Load/dedup seeds, LLM curator → domain/topic/skip/sensitivity directives (heuristic fallback), flag haystacks, load prompt packs |
 | `Responder` | `responder.py` | Strong **memory-enabled** teacher; reasoning-mode answers; robust `<think>` parsing |
 | `ConstraintVerifier` | `verifiers/` | Per-response, language-aware programmatic checkers |
 | `UserSimulator` | `user_simulator.py` | Temporally-valid `(intent × policy)` draw + **grounded** follow-up + `constraint_spec` |
@@ -200,8 +200,11 @@ not merely structurally valid:
 2. **Cross-turn** (`run_cross_turn_checks`) — programmatic relational checks:
    delayed-recall fidelity, standing-instruction adherence, update-overwrite
    correctness.
-3. **Optional holistic judge** (`HolisticJudge`) — **off by default**; gated/sampled;
-   emits a structured rubric. Keep its model/prompt separate from the eval judge.
+3. **Holistic judge** (`HolisticJudge`) — runs **always-on, once per whole
+   conversation** when a (non-Qwen) judge client is supplied; emits a structured
+   six-axis rubric (`instruction_following`, `coherence`, `naturalness`,
+   `role_consistency`, `recall_fidelity`, `appropriateness` + `notes`) stored on
+   every record. Keep its model/prompt separate from any eval judge.
 
 ## Throughput & concurrency (spec §6)
 

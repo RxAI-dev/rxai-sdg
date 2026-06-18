@@ -33,13 +33,14 @@ from .loop import ConversationLoop, LoopStats
 from .responder import Responder
 from .sampler import IntentPolicySampler
 from .schemas import ConversationRecord, Seed
-from .seed_curator import SeedCurator, SeedInput
+from .seed_curator import CuratedSeed, SeedCurator, SeedInput
 from .writer import SegmentWriter
 
 
 @dataclass
 class FactoryRunStats:
     seeds_used: int = 0
+    seeds_skipped: int = 0
     conversations_built: int = 0
     conversations_discarded: int = 0
     records_emitted: int = 0
@@ -53,6 +54,7 @@ class DataFactory:
         responder_client: LLMClient,
         simulator_client: Optional[LLMClient] = None,
         holistic_client: Optional[LLMClient] = None,
+        curator_client: Optional[LLMClient] = None,
         rng: Optional[random.Random] = None,
     ):
         self.config = config
@@ -63,16 +65,15 @@ class DataFactory:
         self.responder = Responder(
             responder_client, capture_logits=config.capture_logits,
             max_tokens=config.max_tokens, temperature=config.temperature)
+        # The holistic judge runs always-on per whole conversation (fix G); enabled
+        # whenever a (non-Qwen) judge client is supplied.
         self.holistic = None
         if config.holistic_judge_enabled and holistic_client is not None:
-            self.holistic = HolisticJudge(
-                holistic_client, rng=self.rng,
-                sample_rate=config.holistic_judge_sample_rate,
-                gate_on_programmatic=config.holistic_judge_gate_on_programmatic)
-        # Rule-based category tagging by default; the LLM classifier is only wired
-        # in when explicitly enabled (it is off the critical path otherwise).
-        classifier = simulator_client if config.seed_classifier_enabled else None
-        self.curator = SeedCurator(rng=self.rng, classifier_client=classifier)
+            self.holistic = HolisticJudge(holistic_client, rng=self.rng)
+        # LLM seed curator (fix A) when a curator client is supplied and enabled;
+        # otherwise a transparent heuristic fallback is used.
+        cur_client = curator_client if config.seed_curator_enabled else None
+        self.curator = SeedCurator(rng=self.rng, client=cur_client)
         self.writer = SegmentWriter()
         self.loop = ConversationLoop(
             self.responder, self.sampler, config,
@@ -95,9 +96,13 @@ class DataFactory:
         ``"generalization"`` / ``"short"``); defaults to ``config.default_band``.
         Records are returned in **seed order** (independent of thread scheduling).
         """
-        curated = self.curator.curate(seeds, lang=self.config.lang)
+        raw_seeds = list(seeds)
+        curated = self.curator.curate(raw_seeds, lang=self.config.lang)
         self.stats.seeds_used = len(curated)
+        self.stats.seeds_skipped = max(0, len(raw_seeds) - len(curated))
         length_band = self.config.band(band)
+        if verbose and self.stats.seeds_skipped:
+            print(f'Curator skipped {self.stats.seeds_skipped} contentless/low-info seed(s)')
 
         # Build per-conversation work items up front (deterministic per index).
         results: dict[int, ConversationRecord] = {}
@@ -105,8 +110,8 @@ class DataFactory:
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {
-                executor.submit(self._run_one, idx, seed, length_band): idx
-                for idx, seed in enumerate(curated)
+                executor.submit(self._run_one, idx, curated_seed, length_band): idx
+                for idx, curated_seed in enumerate(curated)
             }
             for fut in as_completed(futures):
                 idx = futures[fut]
@@ -132,14 +137,16 @@ class DataFactory:
         return out
 
     def _run_one(
-        self, index: int, seed: Seed, length_band,
+        self, index: int, curated: CuratedSeed, length_band,
     ) -> tuple[Optional[ConversationRecord], LoopStats]:
         """Run a single conversation with its own reproducible RNG."""
         base = self.config.seed if self.config.seed is not None else 0
         rng = random.Random(base + index)
-        pack = self.curator.load_prompt_pack(seed)
+        pack = self.curator.load_prompt_pack(curated.seed)
         target = rng.randint(length_band.min, length_band.max)
-        return self.loop.run(seed, pack, target_length=target, rng=rng)
+        return self.loop.run(
+            curated.seed, pack, target_length=target, rng=rng,
+            directive=curated.directive)
 
     # ------------------------------------------------------------- HF / output
     def save_to_hub(

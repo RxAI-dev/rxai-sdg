@@ -29,36 +29,61 @@ from .schemas import Fact
 from .verifiers.universal import _value_present
 
 
-# A varied pool of plantable facts spanning names, places, numbers, preferences,
-# dates and project codenames. Each entry yields a (fact_type, value) builder;
-# values are chosen to be distinctive and exact-matchable. A larger, varied pool
-# (sampled without immediate repetition, see ``plant_fact``) keeps the planted
-# memories diverse across a batch rather than reusing deadline / favourite colour.
-_FACT_KINDS = [
-    ("favorite_color", lambda r: r.choice(
-        ["teal", "crimson", "amber", "indigo", "magenta", "olive"])),
-    ("lucky_number", lambda r: str(r.randint(100, 9999))),
-    ("project_codename", lambda r: r.choice(
-        ["Falcon", "Meridian", "Lighthouse", "Granite", "Juniper", "Halcyon"])),
-    ("hometown", lambda r: r.choice(
-        ["Brindale", "Coverton", "Ashmoor", "Veldon", "Pellbrook", "Marrow"])),
-    ("deadline", lambda r: r.choice(
-        ["Tuesday", "the 14th", "next Friday", "March 3rd", "end of quarter"])),
-    ("pet_name", lambda r: r.choice(
-        ["Biscuit", "Nimbus", "Pebble", "Mango", "Sergeant", "Waffles"])),
-    ("mentor_name", lambda r: r.choice(
-        ["Okafor", "Priya", "Halloran", "Agnès", "Devlin", "Whitlock"])),
-    ("office_city", lambda r: r.choice(
-        ["Trondheim", "Cordoba", "Nagasaki", "Wellington", "Reykjavik", "Salta"])),
-    ("badge_number", lambda r: str(r.randint(10000, 99999))),
-    ("subscription_tier", lambda r: r.choice(
-        ["Bronze", "Platinum", "Founder", "Sapphire", "Tier-3"])),
-    ("anniversary_date", lambda r: r.choice(
-        ["June 9th", "the 22nd", "October 1st", "next spring", "December 30th"])),
-    ("preferred_language", lambda r: r.choice(
-        ["Rust", "Basque", "Esperanto", "Haskell", "Swahili", "Kotlin"])),
-    ("seat_number", lambda r: f"{r.choice('ABCDEF')}{r.randint(1, 42)}"),
-]
+# Personal-fact generation.
+#
+# The PRODUCTION source of planted facts is the LLM curator: it samples a few
+# topic-grounded, distinctive personal details per conversation (see
+# ``SeedDirective.facts``), so a large dataset never recycles a fixed handful of
+# values. The combinatorial generator below is only an OFFLINE FALLBACK (no curator
+# client) and is built from composable pieces so even it yields hundreds-to-
+# thousands of distinct values rather than a fixed list.
+#
+# IMPORTANT: only **personal details a user legitimately shares in passing** -
+# names, places, preferences, numbers, pet names. NEVER account / subscription /
+# billing / system data (those correctly trigger "I can't access your account"
+# refusals from a well-aligned assistant).
+
+_NAME_A = ["Tov", "Mar", "Pri", "Okaf", "Hall", "Dev", "Nim", "Wend", "Cael", "Dris",
+           "Fenn", "Garr", "Hux", "Iver", "Joss", "Kael", "Lor", "Mira", "Sor", "Yar",
+           "Bex", "Call", "Dov", "Esm", "Frey", "Git", "Holl", "Ines", "Jag", "Kit",
+           "Lub", "Nad", "Orin", "Petr", "Quill", "Ros", "Sael", "Tamsin", "Ud", "Vesh"]
+_NAME_B = ["or", "isse", "ya", "an", "ic", "lin", "ette", "is", "en", "ara",
+           "ix", "wen", "old", "ric", "a", "iel", "us", "ow", "ka", "ima"]
+_PLACE_A = ["Brin", "Cover", "Ash", "Vel", "Pell", "Mar", "Trond", "Cord", "Wex",
+            "Tin", "Harrow", "Calder", "Wend", "Brack", "Gild", "Fenn", "Holm", "Ravens"]
+_PLACE_B = ["dale", "ton", "moor", "don", "brook", "row", "heim", "gate", "mere",
+            "stead", "thorpe", "vale", "wick", "ford", "haven", "field", "by", "combe"]
+_STREET_A = ["Maple", "Birch", "Halcyon", "Juniper", "Granite", "Willow", "Cedar",
+             "Sparrow", "Linden", "Ember", "Foxglove", "Marigold", "Thistle", "Quartz"]
+_STREET_B = ["Lane", "Row", "Drive", "Court", "Way", "Close", "Terrace", "Walk", "Rise"]
+_COLOR = ["teal", "crimson", "amber", "indigo", "magenta", "olive", "saffron",
+          "cerulean", "vermilion", "chartreuse", "ochre", "periwinkle", "sienna"]
+_FOOD = ["ramen", "paella", "dumplings", "tiramisu", "shakshuka", "pho", "laksa",
+         "gnocchi", "bibimbap", "khachapuri", "tagine", "okonomiyaki", "borscht"]
+_LANG = ["Rust", "Basque", "Esperanto", "Haskell", "Swahili", "Kotlin", "Welsh",
+         "Tagalog", "Elixir", "Quechua", "Faroese", "Zig", "Twi", "Romansh"]
+_PROJ = ["Falcon", "Meridian", "Lighthouse", "Granite", "Juniper", "Halcyon",
+         "Driftwood", "Saffron", "Cobalt", "Tundra", "Lantern", "Mosaic", "Verdant"]
+
+
+def _name(r: random.Random) -> str:
+    return r.choice(_NAME_A) + r.choice(_NAME_B)
+
+
+#: label -> value generator (fallback only). Labels read naturally after "my ___".
+_FALLBACK_KINDS: dict[str, Any] = {
+    "favorite color": lambda r: r.choice(_COLOR),
+    "lucky number": lambda r: str(r.randint(2, 999)),
+    "home town": lambda r: r.choice(_PLACE_A) + r.choice(_PLACE_B),
+    "pet's name": lambda r: _name(r),
+    "mentor's name": lambda r: _name(r),
+    "favorite dish": lambda r: r.choice(_FOOD),
+    "favorite author": lambda r: _name(r) + " " + r.choice(_NAME_A) + r.choice(_NAME_B),
+    "preferred language": lambda r: r.choice(_LANG),
+    "childhood street": lambda r: r.choice(_STREET_A) + " " + r.choice(_STREET_B),
+    "current project's codename": lambda r: r.choice(_PROJ),
+}
+_FALLBACK_LABELS = list(_FALLBACK_KINDS)
 
 
 class FactLedger:
@@ -134,34 +159,69 @@ class NeedlePlanner:
         ledger: FactLedger,
         rng: Optional[random.Random] = None,
         min_distance: int = 4,
+        fact_pool: Optional[list[dict[str, str]]] = None,
     ):
         self.ledger = ledger
         self.rng = rng or random.Random()
         self.min_distance = min_distance
-        #: last randomly-chosen fact type, to avoid immediate repetition in a batch
-        self._last_kind: Optional[str] = None
+        #: per-conversation, topic-grounded facts from the curator (preferred source).
+        self._fact_pool = list(fact_pool or [])
+        self._pool_idx = 0
+        #: fact_id -> a distinct alternate value, used if the fact is later updated.
+        self._alt_value: dict[str, str] = {}
+        #: last fallback label, to avoid immediate repetition when generating.
+        self._last_label: Optional[str] = None
 
     # ---------------------------------------------------------------- planting
     def plant_fact(self, turn: int, fact_type: Optional[str] = None) -> Fact:
         """Create and register a new fact, returning it.
 
-        The caller must surface the fact's plant phrasing in the conversation text
-        and then call :meth:`FactLedger.mark_injected` (see
-        :meth:`UserSimulator` for the enforced confirm-then-mark step).
+        Draws from the curator's per-conversation pool first (topic-grounded,
+        diverse), then from the combinatorial fallback. The caller must surface the
+        plant phrasing in the text and call :meth:`FactLedger.mark_injected` (the
+        loop does this only once the turn is accepted).
         """
+        label, value, alt = self._next_fact(fact_type)
+        fact = self.ledger.plant(value, planted_turn=turn, fact_type=label)
+        if alt:
+            self._alt_value[fact.fact_id] = alt
+        return fact
+
+    def _next_fact(self, fact_type: Optional[str] = None) -> tuple[str, str, str]:
+        """Return ``(label, value, alt_value)`` for the next plant."""
+        # An explicit fact_type (used by unit tests) bypasses the curator pool.
         if fact_type is None:
-            # sample without immediate repetition so a batch sees a varied pool
-            choices = [(ft, fn) for ft, fn in _FACT_KINDS if ft != self._last_kind] \
-                or _FACT_KINDS
-            fact_type, value_fn = self.rng.choice(choices)
-            self._last_kind = fact_type
+            while self._pool_idx < len(self._fact_pool):
+                item = self._fact_pool[self._pool_idx]
+                self._pool_idx += 1
+                label = str(item.get("label") or "").strip()
+                value = str(item.get("value") or "").strip()
+                if not label or len(value) < 2:
+                    continue
+                alt = str(item.get("new_value") or "").strip()
+                return label, value, alt
+        return self._generate_fact(fact_type)
+
+    def _generate_fact(self, fact_type: Optional[str] = None) -> tuple[str, str, str]:
+        """Combinatorial fallback: ``(label, value, alt_value)`` (no curator)."""
+        if fact_type and fact_type in _FALLBACK_KINDS:
+            label = fact_type
+        elif fact_type:
+            # an unknown explicit type: keep it, generate a name-like value.
+            label = fact_type.replace("_", " ")
+            return label, _name(self.rng), _name(self.rng)
         else:
-            value_fn = next(
-                (fn for ft, fn in _FACT_KINDS if ft == fact_type),
-                lambda r: r.randint(1, 999),
-            )
-        value = value_fn(self.rng)
-        return self.ledger.plant(value, planted_turn=turn, fact_type=fact_type)
+            choices = [l for l in _FALLBACK_LABELS if l != self._last_label] or _FALLBACK_LABELS
+            label = self.rng.choice(choices)
+            self._last_label = label
+        gen = _FALLBACK_KINDS[label]
+        value = gen(self.rng)
+        alt = gen(self.rng)
+        for _ in range(8):
+            if str(alt) != str(value):
+                break
+            alt = gen(self.rng)
+        return label, value, alt
 
     @staticmethod
     def plant_phrasing(fact: Fact) -> str:
@@ -223,21 +283,27 @@ class NeedlePlanner:
         facts = self.ledger.facts()
         return facts[-1] if facts else None
 
-    def update_value_for(self, fact: Fact, turn: int) -> Fact:
-        """Pick a fresh value distinct from **every** prior value and overwrite.
+    def next_update_value(self, fact: Fact) -> Any:
+        """Pick a fresh value distinct from **every** prior value, WITHOUT committing.
 
-        Distinct-from-history (not merely from the current value) matters because
-        the ``fact_update`` checker requires all stale values to be absent: a "new"
-        value that coincides with an earlier one would read as a stale leak.
+        The caller commits the overwrite (``FactLedger.update``) only once the
+        update turn actually passes - otherwise a failed/resampled update would
+        leave a phantom value in the ledger (which a later update would then list as
+        a stale value that never appeared in the text). Distinct-from-history (not
+        just from the current value) keeps the ``fact_update`` checker happy.
         """
-        value_fn = next(
-            (fn for ft, fn in _FACT_KINDS if ft == fact.fact_type),
-            lambda r: r.randint(1, 999),
-        )
         seen = {str(h["value"]) for h in fact.value_history}
-        new_value = value_fn(self.rng)
+        # Prefer the curator's alternate value for this exact fact (topic-grounded).
+        alt = self._alt_value.get(fact.fact_id)
+        if alt and str(alt) not in seen and len(str(alt)) >= 2:
+            return alt
+        # Otherwise generate a fresh value of the same kind, distinct from history.
         for _ in range(20):
+            _, new_value, _ = self._generate_fact(fact.fact_type)
             if str(new_value) not in seen:
-                break
-            new_value = value_fn(self.rng)
-        return self.ledger.update(fact.fact_id, new_value, turn)
+                return new_value
+        return alt or _name(self.rng)
+
+    def update_value_for(self, fact: Fact, turn: int) -> Fact:
+        """Pick a fresh value and commit it immediately (back-compat helper)."""
+        return self.ledger.update(fact.fact_id, self.next_update_value(fact), turn)

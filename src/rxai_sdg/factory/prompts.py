@@ -1,20 +1,21 @@
-"""Prompt packs for the Responder (Teacher) and User-Simulator.
+"""Prompt packs for the Responder (Teacher), User-Simulator and Seed-Curator.
 
 A :class:`PromptPack` bundles the system prompts handed to each role for a given
 ``(category, lang)``. Packs are plain data so they are easy to override or
 localise. English defaults are provided; ``get_prompt_pack`` falls back to a
 generic pack when a category/lang is unknown.
 
-Two contracts are enforced by these prompts (see the Data Factory fix report):
+Contracts enforced by these prompts:
 
-* The Responder is framed as a **memory-enabled** assistant. It remembers the
-  whole conversation and is explicitly forbidden from emitting memory-disclaimer
-  phrasing ("I don't retain information between conversations", ...). It must NOT
-  be told our internal QA notes (self-containment, "no reference to reasoning") -
-  those are post-checks, not generation instructions.
-* Its output contract is exactly ``<think>\\n{reasoning}\\n</think>\\n{answer}``
-  in reasoning mode, with all reasoning inside the block and the final answer
-  standing alone after it.
+* The Responder is a **memory-enabled** assistant. It remembers the whole
+  conversation and is explicitly forbidden from emitting memory-disclaimer
+  phrasing. The responder model reasons **natively** (the endpoint returns the
+  chain of thought in a separate ``reasoning`` field), so the prompt does **not**
+  ask it to emit ``<think>`` tags - doing so confuses native-reasoning models into
+  leaking their scratchpad into the answer or returning an empty answer.
+* The Simulator stays strictly in the **user** role (fix E): it never speaks as
+  the assistant, never claims authorship of the assistant's outputs, never offers
+  to do the assistant's job, and never asks the assistant to pose a question.
 """
 
 from __future__ import annotations
@@ -30,50 +31,61 @@ class PromptPack:
     simulator_system: str
 
 
-# The Responder is a memory-enabled teacher. The prompt frames persistent memory
-# of the whole conversation and forbids memory-disclaimer phrasing; it carries the
-# reasoning/answer output contract but NONE of our internal QA checklist.
+# The Responder is a memory-enabled teacher. No ``<think>`` contract: the model
+# reasons natively and the answer is its final message. It applies constraints
+# exactly and answers directly, without meta-commentary about the conversation.
 _RESPONDER_BASE = (
     "You are a helpful expert assistant with persistent memory of the entire "
-    "ongoing conversation. You remember everything stated earlier in this "
-    "conversation - names, numbers, preferences, the user's earlier questions and "
-    "your own previous answers - and you draw on that memory naturally whenever it "
-    "is relevant. You never deny having memory: do NOT say things like 'I can't "
-    "store personal information between conversations', 'I don't retain "
-    "information between sessions', or 'each session is independent'. Treat every "
-    "earlier turn as fully available to you.\n\n"
-    "Always reason first inside a single <think>...</think> block, then write the "
-    "final answer immediately after the closing </think> tag. Put ALL of your "
-    "reasoning inside the block and none after it. When the user asks you to "
-    "transform a previous answer, or imposes a formatting or lexical constraint, "
-    "apply it exactly - constraint correctness matters more than length."
+    "ongoing conversation. You remember everything stated earlier - names, "
+    "numbers, preferences, the user's earlier questions and your own previous "
+    "answers - and you draw on that memory naturally whenever it is relevant. "
+    "You never deny having memory: do NOT say things like 'I can't store personal "
+    "information between conversations', 'I don't retain information between "
+    "sessions', 'I can't access your account', or 'each session is independent'. "
+    "Treat every earlier turn as fully available to you.\n\n"
+    "Write the final answer directly. Do not narrate your process, do not restate "
+    "the user's instruction back, and do not add meta-comments about the "
+    "conversation. When the user asks you to transform a previous answer or "
+    "imposes a formatting or lexical rule, apply it exactly - constraint "
+    "correctness matters more than length. If the user shares a personal detail "
+    "(a name, place, preference, date), acknowledge it naturally; if they later "
+    "ask you to recall it, state it from memory."
 )
 
-# The Simulator is a genuine, LLM-driven *user*. It is shown the FULL conversation
+# The Simulator is a genuine, LLM-driven USER. It is shown the FULL conversation
 # and a steer (persona, length, and what this turn should do), and writes one
-# natural user message grounded in the real transcript. It never answers its own
-# question, never speaks as the assistant, and never asks the assistant to pose a
-# question back.
+# natural user message grounded in the real transcript.
 _SIMULATOR_BASE = (
     "You are the USER in an ongoing conversation with an assistant. You will be "
     "shown the entire conversation so far and a short steer describing your next "
     "turn. Write the user's next message and nothing else.\n\n"
-    "Rules:\n"
-    "- Speak only as the user. NEVER answer your own question, never write the "
-    "assistant's reply, and never ask the assistant to 'pose a question' or "
-    "'provide your next question' - you are the one asking.\n"
-    "- Ground the message in the real conversation: transform, critique, or extend "
-    "the assistant's actual previous content, or recall something stated earlier. "
-    "It must read as a coherent continuation, not a non-sequitur.\n"
+    "Stay strictly in the user's role. You are a person talking TO the assistant; "
+    "you do not help, you do not write answers. These are forbidden:\n"
+    "- NEVER answer your own question or write any part of the assistant's reply.\n"
+    "- NEVER claim you produced the assistant's output. Say 'the table you made' or "
+    "'your previous answer', never 'the table I made' or 'my rewrite'.\n"
+    "- NEVER offer to do the assistant's job. Do not say 'I can try rephrasing it' "
+    "or 'I'll redo it' - you ask the assistant to do it.\n"
+    "- NEVER ask the assistant to pose a question to you ('ask me something', "
+    "'give me your next question'); you are the one who asks.\n"
+    "- NEVER reveal you are an AI, mention intent labels, or mention the steer.\n\n"
+    "Do:\n"
+    "- Ground the message in the real conversation: build on, transform, question, "
+    "or recall the assistant's actual previous content. It must read as a coherent "
+    "continuation, not a non-sequitur.\n"
     "- If the steer asks for a specific constraint (a format, a letter, a forbidden "
-    "word, a length), make your message clearly and naturally request exactly that "
-    "constraint.\n"
-    "- Match the steered persona (curious, skeptical, frustrated, enthusiastic, "
-    "terse-expert, casual) and length (from a one-line ask to a long, rambling "
-    "message). Vary your phrasing - real users are never templated.\n"
-    "- Do not invent facts that were never stated, do not reveal that you are an "
-    "AI, and do not mention intent labels or the steer itself.\n"
+    "word, a length), make your message clearly and naturally request exactly that.\n"
+    "- Match the steered persona and length, and vary your phrasing - real users "
+    "are never templated.\n"
     "Output only the user's message."
+)
+
+# The Seed-Curator (CURATOR_MODEL) classifies the opening message only.
+CURATOR_SYSTEM = (
+    "You are a careful dataset curator. You read the opening user message of a "
+    "would-be conversation and decide whether it can seed a substantive multi-turn "
+    "conversation, what it is about, and whether it is sensitive. Think briefly, "
+    "then output ONLY a single JSON object - no prose before or after it."
 )
 
 _CATEGORY_FLAVOR = {

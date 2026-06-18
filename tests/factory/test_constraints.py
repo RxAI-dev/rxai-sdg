@@ -53,7 +53,8 @@ def test_fact_recall_delayed_resamples_when_no_fact():
 def test_fact_recall_delayed_uses_planted_fact():
     led = FactLedger()
     planner = NeedlePlanner(led, rng=random.Random(0), min_distance=4)
-    planner.plant_fact(turn=1)
+    f = planner.plant_fact(turn=1)
+    led.mark_injected(f.fact_id)  # a recall only targets an *injected* fact (fix C)
     ctx = C.BuildContext(rng=random.Random(0), intent="fact_recall",
                          policy="delayed_recall", turn=6, lang="en", planner=planner,
                          min_recall_distance=4)
@@ -62,6 +63,17 @@ def test_fact_recall_delayed_uses_planted_fact():
     assert res.constraint_spec.type == "fact_recall"
     assert res.constraint_spec.fact_id is not None
     assert res.constraint_spec.planted_turn == 1
+
+
+def test_fact_recall_delayed_resamples_without_injected_fact():
+    # a fact that was planted but never injected cannot be recalled (no desync).
+    led = FactLedger()
+    planner = NeedlePlanner(led, rng=random.Random(0), min_distance=4)
+    planner.plant_fact(turn=1)  # NOT marked injected
+    ctx = C.BuildContext(rng=random.Random(0), intent="fact_recall",
+                         policy="delayed_recall", turn=6, lang="en", planner=planner,
+                         min_recall_distance=4)
+    assert C.build(ctx).resample is True
 
 
 def test_fact_recall_immediate_plants_only():
@@ -81,18 +93,32 @@ def test_fact_recall_immediate_plants_only():
     assert len(led) == 1  # exactly one fact planted
 
 
-def test_fact_update_records_stale_values():
+def test_fact_update_records_only_injected_stale_values():
     led = FactLedger()
     planner = NeedlePlanner(led, rng=random.Random(1), min_distance=4)
     f = planner.plant_fact(turn=1, fact_type="favorite_color")
+    led.mark_injected(f.fact_id)  # the value actually appeared in the text
     original = f.value
     ctx = C.BuildContext(rng=random.Random(1), intent="fact_update", policy="immediate",
                          turn=3, lang="en", planner=planner, min_recall_distance=4)
     res = C.build(ctx)
     spec = res.constraint_spec
     assert spec.type == "fact_update"
-    assert original in spec.params["stale_values"]
-    assert spec.params["value"] == led.latest(spec.fact_id)
+    # the single stale value is the injected pre-update value (no phantom staleness)
+    assert spec.params["stale_values"] == [original]
+    # the new value is *peeked*, not committed: the ledger is overwritten by the
+    # simulator only once the update turn passes (no phantom on a failed update).
+    assert spec.params["value"] != original
+    assert led.latest(spec.fact_id) == original  # not yet committed
+
+
+def test_fact_update_resamples_without_injected_fact():
+    led = FactLedger()
+    planner = NeedlePlanner(led, rng=random.Random(1), min_distance=4)
+    planner.plant_fact(turn=1, fact_type="favorite_color")  # NOT injected
+    ctx = C.BuildContext(rng=random.Random(1), intent="fact_update", policy="immediate",
+                         turn=3, lang="en", planner=planner, min_recall_distance=4)
+    assert C.build(ctx).resample is True
 
 
 def test_non_verifiable_intents_use_llm_judge():

@@ -69,13 +69,59 @@ BASE_INTENTS: dict[str, BaseIntent] = {
 }
 
 #: Intents that perform a content transformation of the prior answer; these are
-#: valid with all four distance policies.
+#: valid with all four distance policies. (Used for *grounding* classification -
+#: an intent here operates on the prior answer.)
 TRANSFORMATION_INTENTS = frozenset(
     {"reformat", "lexical_constraint", "restyle", "compress", "expand", "genre_convert"}
 )
 
 #: Intents that operate against the fact ledger.
 FACT_INTENTS = frozenset({"fact_recall", "fact_update"})
+
+
+# ---------------------------------------------------------------------------
+# Conversation-composition categories (fix B)
+# ---------------------------------------------------------------------------
+#
+# A conversation is a topical thread, not a stack of format conversions. The
+# per-conversation planner allocates a balanced mix across three categories; the
+# sampler then draws an intent *within* the category chosen for each turn.
+#
+#  * ``explore``   - topical follow-ups / deepening (the dominant ~50%).
+#  * ``transform`` - reformat / lexical / restyle / compress / genre (~30%).
+#  * ``memory``    - recall-of-prior-content and (occasional) fact plant/recall (~20%).
+#
+# NB: ``expand`` is an *exploration* intent (it adds detail to the topic) even
+# though it also operates on the prior answer for grounding purposes.
+
+COMPOSITION_CATEGORIES: dict[str, frozenset[str]] = {
+    "explore": frozenset(
+        {"deepen", "expand", "chained_compute", "self_critique", "open_chat"}),
+    "transform": frozenset(
+        {"reformat", "lexical_constraint", "restyle", "compress", "genre_convert"}),
+    "memory": frozenset({"fact_recall", "fact_update"}),
+}
+
+#: intent id -> composition category (the inverse of COMPOSITION_CATEGORIES).
+INTENT_TO_CATEGORY: dict[str, str] = {
+    intent: cat
+    for cat, intents in COMPOSITION_CATEGORIES.items()
+    for intent in intents
+}
+
+#: Intents counted as "transformations" by the transformation-density detector
+#: and capped by the planner (matches the spec's reformat/lexical/restyle/
+#: compress/genre wording - ``expand`` is exploration, not a transformation).
+TRANSFORM_CATEGORY_INTENTS = COMPOSITION_CATEGORIES["transform"]
+
+#: For a *sensitive* seed the sampler is restricted to this safe, supportive
+#: subset (fix A): deepen / expand / compress / open_chat / self_critique in a
+#: supportive register. Trivializing transformations (restyle to pirate/marketing,
+#: genre conversion to limerick/haiku, format gymnastics, fact-planting) are
+#: forbidden. ``recall_content`` (a supportive recall of real prior content) is
+#: always permitted and is not a taxonomy intent.
+SENSITIVE_ALLOWED_INTENTS: frozenset[str] = frozenset(
+    {"deepen", "expand", "compress", "open_chat", "self_critique"})
 
 
 # ---------------------------------------------------------------------------

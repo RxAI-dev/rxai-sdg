@@ -47,12 +47,15 @@ def test_quality_refusal_and_length():
 
 
 def test_holistic_judge_parses_rubric():
-    client = MockLLMClient(default='{"instruction_following": 8, "coherence": 9, '
-                                   '"recall_fidelity": 7, "naturalness": 8}')
-    judge = HolisticJudge(client, rng=random.Random(0), sample_rate=1.0)
+    client = MockLLMClient(default=(
+        '{"instruction_following": 8, "coherence": 9, "naturalness": 8, '
+        '"role_consistency": 10, "recall_fidelity": 7, "appropriateness": 9, '
+        '"notes": "minor nit"}'))
+    judge = HolisticJudge(client, rng=random.Random(0))
     score = judge.score([Turn(0, [Segment("query", "q"), Segment("answer", "a")])])
-    assert score == {"instruction_following": 8, "coherence": 9,
-                     "recall_fidelity": 7, "naturalness": 8}
+    assert score == {"instruction_following": 8, "coherence": 9, "naturalness": 8,
+                     "role_consistency": 10, "recall_fidelity": 7,
+                     "appropriateness": 9, "notes": "minor nit"}
 
 
 def test_holistic_gate_blocks_failed_programmatic():

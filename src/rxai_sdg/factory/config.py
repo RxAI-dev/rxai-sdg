@@ -52,6 +52,15 @@ class FactoryConfig:
     })
     default_band: str = "basic"
 
+    # -- conversation composition (fix B) -------------------------------------
+    #: target category mix across follow-up turns (exploration dominant).
+    explore_ratio: float = 0.5
+    transform_ratio: float = 0.3
+    memory_ratio: float = 0.2
+    #: hard cap on the fraction of follow-up turns that may be transformations
+    #: (the transformation-density detector fires above 0.6; the planner targets 0.3).
+    max_transform_ratio: float = 0.6
+
     # -- generation control ---------------------------------------------------
     lang: str = "en"
     regeneration_limit: int = 4  # K: max answer regenerations per intent per turn
@@ -59,6 +68,10 @@ class FactoryConfig:
     #: hard cap on total Responder calls per turn, shared across intent-resamples
     #: and regenerations (replaces the old max_intent_attempts x (K+1) worst case).
     max_responder_calls_per_turn: int = 8
+    #: hard cap on simulator intent draws per turn before falling back to an
+    #: always-valid recall-of-content turn. Bounds the per-turn *simulator* cost so
+    #: a weaker simulator model cannot explode latency with endless resamples.
+    max_intent_resamples: int = 6
 
     # -- concurrency (spec §6) ------------------------------------------------
     #: number of conversations generated in parallel via a ThreadPoolExecutor.
@@ -79,9 +92,18 @@ class FactoryConfig:
     holistic_judge_enabled: bool = False    # holistic LLM judge
     holistic_judge_sample_rate: float = 0.1
     holistic_judge_gate_on_programmatic: bool = True
+    #: drop a conversation whose holistic score is below the quality floor (the
+    #: judge is the semantic gate). The thresholds mirror the ``judge_low`` detector
+    #: so the emitted dataset is clean by construction.
+    holistic_gate_enabled: bool = True
+    holistic_min_coherence: int = 6
+    holistic_min_appropriateness: int = 7
     #: rule-based seed category tagging only; no per-seed LLM classifier on the
     #: critical path unless explicitly enabled.
     seed_classifier_enabled: bool = False
+    #: use the LLM seed curator (CURATOR_MODEL) for domain/topic/skip/sensitivity
+    #: directives (fix A); when off, a transparent heuristic fallback is used.
+    seed_curator_enabled: bool = True
 
     # -- responder generation params ------------------------------------------
     max_tokens: int = 4096
