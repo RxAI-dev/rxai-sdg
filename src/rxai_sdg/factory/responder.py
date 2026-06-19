@@ -271,20 +271,24 @@ def has_trailing_artifact(text: str) -> bool:
     return bool(m and m.group(1).lower() not in _ARTIFACT_ALLOW)
 
 
+_ARTIFACT_JUNK = "cw|cltr|clt|cwt|ctr|ot"
+
+
 def _strip_trailing_artifact(text: str) -> str:
-    """Strip a glued trailing artifact, preserving the sentence and its period."""
+    """Strip a glued trailing artifact, preserving the sentence and its punctuation."""
     t = (text or "").rstrip()
     if not t:
         return text
-    # known corruption suffix glued after a period, e.g. "391.cw" / "Ready.cw"
-    t2 = re.sub(r"\.(?:cw|cltr|clt|cwt|ctr)\b\s*$", ".", t)
+    # known junk token glued at the very end after sentence punctuation / markdown
+    # ("391.cw", "...go.*cw", "...generate.cltr"); keep the punctuation, drop junk.
+    t2 = re.sub(rf"(?<=[.!?*)\]\"'])\s*(?:{_ARTIFACT_JUNK})\s*$", "", t)
     if t2 != t:
-        return t2
-    # generic short junk after a period: "write.s", "generate.ot" (not a real ext)
+        return t2.rstrip()
+    # generic short junk after a word+period: "write.s", "generate.ot" (not an ext)
     m = re.search(r"[A-Za-z]{3,}\.([a-z]{1,4})$", t)
     if m and m.group(1).lower() not in _ARTIFACT_ALLOW:
         return t[: m.start(1) - 1] + "."
-    return re.sub(r"\s+(?:cw|cltr)\s*$", "", t)     # bare "... cw"
+    return re.sub(rf"\s+(?:{_ARTIFACT_JUNK})\s*$", "", t)     # bare "... cw"
 
 
 # (B) De-number turn-index references that the model writes into its reasoning
