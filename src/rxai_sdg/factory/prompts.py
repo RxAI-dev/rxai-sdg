@@ -34,28 +34,22 @@ class PromptPack:
 # The Responder is a memory-enabled teacher. No ``<think>`` contract: the model
 # reasons natively and the answer is its final message.
 #
-# IMPORTANT (failure mode A): this native-reasoning model echoes meta-instructions
-# straight into its reasoning trace, which is an UNMASKED training target. So the
-# prompt is deliberately free of harness phrases - no "persistent memory", no
-# "drawing on the conversation above", no "never deny having memory", no
-# "write only the final answer" - because the model would parrot them verbatim. We
-# steer behaviour positively (recall earlier content; apply constraints; hold a
-# justified position) and never give negative meta-instructions about the
-# reasoning itself (the model echoes those too). The residual "Thinking Process:"
-# scaffold is stripped by the responder's sanitization pass, not by prompting.
+# IMPORTANT (failure mode A/B): this native-reasoning model reasons ABOUT its
+# system prompt - it quotes the instructions back ("the system instructions say
+# ...") and agonizes about them in its reasoning, which is an UNMASKED training
+# target. So the prompt is kept MINIMAL and free of harness framing. In
+# particular it does NOT describe an "ongoing conversation" (that framing made the
+# model flag a contradiction at turn 0, where there is no history) and does NOT
+# instruct it about memory: prior turns are supplied as REAL chat messages, so the
+# model simply has the history and reasons about the substance. The residual
+# "Thinking Process:" scaffold is stripped by the sanitization pass.
 _RESPONDER_BASE = (
-    "You are an expert assistant continuing an ongoing conversation. You naturally "
-    "recall everything said earlier in this conversation - the user's details, the "
-    "numbers and preferences they shared, and your own earlier answers - and you use "
-    "what is relevant. Reply as a knowledgeable, helpful partner who is simply still "
-    "in the same discussion.\n\n"
-    "Answer the latest message directly and completely. When the user asks you to "
-    "transform an earlier answer or imposes a formatting or wording rule, apply it "
-    "exactly - getting the constraint right matters more than length. If the user "
-    "shares a personal detail (a name, place, preference, date), acknowledge it "
-    "naturally; if they later ask for it, state it from what they told you. Hold a "
-    "well-justified position when the user pushes back without a real reason, while "
-    "readily correcting any genuine mistake."
+    "You are a knowledgeable, helpful expert. Answer the most recent user message "
+    "directly, completely and accurately. If the user asks you to transform an "
+    "earlier answer or to follow a formatting or wording rule, do exactly that. Be "
+    "supportive on sensitive or emotional topics. Stand by a well-supported answer "
+    "when the user pushes back without a good reason, while correcting any real "
+    "mistake."
 )
 
 # The Simulator is a genuine, LLM-driven USER. It is shown the FULL conversation
@@ -110,8 +104,11 @@ _CATEGORY_FLAVOR = {
 
 
 def get_prompt_pack(category: str, lang: str = "en") -> PromptPack:
-    flavor = _CATEGORY_FLAVOR.get(category, "")
-    responder = _RESPONDER_BASE + (("\n\n" + flavor) if flavor else "")
+    # The category flavor is intentionally NOT appended to the responder system
+    # prompt: the native-reasoning model quoted flavor lines verbatim into its
+    # reasoning ("the system instruction says 'Prioritise vivid, well-structured
+    # prose'"). The model is already strong on domain quality without it.
+    responder = _RESPONDER_BASE
     if lang != "en":
         responder += f" Respond natively in language code '{lang}'."
     simulator = _SIMULATOR_BASE

@@ -111,6 +111,22 @@ def format_transcript(turns: list[Turn]) -> str:
     return "\n".join(lines)
 
 
+def _history_messages(turns: list[Turn]) -> list[dict]:
+    """Render completed turns as real role-tagged chat messages for the responder.
+
+    user query -> ``{"role": "user", ...}``; teacher answer ->
+    ``{"role": "assistant", ...}``. Reasoning is NOT included (it is the model's
+    private scratchpad, never part of the visible chat history). No turn numbers.
+    """
+    msgs: list[dict] = []
+    for t in turns:
+        if t.query:
+            msgs.append({"role": "user", "content": t.query})
+        if t.answer:
+            msgs.append({"role": "assistant", "content": t.answer})
+    return msgs
+
+
 def format_transcript_for_judge(turns: list[Turn]) -> str:
     """Render turns for the holistic judge: segment-delimited, labeled, reasoning shown.
 
@@ -351,28 +367,25 @@ class Responder:
     ) -> ResponderOutput:
         """Generate one turn. Returns the parsed :class:`Turn` and a malformed flag.
 
-        The prompt carries only the conversation context, any still-active standing
-        instructions, and the bare reasoning/answer output contract - never our
-        internal QA checklist.
+        Prior turns are passed to the client as REAL role-tagged chat messages, not
+        a "User:/Assistant:" transcript jammed into the prompt: that transcript was
+        making the native-reasoning model re-number the turns ("Turn 1, Turn 2") and
+        quote/agonize about the harness in its reasoning (failures A/B). The current
+        user message is just the query (plus any active standing-constraint reminder,
+        which the model attributes to the user, not to "the system instructions").
         """
-        transcript = format_transcript(prior_turns)
-        parts = []
-        if transcript:
-            # Plain chat context, no turn numbers and no "draw on the conversation
-            # above" framing - that phrasing was getting echoed verbatim into the
-            # native-reasoning model's reasoning trace (failure mode A).
-            parts.append(transcript)
-        if active_constraints_note:
-            parts.append(active_constraints_note)
-        parts.append(f"User: {query}")
-        prompt = "\n\n".join(parts)
+        history = _history_messages(prior_turns)
+        user_content = (
+            (active_constraints_note + "\n\n" + query) if active_constraints_note
+            else query)
 
         resp = self.client.generate(
-            prompt,
+            user_content,
             system_prompt=prompt_pack.responder_system,
             temperature=self.temperature,
             max_tokens=self.max_tokens,
             capture_logits=self.capture_logits,
+            messages=history,
         )
         parsed = _segment_response(getattr(resp, "reasoning", None), resp.text)
         # Sanitization pass (safety net for failure modes A/C): strip the leading

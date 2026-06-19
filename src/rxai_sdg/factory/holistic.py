@@ -246,7 +246,9 @@ class HolisticJudge:
     rng: Optional[random.Random] = None
     sample_rate: float = 1.0
     gate_on_programmatic: bool = False
-    max_tokens: int = 2048
+    #: headroom for the rubric JSON; the verbose judge appends free-text ramble
+    #: after the object, so give the object itself room to close.
+    max_tokens: int = 3000
 
     def __post_init__(self) -> None:
         if self.rng is None:
@@ -277,13 +279,7 @@ class HolisticJudge:
     def _parse(text: Optional[str]) -> Optional[dict[str, object]]:
         if not text:
             return None
-        m = re.search(r"\{.*\}", text, re.DOTALL)
-        if not m:
-            return None
-        try:
-            data = json.loads(m.group(0))
-        except (ValueError, TypeError):
-            return None
+        data = _extract_first_json_object(text)
         if not isinstance(data, dict):
             return None
         out: dict[str, object] = {}
@@ -299,6 +295,46 @@ class HolisticJudge:
         notes = data.get("notes")
         out["notes"] = str(notes)[:200] if notes else ""
         return out
+
+
+def _extract_first_json_object(text: str) -> Optional[dict]:
+    """Extract the FIRST balanced ``{...}`` object from ``text``.
+
+    The judge reliably emits the rubric JSON first, but (especially Mistral, when
+    the transcript includes the assistant's reasoning) it sometimes keeps rambling
+    in free text AFTER the object. A greedy ``\\{.*\\}`` would swallow that trailing
+    prose and fail to parse - dropping a perfectly good verdict to ``None`` (which
+    silently *weakens* the gate). Brace-counting (string/escape aware) grabs just
+    the rubric object and ignores anything after it.
+    """
+    start = text.find("{")
+    while start != -1:
+        depth = 0
+        in_str = False
+        esc = False
+        for i in range(start, len(text)):
+            ch = text[i]
+            if in_str:
+                if esc:
+                    esc = False
+                elif ch == "\\":
+                    esc = True
+                elif ch == '"':
+                    in_str = False
+            else:
+                if ch == '"':
+                    in_str = True
+                elif ch == "{":
+                    depth += 1
+                elif ch == "}":
+                    depth -= 1
+                    if depth == 0:
+                        try:
+                            return json.loads(text[start:i + 1])
+                        except (ValueError, TypeError):
+                            break  # try the next '{'
+        start = text.find("{", start + 1)
+    return None
 
 
 def _parse_flagged(raw: object) -> list[dict]:

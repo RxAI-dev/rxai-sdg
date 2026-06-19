@@ -51,6 +51,7 @@ class LLMClient(Protocol):
         temperature: float = 0.7,
         max_tokens: int = 4096,
         capture_logits: bool = False,
+        messages: Optional[Sequence[dict]] = None,
         **kwargs: Any,
     ) -> LLMResponse:
         ...
@@ -127,13 +128,27 @@ class OpenAILLMClient:
         temperature: float = 0.7,
         max_tokens: int = 4096,
         capture_logits: bool = False,
+        messages: Optional[Sequence[dict]] = None,
         **kwargs: Any,
     ) -> LLMResponse:
+        # ``messages`` (optional) carries PRIOR conversation turns as real
+        # role-tagged chat messages. Passing the history as genuine messages -
+        # rather than a "User:/Assistant:" transcript jammed into one user prompt -
+        # stops the native-reasoning model from re-numbering the turns ("Turn 1,
+        # Turn 2") or agonizing about the harness in its reasoning (failure A/B).
+        prior = list(messages or [])
+
         # Ollama path: the shared helper returns content only (reasoning, if any,
-        # is inlined as a <think> block the Responder parses).
+        # is inlined as a <think> block the Responder parses). Render any prior
+        # messages into a transcript prefix (best-effort; the OpenAI path is primary).
         if getattr(self._backend, "use_ollama", False):
+            full_prompt = prompt
+            if prior:
+                lines = [f"{m.get('role','user').capitalize()}: {m.get('content','')}"
+                         for m in prior]
+                full_prompt = "\n".join(lines) + "\n\n" + prompt
             text = self._backend.generate_items(
-                prompt=prompt, system_prompt=system_prompt, temperature=temperature,
+                prompt=full_prompt, system_prompt=system_prompt, temperature=temperature,
                 top_p=kwargs.get("top_p", self.default_top_p), max_tokens=max_tokens,
                 stream=kwargs.get("stream", False),
                 timeout=kwargs.get("timeout", self.timeout), additional_config={})
@@ -148,10 +163,11 @@ class OpenAILLMClient:
         try:
             completion = self._backend.client.chat.completions.create(
                 model=self.model_name,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt},
-                ],
+                messages=(
+                    [{"role": "system", "content": system_prompt}]
+                    + prior
+                    + [{"role": "user", "content": prompt}]
+                ),
                 stream=False,
                 max_tokens=max_tokens,
                 temperature=temperature,
@@ -215,11 +231,13 @@ class MockLLMClient:
         temperature: float = 0.7,
         max_tokens: int = 4096,
         capture_logits: bool = False,
+        messages: Optional[Sequence[dict]] = None,
         **kwargs: Any,
     ) -> LLMResponse:
         self.calls.append({
             "prompt": prompt, "system_prompt": system_prompt,
-            "temperature": temperature, "max_tokens": max_tokens, "kwargs": kwargs,
+            "temperature": temperature, "max_tokens": max_tokens,
+            "messages": list(messages or []), "kwargs": kwargs,
         })
         if self.handler is not None:
             result = self.handler(prompt, system_prompt=system_prompt, **kwargs)

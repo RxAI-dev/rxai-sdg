@@ -125,13 +125,29 @@ def test_responder_prompt_has_no_qa_checklist_or_disclaimer_instruction():
     # the internal QA checklist must not leak into the generation prompt
     assert "self-contained" not in prompt
     assert "no reference to" not in prompt
-    # the system prompt frames recall/continuation behaviour without using the
-    # echo-bait harness phrases the native-reasoning model would parrot (mode A).
-    assert "recall" in sys
+    # the system prompt is minimal and free of the echo-bait harness phrases the
+    # native-reasoning model would parrot (mode A), including the "ongoing
+    # conversation" framing that made it agonize about a turn-0 "contradiction".
+    assert "expert" in sys
     for bad in ("persistent memory", "never deny having memory",
-                "drawing on the whole conversation", "write only the final answer"):
+                "drawing on the whole conversation", "write only the final answer",
+                "ongoing conversation"):
         assert bad not in sys
         assert bad not in prompt
+
+
+def test_responder_passes_prior_turns_as_real_messages():
+    from rxai_sdg.factory.schemas import Segment, Turn
+    client = MockLLMClient(default="<think>r</think> a2")
+    prior = [Turn(0, [Segment("query", "q1"), Segment("reasoning", "secret"),
+                      Segment("answer", "a1")])]
+    Responder(client).generate(prior, "q2", get_prompt_pack("general"), 1)
+    call = client.calls[-1]
+    # prior turn is passed as real role-tagged messages, reasoning excluded
+    assert call["messages"] == [{"role": "user", "content": "q1"},
+                                {"role": "assistant", "content": "a1"}]
+    # the current user message is just the query - no transcript, no "User:" label
+    assert call["prompt"] == "q2"
 
 
 # ---- reasoning capture (reasoning_content field vs inline <think>) ---------

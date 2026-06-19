@@ -1,0 +1,502 @@
+{
+  "iteration": 1,
+  "hypothesis_or_change": "iter1 baseline: Phase 3 generation fixes (harness-free responder prompt + Thinking-Process sanitization) in place; measure residual failure modes on a real 10-conv batch.",
+  "config": {
+    "n_seeds": 10,
+    "concurrency": 10,
+    "band": [
+      6,
+      9
+    ],
+    "max_tokens": 8000,
+    "temperature": 0.7,
+    "models": {
+      "responder": "Qwen3.5-397B-A17B",
+      "simulator": "Qwen3-Coder-30B-A3B-Instruct",
+      "curator": "Mistral-Small-3.2-24B-Instruct-2506",
+      "judge": "Mistral-Small-3.2-24B-Instruct-2506"
+    }
+  },
+  "generation_stats": {
+    "wall_seconds": 415.9,
+    "records_emitted": 9,
+    "seeds_used": 9,
+    "seeds_skipped": 1,
+    "discarded": 0,
+    "reasoning_missing": 0,
+    "malformed": 0,
+    "regenerations": 5,
+    "intent_resamples": 1
+  },
+  "token_usage": {
+    "by_client": {
+      "responder": {
+        "calls": 70,
+        "prompt_tokens": 207060,
+        "completion_tokens": 191286,
+        "total_tokens": 398346
+      },
+      "simulator": {
+        "calls": 69,
+        "prompt_tokens": 253121,
+        "completion_tokens": 8427,
+        "total_tokens": 261548
+      },
+      "curator": {
+        "calls": 10,
+        "prompt_tokens": 4181,
+        "completion_tokens": 1460,
+        "total_tokens": 5641
+      },
+      "judge": {
+        "calls": 9,
+        "prompt_tokens": 186962,
+        "completion_tokens": 5083,
+        "total_tokens": 192045
+      }
+    },
+    "total_tokens": 857580
+  },
+  "analysis": {
+    "n": 9,
+    "hard_counts": {
+      "harness_in_reasoning": 23,
+      "turn_index_in_reasoning": 9,
+      "trailing_artifact": 1
+    },
+    "flag_counts": {
+      "degenerate_reasoning": 1
+    },
+    "flagged_by_dimension": {},
+    "judge_means": {
+      "instruction_following": 10,
+      "coherence": 10,
+      "naturalness": 10,
+      "role_consistency": 10,
+      "recall_fidelity": 10,
+      "appropriateness": 10,
+      "reasoning_quality": 10,
+      "reasoning_answer_consistency": 10,
+      "sycophancy_resistance": 10,
+      "user_query_quality": 10,
+      "user_query_difficulty": 10
+    },
+    "max_regen": 1,
+    "gate_pass": 0,
+    "gate_pass_rate": 0.0,
+    "acceptance": {
+      "turn_index_in_answer": true,
+      "harness_in_reasoning": false,
+      "trailing_artifact": false,
+      "degenerate_reasoning": false,
+      "no_regen_gt_2": true,
+      "mean_reasoning_quality_ge_8": true,
+      "mean_rac_ge_8": true,
+      "gate_pass_rate_in_band": false
+    },
+    "acceptance_all": false,
+    "per_conversation": [
+      {
+        "conversation_id": "813e2f81-891e-465c-8c34-09d25eebec01",
+        "seed": "I've been feeling really hopeless lately and I don't see the point in anything a",
+        "n_turns": 9,
+        "gate_pass": false,
+        "prefilter_hard_fails": [
+          {
+            "turn_index": 0,
+            "kind": "harness_in_reasoning",
+            "evidence": "the system prompt"
+          },
+          {
+            "turn_index": 2,
+            "kind": "harness_in_reasoning",
+            "evidence": "The system instructions"
+          },
+          {
+            "turn_index": 3,
+            "kind": "harness_in_reasoning",
+            "evidence": "The system instructions"
+          },
+          {
+            "turn_index": 6,
+            "kind": "harness_in_reasoning",
+            "evidence": "the system instructions"
+          },
+          {
+            "turn_index": 8,
+            "kind": "harness_in_reasoning",
+            "evidence": "the system prompt"
+          }
+        ],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": null,
+          "coherence": null,
+          "naturalness": null,
+          "role_consistency": null,
+          "recall_fidelity": null,
+          "appropriateness": null,
+          "reasoning_quality": null,
+          "reasoning_answer_consistency": null,
+          "sycophancy_resistance": null,
+          "user_query_quality": null,
+          "user_query_difficulty": null
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "2af6234a-540c-4e73-bc74-c6256914b272",
+        "seed": "Explain how a TCP three-way handshake establishes a reliable connection.",
+        "n_turns": 7,
+        "gate_pass": false,
+        "prefilter_hard_fails": [
+          {
+            "turn_index": 0,
+            "kind": "harness_in_reasoning",
+            "evidence": "the system instruction"
+          },
+          {
+            "turn_index": 2,
+            "kind": "turn_index_in_reasoning",
+            "evidence": "1. **Analyze the Request:** * **User's State:** Confused, overwhelmed by technical detail (\"sequence"
+          },
+          {
+            "turn_index": 2,
+            "kind": "harness_in_reasoning",
+            "evidence": "The system instruction"
+          }
+        ],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "babcc7d5-cbf3-41e9-a6b7-ba95db8fdcaf",
+        "seed": "What were the main causes of the fall of the Western Roman Empire?",
+        "n_turns": 6,
+        "gate_pass": false,
+        "prefilter_hard_fails": [
+          {
+            "turn_index": 0,
+            "kind": "harness_in_reasoning",
+            "evidence": "the system instruction"
+          },
+          {
+            "turn_index": 2,
+            "kind": "harness_in_reasoning",
+            "evidence": "the system instruction"
+          },
+          {
+            "turn_index": 3,
+            "kind": "harness_in_reasoning",
+            "evidence": "the system instruction"
+          },
+          {
+            "turn_index": 5,
+            "kind": "turn_index_in_reasoning",
+            "evidence": "1. **Analyze the Request:** * **Topic:** The fall of the Western Roman Empire, specifically focusing"
+          }
+        ],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": null,
+          "coherence": null,
+          "naturalness": null,
+          "role_consistency": null,
+          "recall_fidelity": null,
+          "appropriateness": null,
+          "reasoning_quality": null,
+          "reasoning_answer_consistency": null,
+          "sycophancy_resistance": null,
+          "user_query_quality": null,
+          "user_query_difficulty": null
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "4dda7649-10a6-4f5c-80fd-4835a4d7e2a3",
+        "seed": "Write a short atmospheric paragraph about an abandoned lighthouse at dawn.",
+        "n_turns": 7,
+        "gate_pass": false,
+        "prefilter_hard_fails": [
+          {
+            "turn_index": 2,
+            "kind": "turn_index_in_reasoning",
+            "evidence": "1. **Analyze the Request:** * **Task:** Revise the previous atmospheric paragraph about the abandone"
+          },
+          {
+            "turn_index": 4,
+            "kind": "turn_index_in_reasoning",
+            "evidence": "1. **Analyze the Request:** * **Task:** Elaborate on the concept of \"phantom mimicry\" (from the prev"
+          },
+          {
+            "turn_index": 5,
+            "kind": "turn_index_in_reasoning",
+            "evidence": "1. **Analyze the Request:** * **Topic:** Explore the metaphor of the lighthouse lens being \"clouded "
+          },
+          {
+            "turn_index": 5,
+            "kind": "harness_in_reasoning",
+            "evidence": "the system instruction"
+          },
+          {
+            "turn_index": 6,
+            "kind": "harness_in_reasoning",
+            "evidence": "the system instructions"
+          }
+        ],
+        "prefilter_flags": [
+          {
+            "turn_index": 6,
+            "kind": "degenerate_reasoning",
+            "evidence": "1. **Analyze the Request:** * **Task:** Condense the previous discussion/concept about the lighthous"
+          }
+        ],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "01ee7dc8-cdc6-4f02-a9f9-fa9ee2ade99f",
+        "seed": "What is 17 times 23, and why does the standard long-multiplication algorithm wor",
+        "n_turns": 7,
+        "gate_pass": false,
+        "prefilter_hard_fails": [
+          {
+            "turn_index": 0,
+            "kind": "harness_in_reasoning",
+            "evidence": "the system prompt"
+          },
+          {
+            "turn_index": 2,
+            "kind": "harness_in_reasoning",
+            "evidence": "the system instruction"
+          },
+          {
+            "turn_index": 4,
+            "kind": "turn_index_in_reasoning",
+            "evidence": "1. **Analyze the Request:** * **Topic:** Explain how the standard long multiplication algorithm grou"
+          },
+          {
+            "turn_index": 4,
+            "kind": "trailing_artifact",
+            "evidence": "reasoning: ...present.\n\n    Ready to write.s"
+          },
+          {
+            "turn_index": 5,
+            "kind": "turn_index_in_reasoning",
+            "evidence": "1. **Analyze the Request:** * **User:** Asks for the sum of 51 and 340. * **Tone/Style:** Pirate cap"
+          },
+          {
+            "turn_index": 6,
+            "kind": "turn_index_in_reasoning",
+            "evidence": "1. **Analyze the Request:** * **Task:** Provide a detailed, step-by-step breakdown of multiplying 47"
+          },
+          {
+            "turn_index": 6,
+            "kind": "harness_in_reasoning",
+            "evidence": "the system instructions"
+          }
+        ],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "c18d2f3b-f18a-401e-960c-a388d6d65339",
+        "seed": "Outline a Python function to reverse a singly linked list, and explain how it wo",
+        "n_turns": 8,
+        "gate_pass": false,
+        "prefilter_hard_fails": [
+          {
+            "turn_index": 0,
+            "kind": "harness_in_reasoning",
+            "evidence": "the system prompt"
+          }
+        ],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "af451d90-3ea8-465b-b7d4-51d22979358f",
+        "seed": "I'm really nervous about giving my first conference talk next week. Any advice?",
+        "n_turns": 6,
+        "gate_pass": false,
+        "prefilter_hard_fails": [
+          {
+            "turn_index": 0,
+            "kind": "harness_in_reasoning",
+            "evidence": "the system prompt"
+          },
+          {
+            "turn_index": 5,
+            "kind": "harness_in_reasoning",
+            "evidence": "the system instruction"
+          }
+        ],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "c87a4204-c0dd-4834-9086-77429db0dba4",
+        "seed": "How does photosynthesis convert sunlight into chemical energy in a plant cell?",
+        "n_turns": 8,
+        "gate_pass": false,
+        "prefilter_hard_fails": [
+          {
+            "turn_index": 0,
+            "kind": "harness_in_reasoning",
+            "evidence": "the system prompt"
+          },
+          {
+            "turn_index": 2,
+            "kind": "turn_index_in_reasoning",
+            "evidence": "1. **Analyze the Request:** * **User's Goal:** The user wants to understand the photosynthesis proce"
+          }
+        ],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "e3d3c82a-596f-4690-950b-e6d1936c5b95",
+        "seed": "Summarize the key trade-offs between SQL and NoSQL databases for a new project.",
+        "n_turns": 7,
+        "gate_pass": false,
+        "prefilter_hard_fails": [
+          {
+            "turn_index": 0,
+            "kind": "harness_in_reasoning",
+            "evidence": "the system instruction"
+          },
+          {
+            "turn_index": 1,
+            "kind": "harness_in_reasoning",
+            "evidence": "The system instruction"
+          },
+          {
+            "turn_index": 5,
+            "kind": "harness_in_reasoning",
+            "evidence": "the system instruction"
+          },
+          {
+            "turn_index": 6,
+            "kind": "harness_in_reasoning",
+            "evidence": "the system instruction"
+          }
+        ],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      }
+    ]
+  },
+  "bias_probe": {
+    "frozen_judge": {
+      "model": "Mistral-Small-3.2-24B-Instruct-2506",
+      "user_query_quality_mean": 10,
+      "reasoning_quality_mean": 10,
+      "n": 8
+    },
+    "alt_judge": {
+      "model": "Qwen3-Coder-30B-A3B-Instruct",
+      "user_query_quality_mean": 9.89,
+      "reasoning_quality_mean": 9.78,
+      "n": 9
+    }
+  }
+}
