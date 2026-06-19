@@ -209,7 +209,11 @@ HARNESS_REASONING_RES: list[re.Pattern] = [
     re.compile(r"never deny having memory", re.IGNORECASE),
     re.compile(r"make each inferential step explicit and checkable", re.IGNORECASE),
     re.compile(r"\bthinking process\s*:", re.IGNORECASE),
-    re.compile(r"contradictory .{0,40}?instructions?", re.IGNORECASE),
+    # NB: a bare "contradictory instructions" is NOT listed - the model legitimately
+    # reasons that *the user's* request is contradictory, which is good reasoning,
+    # not harness leakage. Genuine mode-A agonizing about contradictory SYSTEM
+    # instructions is caught by the "the system instructions" pattern below.
+    re.compile(r"contradictory\s+(?:\w+\s+){0,3}system\s+(?:prompt|instructions?)", re.IGNORECASE),
     re.compile(r"\bthe system (?:prompt|message|instructions?)\b", re.IGNORECASE),
     re.compile(r"\bmy (?:system )?(?:prompt|instructions?)\b", re.IGNORECASE),
     re.compile(r"\bas an ai language model\b", re.IGNORECASE),
@@ -294,6 +298,26 @@ _TURN_REF_PAREN_RE = re.compile(r"\(\s*Turn\s+\d+\s*\)")
 _TURN_REF_LINE_RE = re.compile(r"^(\s*[-*]\s*)Turn\s+\d+\s*:\s*", re.IGNORECASE | re.MULTILINE)
 
 
+# The native-reasoning model sporadically narrates a compliance-check against its
+# own system prompt inside its reasoning ("*Wait, I need to check the system
+# instructions:* 'You are a warm, knowledgeable... assistant.'"). Source fixes
+# (real chat-message history + a bare identity prompt) cut this from ~23/9-convs to
+# a sporadic residual, but a model tic cannot be deterministically prompted away.
+# This guard removes the meta-aside. It matches ONLY a deliberation cue + "system
+# prompt/instruction(s)" so it never strips topical discussion of system prompts
+# (e.g. a user asking what guidelines the assistant follows).
+_HARNESS_ASIDE_RE = re.compile(
+    r"(?im)^.*\b(?:wait|let me|i (?:need|have|should|'?ll|'?m going) |looking at|"
+    r"look at|check(?:ing)?|re-?read|consult|refer(?:ring)? to|recall(?:ing)?|"
+    r"according to|per the|following the|follow the|stick(?:ing)? to|as for|note:?)\b"
+    r"[^.\n]{0,60}?\bsystem\s+(?:prompt|instructions?|message)\b.*$")
+
+
+def _strip_harness_asides(text: str) -> str:
+    text = _HARNESS_ASIDE_RE.sub("", text)
+    return re.sub(r"\n{3,}", "\n\n", text)
+
+
 def _desensitize_turn_index(text: str) -> str:
     text = _TURN_REF_CURRENT_RE.sub("Now:", text)
     text = _TURN_REF_PAREN_RE.sub("", text)
@@ -343,6 +367,7 @@ def sanitize_reasoning(text: Optional[str]) -> Optional[str]:
         return text
     text = _THINKING_HEADER_RE.sub("", text, count=1)
     text = _normalize_reasoning(text) or ""
+    text = _strip_harness_asides(text)
     text = _desensitize_turn_index(text)
     text = _strip_trailing_artifact(text)
     return text.strip()
