@@ -354,6 +354,15 @@ _THINKING_HEADER_RE = re.compile(
     r"my (?:reasoning|thought process))\s*:?\s*\n+",
     re.IGNORECASE)
 
+# The model sometimes opens a SECOND "Thinking Process:" block mid-reasoning
+# ("...new framework.\n*(Let's write)*.\n**Thinking Process:**\n1. Analyze..."),
+# which the leading-only strip above misses. This scaffold header is never
+# substantive content, so strip the marker wherever it appears (markdown bold and
+# an optional trailing enumeration prefix on the same line are tolerated).
+_THINKING_HEADER_ANYWHERE_RE = re.compile(
+    r"\*{0,2}\s*(?:thinking|thought|reasoning)\s+process\s*:\s*\*{0,2}",
+    re.IGNORECASE)
+
 
 def _normalize_reasoning(text: Optional[str]) -> Optional[str]:
     if not text:
@@ -372,6 +381,7 @@ def sanitize_reasoning(text: Optional[str]) -> Optional[str]:
     if not text:
         return text
     text = _THINKING_HEADER_RE.sub("", text, count=1)
+    text = _THINKING_HEADER_ANYWHERE_RE.sub("", text)  # second/mid-stream headers
     text = _normalize_reasoning(text) or ""
     text = _strip_harness_asides(text)
     text = _desensitize_turn_index(text)

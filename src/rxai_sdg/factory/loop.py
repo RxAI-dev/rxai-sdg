@@ -29,7 +29,9 @@ from typing import Optional
 
 from .config import FactoryConfig
 from .cross_turn import run_cross_turn_checks, cross_turn_pass_rate
-from .holistic import HolisticJudge, RUBRIC_AXES, deterministic_prefilter
+from .holistic import (
+    HolisticJudge, RUBRIC_AXES, deterministic_prefilter, _is_degenerate_reasoning,
+)
 from .ledger import FactLedger, NeedlePlanner
 from .planner import CompositionRatios, plan_conversation
 from .prompts import PromptPack
@@ -317,6 +319,8 @@ class ConversationLoop:
             ok, detail = self._answer_acceptable(out.turn.answer or "")
             if ok and has_spec_leak(out.turn.reasoning or ""):
                 ok, detail = False, "coherence: spec internals in reasoning"
+            if ok and _is_degenerate_reasoning(out.turn.reasoning or ""):
+                ok, detail = False, "coherence: degenerate reasoning loop"
             if ok:
                 out.turn.verification = VerifyResult(True, "first answer ok", regenerations)
                 return out.turn
@@ -471,6 +475,13 @@ class ConversationLoop:
         # spec internals must not surface in the stored reasoning (fix F)
         if has_spec_leak(turn.reasoning or ""):
             return False, "coherence: spec internals in reasoning"
+
+        # a degenerate-loop reasoning block (the model repeating a phrase dozens of
+        # times, e.g. on an open-ended creative/emotional turn) is a failed
+        # generation - regenerate it at the source (fix D), rather than relying only
+        # on the decoding frequency_penalty to suppress it.
+        if _is_degenerate_reasoning(turn.reasoning or ""):
+            return False, "coherence: degenerate reasoning loop"
 
         # this turn's own constraint (the recall/transform "reference prior content"
         # check: for recall the value-presence checker enforces it directly)
