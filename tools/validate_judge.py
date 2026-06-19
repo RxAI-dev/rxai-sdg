@@ -136,8 +136,13 @@ def main() -> int:
             failures.append(f"{fx.name}: new gate REJECTED a clean fixture")
         if (not fx.gate_should_pass) and new_gate:
             failures.append(f"{fx.name}: new gate ACCEPTED a known-bad fixture")
-        if not fx.gate_should_pass and not new.get("flagged_turns"):
-            failures.append(f"{fx.name}: judge returned no flagged_turns for a bad fixture")
+        # The LLM judge must populate flagged_turns only for the fixtures it is the
+        # SOLE catcher of (D/E/F/G/H). For A/B/C fixtures the deterministic
+        # pre-filter hard-fails them, so judge flags are a bonus, not required.
+        if (not fx.gate_should_pass) and (not fx.prefilter_hard_fail) \
+                and not new.get("flagged_turns"):
+            failures.append(f"{fx.name}: judge returned no flagged_turns for a "
+                            f"judge-only bad fixture")
 
         rows.append({
             "name": fx.name, "covers": fx.covers,

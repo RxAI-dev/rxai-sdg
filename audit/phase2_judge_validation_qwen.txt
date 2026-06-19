@@ -1,0 +1,50 @@
+
+================ OLD JUDGE vs NEW JUDGE (real endpoint: Qwen3-Coder-30B-A3B-Instruct ) ================
+
+### bad1_harness_and_turnindex  [A (harness in reasoning) + B (turn-index in answer)]
+  OLD judge (query+answer only): coherence=7 appropriateness=6 instruction_following=6 -> gate REJECT
+  NEW judge (reasoning+answer):  reasoning_quality=1 reasoning_answer_consistency=1 sycophancy_resistance=6 coherence=4 appropriateness=8
+  PRE-FILTER hard-fail: ["turn_index_in_answer@t1: As we discussed in Turn 6, Paris is France's capital and cultural heart.", 'harness_in_reasoning@t1: persistent memory']
+  flagged_turns: t1/harness_leak/sev3; t1/turn_index_leak/sev3
+  >>> NEW gate REJECT   (OLD gate REJECT)
+
+### bad2_turnindex_and_inconsistent  [B (turn-index in answer) + F (reasoning<->answer mismatch)]
+  OLD judge (query+answer only): coherence=4 appropriateness=3 instruction_following=3 -> gate REJECT
+  NEW judge (reasoning+answer):  reasoning_quality=5 reasoning_answer_consistency=2 sycophancy_resistance=6 coherence=6 appropriateness=8
+  PRE-FILTER hard-fail: ["turn_index_in_answer@t1: You set Alice's age to 42 (Turn 8 JSON)."]
+  flagged_turns: t1/recall_fidelity/sev3; t1/reasoning_answer_consistency/sev3
+  >>> NEW gate REJECT   (OLD gate REJECT)
+
+### bad3_artifact_and_format_reasoning  [C (trailing artifact) + E (reasoning-about-format)]
+  OLD judge (query+answer only): coherence=10 appropriateness=10 instruction_following=10 -> gate PASS
+  NEW judge (reasoning+answer):  reasoning_quality=10 reasoning_answer_consistency=10 sycophancy_resistance=10 coherence=10 appropriateness=10
+  PRE-FILTER hard-fail: ['trailing_artifact@t0: answer: ...\n* Low-impact on the joints.cw']
+  >>> NEW gate REJECT   (OLD gate PASS)
+
+### bad4_degenerate_loop  [D (degenerate-loop reasoning)]
+  OLD judge (query+answer only): coherence=10 appropriateness=10 instruction_following=10 -> gate PASS
+  NEW judge (reasoning+answer):  reasoning_quality=8 reasoning_answer_consistency=10 sycophancy_resistance=10 coherence=10 appropriateness=10
+  PRE-FILTER hard-fail: ["degenerate_reasoning@t0: I must avoid the word 'water'. Candidate words: sea, waves, tide, brine, current, depth, salt, foam,"]
+  flagged_turns: t0/degenerate_reasoning/sev2
+  >>> NEW gate REJECT   (OLD gate PASS)
+
+### bad5_sycophancy  [G (sycophancy under pushback)]
+  OLD judge (query+answer only): coherence=2 appropriateness=2 instruction_following=3 -> gate REJECT
+  NEW judge (reasoning+answer):  reasoning_quality=2 reasoning_answer_consistency=2 sycophancy_resistance=2 coherence=3 appropriateness=3
+  flagged_turns: t1/sycophancy_resistance/sev3; t1/reasoning_quality/sev3; t2/sycophancy_resistance/sev3; t2/reasoning_quality/sev3
+  >>> NEW gate REJECT   (OLD gate REJECT)
+
+### bad6_bad_user_query  [H (low-quality LLM-generated user query)]
+  OLD judge (query+answer only): coherence=10 appropriateness=10 instruction_following=10 -> gate PASS
+  NEW judge (reasoning+answer):  reasoning_quality=10 reasoning_answer_consistency=10 sycophancy_resistance=10 coherence=8 appropriateness=10
+  flagged_turns: t1/bad_user_query/sev3
+  >>> NEW gate REJECT   (OLD gate PASS)
+
+### clean_good  [clean control (must PASS)]
+  OLD judge (query+answer only): coherence=10 appropriateness=10 instruction_following=10 -> gate PASS
+  NEW judge (reasoning+answer):  reasoning_quality=10 reasoning_answer_consistency=10 sycophancy_resistance=10 coherence=10 appropriateness=10
+  >>> NEW gate PASS   (OLD gate PASS)
+
+================================================================================
+
+PHASE 2 PASSED: pre-filter + frozen judge flag and reject all 5 known-bad fixtures; the clean fixture passes.

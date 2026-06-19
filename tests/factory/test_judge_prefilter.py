@@ -119,15 +119,15 @@ def test_prefilter_hard_fails_harness_in_reasoning():
     assert "harness_in_reasoning" in {h["kind"] for h in res.hard_fails}
 
 
-def test_prefilter_flags_degenerate_and_regen_softly():
+def test_prefilter_hard_fails_degenerate_flags_regen_soft():
     spiral = (". ".join(["avoid water"] * 8)) + ". check no water. check no water."
     turns = [_turn(0, "q", spiral, "The blue sea.", regen=4)]
     res = deterministic_prefilter(turns, regen_threshold=2)
-    # soft flags do NOT hard-fail on their own
-    assert res.passed is True
-    flag_kinds = {f["kind"] for f in res.flags}
-    assert "degenerate_reasoning" in flag_kinds
-    assert "excess_regenerations" in flag_kinds
+    # degenerate-loop reasoning is an OBJECTIVE defect -> HARD fail
+    assert res.passed is False
+    assert "degenerate_reasoning" in {h["kind"] for h in res.hard_fails}
+    # excess regenerations remains a soft (audit-only) flag
+    assert "excess_regenerations" in {f["kind"] for f in res.flags}
 
 
 def test_prefilter_clean_passes():

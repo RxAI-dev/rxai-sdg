@@ -171,7 +171,8 @@ def analyze_batch(records, cfg):
         "turn_index_in_answer": hard_counts.get("turn_index_in_answer", 0) == 0,
         "harness_in_reasoning": hard_counts.get("harness_in_reasoning", 0) == 0,
         "trailing_artifact": hard_counts.get("trailing_artifact", 0) == 0,
-        "degenerate_reasoning": flag_counts.get("degenerate_reasoning", 0) == 0,
+        "degenerate_reasoning": (hard_counts.get("degenerate_reasoning", 0)
+                                 + flag_counts.get("degenerate_reasoning", 0)) == 0,
         "no_regen_gt_2": max_regen <= cfg.prefilter_regen_threshold,
         "mean_reasoning_quality_ge_8": (means.get("reasoning_quality") or 0) >= 8,
         "mean_rac_ge_8": (means.get("reasoning_answer_consistency") or 0) >= 8,

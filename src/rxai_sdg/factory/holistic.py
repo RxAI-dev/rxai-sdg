@@ -190,8 +190,9 @@ def deterministic_prefilter(turns: list[Turn], regen_threshold: int = 2) -> Pref
 
     Hard-fails (reject): turn-index reference in an answer (mode B, FATAL),
     harness/meta phrase in reasoning (mode A), trailing generation artifact on any
-    segment (mode C). Flags (audit only): ``verification.regenerations`` over the
-    threshold, degenerate-loop reasoning (mode D).
+    segment (mode C), degenerate-loop reasoning (mode D - objective, so deterministic
+    rather than judge-dependent). Flags (audit only): ``verification.regenerations``
+    over the threshold.
     """
     hard: list[dict] = []
     soft: list[dict] = []
@@ -228,9 +229,14 @@ def deterministic_prefilter(turns: list[Turn], regen_threshold: int = 2) -> Pref
             soft.append({"turn_index": ti, "kind": "excess_regenerations",
                          "evidence": str(int(regen))})
 
-        # (D, soft) degenerate-loop reasoning.
+        # (D) degenerate-loop reasoning. This is an OBJECTIVE defect (>40 %
+        # duplicated units), so it is a HARD fail - not left to the stochastic
+        # judge. A discriminating judge (Qwen3-Coder) under-penalizes a
+        # fluent-sounding poetic/derivation loop (scoring reasoning_quality 8 on a
+        # phrase repeated 27x), so the deterministic detector must gate it. The
+        # responder's frequency_penalty prevents the loop at the source.
         if _is_degenerate_reasoning(reasoning):
-            soft.append({"turn_index": ti, "kind": "degenerate_reasoning",
+            hard.append({"turn_index": ti, "kind": "degenerate_reasoning",
                          "evidence": _evidence(reasoning)})
 
     return PrefilterResult(passed=(len(hard) == 0), hard_fails=hard, flags=soft)

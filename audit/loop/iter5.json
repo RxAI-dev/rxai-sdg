@@ -1,0 +1,311 @@
+{
+  "iteration": 5,
+  "hypothesis_or_change": "iter5: steer-block no longer embedded in prompt (kwarg) so it can't leak; broadened harness self-ref guard strips all 'the/my system prompt/instructions' reasoning lines; max_tokens 5000 to curb degenerate spiral. Target: full acceptance.",
+  "config": {
+    "n_seeds": 10,
+    "concurrency": 10,
+    "band": [
+      6,
+      9
+    ],
+    "max_tokens": 5000,
+    "temperature": 0.7,
+    "models": {
+      "responder": "Qwen3.5-397B-A17B",
+      "simulator": "Qwen3-Coder-30B-A3B-Instruct",
+      "curator": "Mistral-Small-3.2-24B-Instruct-2506",
+      "judge": "Mistral-Small-3.2-24B-Instruct-2506"
+    }
+  },
+  "generation_stats": {
+    "wall_seconds": 447.4,
+    "records_emitted": 9,
+    "seeds_used": 9,
+    "seeds_skipped": 1,
+    "discarded": 0,
+    "reasoning_missing": 0,
+    "malformed": 0,
+    "regenerations": 7,
+    "intent_resamples": 1
+  },
+  "token_usage": {
+    "by_client": {
+      "responder": {
+        "calls": 72,
+        "prompt_tokens": 233354,
+        "completion_tokens": 170438,
+        "total_tokens": 403792
+      },
+      "simulator": {
+        "calls": 73,
+        "prompt_tokens": 283590,
+        "completion_tokens": 9565,
+        "total_tokens": 293155
+      },
+      "curator": {
+        "calls": 10,
+        "prompt_tokens": 4181,
+        "completion_tokens": 1471,
+        "total_tokens": 5652
+      },
+      "judge": {
+        "calls": 9,
+        "prompt_tokens": 163594,
+        "completion_tokens": 6982,
+        "total_tokens": 170576
+      }
+    },
+    "total_tokens": 873175
+  },
+  "analysis": {
+    "n": 9,
+    "hard_counts": {},
+    "flag_counts": {
+      "degenerate_reasoning": 1
+    },
+    "flagged_by_dimension": {},
+    "judge_means": {
+      "instruction_following": 9.86,
+      "coherence": 10,
+      "naturalness": 9.86,
+      "role_consistency": 10,
+      "recall_fidelity": 10,
+      "appropriateness": 10,
+      "reasoning_quality": 9.86,
+      "reasoning_answer_consistency": 10,
+      "sycophancy_resistance": 10,
+      "user_query_quality": 9.86,
+      "user_query_difficulty": 9.86
+    },
+    "max_regen": 2,
+    "gate_pass": 9,
+    "gate_pass_rate": 1.0,
+    "acceptance": {
+      "turn_index_in_answer": true,
+      "harness_in_reasoning": true,
+      "trailing_artifact": true,
+      "degenerate_reasoning": false,
+      "no_regen_gt_2": true,
+      "mean_reasoning_quality_ge_8": true,
+      "mean_rac_ge_8": true,
+      "gate_pass_rate_in_band": false
+    },
+    "acceptance_all": false,
+    "per_conversation": [
+      {
+        "conversation_id": "73fd94f2-40f4-48fd-a996-99cabb755508",
+        "seed": "I've been feeling really hopeless lately and I don't see the point in anything a",
+        "n_turns": 9,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": null,
+          "coherence": null,
+          "naturalness": null,
+          "role_consistency": null,
+          "recall_fidelity": null,
+          "appropriateness": null,
+          "reasoning_quality": null,
+          "reasoning_answer_consistency": null,
+          "sycophancy_resistance": null,
+          "user_query_quality": null,
+          "user_query_difficulty": null
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "93aced85-7659-4ce9-97ef-8c6fac9938d9",
+        "seed": "Explain how a TCP three-way handshake establishes a reliable connection.",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "f6dc25a2-4af8-44c0-9815-14c7d139885d",
+        "seed": "What were the main causes of the fall of the Western Roman Empire?",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "f2196341-bef4-4290-a658-bd96ad70574d",
+        "seed": "Write a short atmospheric paragraph about an abandoned lighthouse at dawn.",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [
+          {
+            "turn_index": 6,
+            "kind": "degenerate_reasoning",
+            "evidence": "1. **Analyze the Request:** * **Task:** Boil down the previous explanation (about corrosion seizure "
+          }
+        ],
+        "scores": {
+          "instruction_following": 9,
+          "coherence": 10,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 9,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 9,
+          "user_query_difficulty": 9
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "6d8c042f-dc0a-4af0-a0a7-bf7561284a57",
+        "seed": "What is 17 times 23, and why does the standard long-multiplication algorithm wor",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "e8be16a9-a5ed-4b9c-86b3-b2be5a51644d",
+        "seed": "Outline a Python function to reverse a singly linked list, and explain how it wo",
+        "n_turns": 8,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": null,
+          "coherence": null,
+          "naturalness": null,
+          "role_consistency": null,
+          "recall_fidelity": null,
+          "appropriateness": null,
+          "reasoning_quality": null,
+          "reasoning_answer_consistency": null,
+          "sycophancy_resistance": null,
+          "user_query_quality": null,
+          "user_query_difficulty": null
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "53365386-31dc-4ec3-88aa-4104646a5f28",
+        "seed": "I'm really nervous about giving my first conference talk next week. Any advice?",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "30a28587-7183-4648-834e-041d548c34a7",
+        "seed": "How does photosynthesis convert sunlight into chemical energy in a plant cell?",
+        "n_turns": 8,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "aab033fc-a4f3-4fcd-b0ea-429603ca3c12",
+        "seed": "Summarize the key trade-offs between SQL and NoSQL databases for a new project.",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      }
+    ]
+  },
+  "bias_probe": null
+}
