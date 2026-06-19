@@ -13,6 +13,7 @@ provided:
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional, Protocol, Sequence, runtime_checkable
 
@@ -99,6 +100,24 @@ class OpenAILLMClient:
         #: default per-request timeout (seconds); slow reasoning models under high
         #: concurrency need a generous value or calls time out and regenerate.
         self.timeout = timeout
+        #: cumulative token usage (thread-safe), for the iteration audit trail.
+        self._usage = {"calls": 0, "prompt_tokens": 0,
+                       "completion_tokens": 0, "total_tokens": 0}
+        self._usage_lock = threading.Lock()
+
+    def usage(self) -> dict[str, int]:
+        """Return a copy of the accumulated token usage for this client."""
+        with self._usage_lock:
+            return dict(self._usage)
+
+    def _record_usage(self, completion: Any) -> None:
+        u = getattr(completion, "usage", None)
+        with self._usage_lock:
+            self._usage["calls"] += 1
+            for k in ("prompt_tokens", "completion_tokens", "total_tokens"):
+                v = getattr(u, k, None)
+                if isinstance(v, int):
+                    self._usage[k] += v
 
     def generate(
         self,
@@ -143,6 +162,7 @@ class OpenAILLMClient:
             print("API Error", exc)
             return LLMResponse(text="", reasoning=None)
 
+        self._record_usage(completion)
         message = completion.choices[0].message
         text = getattr(message, "content", None) or ""
         reasoning = getattr(message, self._reasoning_field_name, None)

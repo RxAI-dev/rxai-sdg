@@ -76,11 +76,22 @@ from .responder import (
     split_reasoning_answer,
     is_memory_disclaimer,
     has_cot_leak,
+    has_harness_leak,
+    has_turn_index_leak,
+    has_trailing_artifact,
+    sanitize_reasoning,
+    sanitize_generated_text,
     format_transcript,
+    format_transcript_for_judge,
 )
 from .user_simulator import UserSimulator, SimulatorResult, GROUNDING_KINDS
 from .cross_turn import run_cross_turn_checks, cross_turn_pass_rate
-from .holistic import HolisticJudge, RUBRIC_AXES
+from .holistic import (
+    HolisticJudge,
+    RUBRIC_AXES,
+    PrefilterResult,
+    deterministic_prefilter,
+)
 from .writer import SegmentWriter, flag_dangling_references
 from .variants import derive_variants
 from .dataset import (
@@ -115,10 +126,12 @@ __all__ = [
     "PromptPack", "get_prompt_pack",
     "Responder", "ResponderOutput", "ParsedResponse", "parse_response",
     "split_reasoning_answer", "is_memory_disclaimer", "has_cot_leak",
-    "format_transcript",
+    "has_harness_leak", "has_turn_index_leak", "has_trailing_artifact",
+    "sanitize_reasoning", "sanitize_generated_text",
+    "format_transcript", "format_transcript_for_judge",
     "UserSimulator", "SimulatorResult", "GROUNDING_KINDS",
     "run_cross_turn_checks", "cross_turn_pass_rate",
-    "HolisticJudge", "RUBRIC_AXES",
+    "HolisticJudge", "RUBRIC_AXES", "PrefilterResult", "deterministic_prefilter",
     "SegmentWriter", "flag_dangling_references", "derive_variants",
     "FactoryDatasetPostprocessor", "record_to_row", "row_to_record",
     "QualityConfig", "check_quality",

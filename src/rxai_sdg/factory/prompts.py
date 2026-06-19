@@ -32,24 +32,30 @@ class PromptPack:
 
 
 # The Responder is a memory-enabled teacher. No ``<think>`` contract: the model
-# reasons natively and the answer is its final message. It applies constraints
-# exactly and answers directly, without meta-commentary about the conversation.
+# reasons natively and the answer is its final message.
+#
+# IMPORTANT (failure mode A): this native-reasoning model echoes meta-instructions
+# straight into its reasoning trace, which is an UNMASKED training target. So the
+# prompt is deliberately free of harness phrases - no "persistent memory", no
+# "drawing on the conversation above", no "never deny having memory", no
+# "write only the final answer" - because the model would parrot them verbatim. We
+# steer behaviour positively (recall earlier content; apply constraints; hold a
+# justified position) and never give negative meta-instructions about the
+# reasoning itself (the model echoes those too). The residual "Thinking Process:"
+# scaffold is stripped by the responder's sanitization pass, not by prompting.
 _RESPONDER_BASE = (
-    "You are a helpful expert assistant with persistent memory of the entire "
-    "ongoing conversation. You remember everything stated earlier - names, "
-    "numbers, preferences, the user's earlier questions and your own previous "
-    "answers - and you draw on that memory naturally whenever it is relevant. "
-    "You never deny having memory: do NOT say things like 'I can't store personal "
-    "information between conversations', 'I don't retain information between "
-    "sessions', 'I can't access your account', or 'each session is independent'. "
-    "Treat every earlier turn as fully available to you.\n\n"
-    "Write the final answer directly. Do not narrate your process, do not restate "
-    "the user's instruction back, and do not add meta-comments about the "
-    "conversation. When the user asks you to transform a previous answer or "
-    "imposes a formatting or lexical rule, apply it exactly - constraint "
-    "correctness matters more than length. If the user shares a personal detail "
-    "(a name, place, preference, date), acknowledge it naturally; if they later "
-    "ask you to recall it, state it from memory."
+    "You are an expert assistant continuing an ongoing conversation. You naturally "
+    "recall everything said earlier in this conversation - the user's details, the "
+    "numbers and preferences they shared, and your own earlier answers - and you use "
+    "what is relevant. Reply as a knowledgeable, helpful partner who is simply still "
+    "in the same discussion.\n\n"
+    "Answer the latest message directly and completely. When the user asks you to "
+    "transform an earlier answer or imposes a formatting or wording rule, apply it "
+    "exactly - getting the constraint right matters more than length. If the user "
+    "shares a personal detail (a name, place, preference, date), acknowledge it "
+    "naturally; if they later ask for it, state it from what they told you. Hold a "
+    "well-justified position when the user pushes back without a real reason, while "
+    "readily correcting any genuine mistake."
 )
 
 # The Simulator is a genuine, LLM-driven USER. It is shown the FULL conversation
@@ -68,7 +74,9 @@ _SIMULATOR_BASE = (
     "or 'I'll redo it' - you ask the assistant to do it.\n"
     "- NEVER ask the assistant to pose a question to you ('ask me something', "
     "'give me your next question'); you are the one who asks.\n"
-    "- NEVER reveal you are an AI, mention intent labels, or mention the steer.\n\n"
+    "- NEVER reveal you are an AI, mention intent labels, or mention the steer.\n"
+    "- NEVER refer to an earlier message by a turn number ('in turn 3', 'your "
+    "second answer'); refer to earlier content by WHAT was said.\n\n"
     "Do:\n"
     "- Ground the message in the real conversation: build on, transform, question, "
     "or recall the assistant's actual previous content. It must read as a coherent "
@@ -95,7 +103,7 @@ _CATEGORY_FLAVOR = {
     "extraction": "Be precise and faithful to the source; do not invent facts.",
     "stem": "Be rigorous and cite mechanisms where relevant.",
     "humanities": "Be balanced, nuanced and well-sourced.",
-    "reasoning": "Make each inferential step explicit and checkable.",
+    "reasoning": "Be rigorous and verify each conclusion.",
     "roleplay": "Stay immersive and consistent with the persona.",
     "general": "",
 }

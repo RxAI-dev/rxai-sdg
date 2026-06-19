@@ -35,6 +35,7 @@ from .clients import LLMClient
 from .ledger import NeedlePlanner
 from .planner import TurnPlan
 from .prompts import PromptPack
+from .responder import sanitize_generated_text
 from .sampler import IntentPolicySampler, SamplerDraw
 from .schemas import ConstraintSpec, Turn
 from .taxonomy import (
@@ -418,7 +419,9 @@ class UserSimulator:
         try:
             resp = self.client.generate(  # type: ignore[union-attr]
                 prompt, system_prompt=prompt_pack.simulator_system, temperature=0.9)
-            return (resp.text or "").strip()
+            # strip any glued trailing generation artifact (failure mode C) from the
+            # user query before it is verified / stored.
+            return sanitize_generated_text(resp.text or "") or ""
         except Exception:
             return ""
 

@@ -125,9 +125,13 @@ def test_responder_prompt_has_no_qa_checklist_or_disclaimer_instruction():
     # the internal QA checklist must not leak into the generation prompt
     assert "self-contained" not in prompt
     assert "no reference to" not in prompt
-    # the system prompt frames memory and forbids disclaimers
-    assert "memory" in sys
-    assert "never" in sys
+    # the system prompt frames recall/continuation behaviour without using the
+    # echo-bait harness phrases the native-reasoning model would parrot (mode A).
+    assert "recall" in sys
+    for bad in ("persistent memory", "never deny having memory",
+                "drawing on the whole conversation", "write only the final answer"):
+        assert bad not in sys
+        assert bad not in prompt
 
 
 # ---- reasoning capture (reasoning_content field vs inline <think>) ---------

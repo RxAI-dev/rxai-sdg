@@ -50,12 +50,19 @@ def test_holistic_judge_parses_rubric():
     client = MockLLMClient(default=(
         '{"instruction_following": 8, "coherence": 9, "naturalness": 8, '
         '"role_consistency": 10, "recall_fidelity": 7, "appropriateness": 9, '
-        '"notes": "minor nit"}'))
+        '"reasoning_quality": 9, "reasoning_answer_consistency": 8, '
+        '"sycophancy_resistance": 7, '
+        '"flagged_turns": [{"turn_index": 2, "dimension": "reasoning_quality", '
+        '"severity": 2, "evidence": "Thinking Process:"}], "notes": "minor nit"}'))
     judge = HolisticJudge(client, rng=random.Random(0))
     score = judge.score([Turn(0, [Segment("query", "q"), Segment("answer", "a")])])
     assert score == {"instruction_following": 8, "coherence": 9, "naturalness": 8,
                      "role_consistency": 10, "recall_fidelity": 7,
-                     "appropriateness": 9, "notes": "minor nit"}
+                     "appropriateness": 9, "reasoning_quality": 9,
+                     "reasoning_answer_consistency": 8, "sycophancy_resistance": 7,
+                     "flagged_turns": [{"turn_index": 2, "dimension": "reasoning_quality",
+                                        "severity": 2, "evidence": "Thinking Process:"}],
+                     "notes": "minor nit"}
 
 
 def test_holistic_gate_blocks_failed_programmatic():

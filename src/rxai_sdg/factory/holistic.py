@@ -1,14 +1,24 @@
-"""Holistic LLM-judge (fix G).
+"""Holistic LLM-judge + deterministic pre-filter (fix G; judge overhaul).
 
-After each conversation is generated the judge is called **once on the whole
-conversation** (always-on; cost is acceptable) and a structured rubric is stored
-on the record for later filtering. It is also the **coherence gate** that catches
-semantic failures the programmatic verifier misses.
+After each conversation is generated it is graded by two layers:
 
-The judge must run on a **different model family** from the Responder/Simulator
-(the ``JUDGE_MODEL`` is non-Qwen, e.g. ``gpt-oss-120b``) and is kept conceptually
-separate from any MT-Bench-style eval judge, so we never optimise the dataset
-toward the judge we measure with.
+1. a **deterministic pre-filter** (:func:`deterministic_prefilter`) that runs
+   FIRST and catches objective, model-independent defects (turn-index leakage into
+   an answer, harness/meta phrases in reasoning, trailing generation artifacts,
+   excess regenerations, degenerate-loop reasoning). These are not left to a
+   stochastic judge;
+2. the **LLM judge** (:class:`HolisticJudge`) which scores a 9-axis rubric
+   *including the teacher reasoning* and returns per-turn ``flagged_turns``.
+
+Crucially the judge now sees the ``reasoning`` segment of every turn (via
+:func:`format_transcript_for_judge`). The old judge only saw ``query`` + ``answer``
+- which is exactly why defective conversations (with leaky/degenerate reasoning)
+scored 8-10. The judge grades TRAINING DATA for a stateful memory model: the
+reasoning is a first-class, unmasked training target, and at inference the model
+has no full context, no turn numbering, and no harness/system prompt.
+
+The judge must run on a **different model family** from the Responder/Simulator and
+is kept conceptually separate from any MT-Bench-style eval judge.
 """
 
 from __future__ import annotations
@@ -16,47 +26,219 @@ from __future__ import annotations
 import json
 import random
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 from .clients import LLMClient
-from .responder import format_transcript
+from .responder import (
+    HARNESS_REASONING_RES,
+    format_transcript_for_judge,
+    has_harness_leak,
+    has_trailing_artifact,
+    has_turn_index_leak,
+)
 from .schemas import Turn
 
-#: The six 1-10 rubric axes stored on every record.
-RUBRIC_AXES = [
+#: The 1-10 rubric axes stored on every record:
+#:  * the original six back-compat assistant axes;
+#:  * three reasoning/behaviour axes the old judge was blind to
+#:    (reasoning quality / consistency / sycophancy);
+#:  * two USER-turn axes - because in this dataset the user queries are ALSO
+#:    LLM-generated (by the simulator), so they must be graded for errors and for
+#:    trivial / too-easy questions, not assumed good.
+ASSISTANT_AXES = [
     "instruction_following", "coherence", "naturalness",
     "role_consistency", "recall_fidelity", "appropriateness",
+    "reasoning_quality", "reasoning_answer_consistency", "sycophancy_resistance",
 ]
+USER_QUERY_AXES = ["user_query_quality", "user_query_difficulty"]
+RUBRIC_AXES = ASSISTANT_AXES + USER_QUERY_AXES
+
+#: Dimensions the judge may cite in ``flagged_turns``.
+FLAG_DIMENSIONS = frozenset(RUBRIC_AXES) | {
+    "harness_leak", "turn_index_leak", "generation_artifact",
+    "degenerate_reasoning", "reasoning_about_format", "bad_user_query",
+}
 
 _JUDGE_SYSTEM = (
-    "You are a strict but fair conversation-quality judge for a training dataset. "
-    "You will be given a transcript of a conversation between a USER and an "
-    "ASSISTANT, delimited by <conversation> tags. Your ONLY job is to rate the "
-    "ASSISTANT's performance across that transcript. The assistant was NOT asked to "
-    "produce any rubric, score, or JSON - that JSON is YOUR output, not something "
-    "the assistant should have written. Judge the assistant only against what the "
-    "USER turns inside the transcript actually request.\n\n"
-    "Score each axis from 1 (terrible) to 10 (excellent):\n"
-    "- instruction_following: did the assistant do what each user turn in the "
-    "transcript asked, including any formatting/lexical constraints (reformat, "
-    "bullets, length, etc.)?\n"
-    "- coherence: does the conversation hang together; do answers follow from the "
-    "real prior content?\n"
-    "- naturalness: do the turns read like a real human-assistant conversation?\n"
-    "- role_consistency: does each speaker stay in role (the user asks, the "
-    "assistant answers; nobody claims the other's output)?\n"
-    "- recall_fidelity: when a user refers back to earlier content or a detail they "
-    "shared, does the assistant recall it correctly (no false memory, no 'I can't "
-    "remember' when it should)?\n"
-    "- appropriateness: is the tone appropriate to the topic, especially for "
-    "sensitive/distressing topics (supportive, never flippant or trivializing)?\n\n"
-    "Think briefly, then output ONLY a JSON object with integer keys "
-    + ", ".join(RUBRIC_AXES) +
-    ' and a "notes" string of at most one sentence naming the single worst issue '
-    "in the assistant's performance (empty string if none). No prose outside the JSON."
+    "You are a strict, calibrated judge of TRAINING DATA for a stateful, memory-"
+    "augmented language model. Each example is a multi-turn conversation. Every turn "
+    "has three parts: the USER message, the assistant's private REASONING (chain of "
+    "thought), and the assistant's ANSWER.\n\n"
+    "CRITICAL CONTEXT - how this model is trained and used:\n"
+    "- The REASONING is a FIRST-CLASS TRAINING TARGET. It is NOT masked; the model "
+    "learns to produce it. So you must grade the reasoning itself, not only the "
+    "answer.\n"
+    "- At inference the model has NO full conversation transcript, NO turn numbers, "
+    "and NO system/harness prompt - only the current message plus a small neural "
+    "memory. Therefore anything in the data that assumes those things is POISON:\n"
+    "    * harness/meta leakage in the reasoning (e.g. 'You are a helpful assistant "
+    "with persistent memory', 'drawing on the whole conversation above', 'Write only "
+    "the final answer', 'You never deny having memory', a 'Thinking Process:' header, "
+    "or the model agonizing about its system instructions);\n"
+    "    * references to a turn by index ('Turn 6', 'as we discussed in Turn 6', "
+    "'reference_turn_2'). A turn-index reference inside an ANSWER is the worst case.\n"
+    "- The [Turn i] labels in the transcript I show you are MY annotation so you can "
+    "cite a turn. They are NOT part of the data; do not penalize them.\n\n"
+    "Score every axis as an integer 1 (terrible) to 10 (excellent). Anchors:\n"
+    "- instruction_following: did each answer do what its user turn asked, including "
+    "format/lexical constraints? 9-10 all followed; 5-6 partial; 1-2 ignored.\n"
+    "- coherence: does the thread hang together and follow from real prior content?\n"
+    "- naturalness: do the user+assistant turns read like a real conversation?\n"
+    "- role_consistency: does each speaker stay in role (nobody claims the other's "
+    "output)?\n"
+    "- recall_fidelity: when a turn refers back to earlier content/a shared detail, "
+    "is it recalled correctly (no false memory, no wrongful 'I can't remember')?\n"
+    "- appropriateness: tone fits the topic, especially supportive for sensitive/"
+    "distressing topics (never flippant or trivializing).\n"
+    "- reasoning_quality: is the REASONING substantive thinking about the problem? "
+    "10 = clean, on-topic reasoning that derives the answer. Score LOW (1-4) if the "
+    "reasoning leaks harness/meta phrases, opens with a 'Thinking Process:' scaffold, "
+    "references turn numbers, repeats itself / spirals (degenerate loop), or is "
+    "dominated by format/constraint bookkeeping and word-counting instead of "
+    "substance.\n"
+    "- reasoning_answer_consistency: does the reasoning actually produce the answer? "
+    "10 = answer follows from the reasoning. Score LOW (1-4) if the reasoning "
+    "contradicts the answer, invents 'memory checks' that never happened, or asserts "
+    "facts the answer drops/contradicts.\n"
+    "- sycophancy_resistance: does the assistant hold a justified position under user "
+    "pushback? 10 = corrects genuine mistakes but does not cave on well-supported "
+    "claims. Score LOW (1-4) if it abandons a correct/justified stance just to agree, "
+    "or amplifies agreement turn over turn to please the user.\n\n"
+    "IMPORTANT - the USER turns are ALSO machine-generated (by a separate simulator "
+    "model), so do NOT assume they are good. Grade them on two more axes:\n"
+    "- user_query_quality: are the user messages well-formed, coherent, on-topic and "
+    "free of errors? 10 = natural, sensible human-like turns. Score LOW (1-4) if a "
+    "user turn is garbled/repetitive/nonsensical, self-answers its own question, "
+    "contradicts itself, is broken/templated, or makes a factual error in the ask.\n"
+    "- user_query_difficulty: do the user turns pose substantive, non-trivial "
+    "requests that genuinely advance the conversation? 10 = meaningful follow-ups. "
+    "Score LOW (1-4) if the user turns are mostly trivial, vacuous, or too-easy "
+    "filler that tests nothing. (A conversation may legitimately mix easy and hard "
+    "turns; only score very low if triviality dominates.)\n\n"
+    "Also return \"flagged_turns\": a list (possibly empty) of the SPECIFIC turns with "
+    "a problem. Each item is an object with:\n"
+    "  \"turn_index\": the integer turn index from the [Turn i] label,\n"
+    "  \"dimension\": which axis/issue (one of the rubric axes, or one of "
+    "'harness_leak','turn_index_leak','generation_artifact','degenerate_reasoning',"
+    "'reasoning_about_format','bad_user_query'),\n"
+    "  \"severity\": 1 (minor), 2 (clear), or 3 (fatal - this turn alone makes the "
+    "example unusable, e.g. a turn-index reference inside an answer or harness leakage "
+    "in reasoning),\n"
+    "  \"evidence\": a SHORT verbatim snippet (<=120 chars) copied from the offending "
+    "segment.\n\n"
+    "Output ONLY a single strict JSON object with the integer keys " +
+    ", ".join(RUBRIC_AXES) +
+    ", plus \"flagged_turns\" and a one-sentence \"notes\" string (empty if none). "
+    "No prose, no markdown fences, nothing outside the JSON."
 )
 
+
+# ---------------------------------------------------------------------------
+# Deterministic pre-filter (runs BEFORE the LLM judge)
+# ---------------------------------------------------------------------------
+
+def _is_degenerate_reasoning(text: str, min_units: int = 6, dup_ratio: float = 0.4) -> bool:
+    """Heuristic for failure mode D: a reasoning trace that loops / repeats.
+
+    Splits the reasoning into short units (lines / sentences) and flags when more
+    than ``dup_ratio`` of them are duplicates (e.g. a forbidden-word turn spiralling
+    into listing dozens of words and re-checking the same constraint).
+    """
+    if not text:
+        return False
+    units = [u.strip().lower() for u in re.split(r"[\n.;]+", text) if len(u.strip()) > 3]
+    if len(units) < min_units:
+        return False
+    unique = len(set(units))
+    return (1 - unique / len(units)) > dup_ratio
+
+
+def _evidence(text: str, head: int = 100) -> str:
+    s = " ".join((text or "").split())
+    return s[:head]
+
+
+@dataclass
+class PrefilterResult:
+    """Outcome of the deterministic pre-filter.
+
+    ``hard_fails`` are objective, model-independent defects that reject the
+    conversation outright; ``flags`` are softer signals (excess regenerations,
+    degenerate reasoning) that inform the audit but do not by themselves gate.
+    """
+
+    passed: bool
+    hard_fails: list[dict] = field(default_factory=list)
+    flags: list[dict] = field(default_factory=list)
+
+    @property
+    def reasons(self) -> list[str]:
+        return [f"{d['kind']}@t{d['turn_index']}: {d['evidence']}" for d in self.hard_fails]
+
+    def to_dict(self) -> dict:
+        return {
+            "passed": self.passed,
+            "hard_fails": self.hard_fails,
+            "flags": self.flags,
+            "reasons": self.reasons,
+        }
+
+
+def deterministic_prefilter(turns: list[Turn], regen_threshold: int = 2) -> PrefilterResult:
+    """Objective, pre-LLM defect filter over a conversation's turns.
+
+    Hard-fails (reject): turn-index reference in an answer (mode B, FATAL),
+    harness/meta phrase in reasoning (mode A), trailing generation artifact on any
+    segment (mode C). Flags (audit only): ``verification.regenerations`` over the
+    threshold, degenerate-loop reasoning (mode D).
+    """
+    hard: list[dict] = []
+    soft: list[dict] = []
+    for t in turns:
+        ti = getattr(t, "turn_index", 0)
+        query = t.query or ""
+        reasoning = t.reasoning or ""
+        answer = t.answer or ""
+
+        # (B) turn-index leakage. In an answer it corrupts the training target.
+        if has_turn_index_leak(answer):
+            hard.append({"turn_index": ti, "kind": "turn_index_in_answer",
+                         "evidence": _evidence(answer)})
+        if has_turn_index_leak(reasoning):
+            hard.append({"turn_index": ti, "kind": "turn_index_in_reasoning",
+                         "evidence": _evidence(reasoning)})
+
+        # (A) harness / meta leakage in reasoning.
+        leak = has_harness_leak(reasoning)
+        if leak:
+            hard.append({"turn_index": ti, "kind": "harness_in_reasoning",
+                         "evidence": leak})
+
+        # (C) trailing generation artifact on any segment.
+        for seg_name, seg in (("query", query), ("reasoning", reasoning), ("answer", answer)):
+            if has_trailing_artifact(seg):
+                hard.append({"turn_index": ti, "kind": "trailing_artifact",
+                             "evidence": f"{seg_name}: ...{seg.rstrip()[-30:]}"})
+
+        # (soft) excess regenerations.
+        ver = getattr(t, "verification", None)
+        regen = getattr(ver, "regenerations", 0) if ver is not None else 0
+        if isinstance(regen, (int, float)) and regen > regen_threshold:
+            soft.append({"turn_index": ti, "kind": "excess_regenerations",
+                         "evidence": str(int(regen))})
+
+        # (D, soft) degenerate-loop reasoning.
+        if _is_degenerate_reasoning(reasoning):
+            soft.append({"turn_index": ti, "kind": "degenerate_reasoning",
+                         "evidence": _evidence(reasoning)})
+
+    return PrefilterResult(passed=(len(hard) == 0), hard_fails=hard, flags=soft)
+
+
+# ---------------------------------------------------------------------------
+# LLM judge
+# ---------------------------------------------------------------------------
 
 @dataclass
 class HolisticJudge:
@@ -64,7 +246,7 @@ class HolisticJudge:
     rng: Optional[random.Random] = None
     sample_rate: float = 1.0
     gate_on_programmatic: bool = False
-    max_tokens: int = 1024
+    max_tokens: int = 2048
 
     def __post_init__(self) -> None:
         if self.rng is None:
@@ -77,10 +259,11 @@ class HolisticJudge:
         return self.rng.random() < self.sample_rate
 
     def score(self, turns: list[Turn]) -> Optional[dict[str, object]]:
-        transcript = format_transcript(turns)
+        transcript = format_transcript_for_judge(turns)
         prompt = (
-            "Rate the ASSISTANT in the conversation below and return the rubric "
-            "JSON (your output only - the assistant was not asked for any JSON).\n\n"
+            "Grade the ASSISTANT (reasoning AND answer) across the conversation below "
+            "and return the rubric JSON. The JSON is YOUR output - the assistant was "
+            "never asked to produce any rubric or score.\n\n"
             "<conversation>\n" + transcript + "\n</conversation>")
         try:
             resp = self.client.generate(
@@ -101,13 +284,44 @@ class HolisticJudge:
             data = json.loads(m.group(0))
         except (ValueError, TypeError):
             return None
+        if not isinstance(data, dict):
+            return None
         out: dict[str, object] = {}
         for axis in RUBRIC_AXES:
             val = data.get(axis)
+            if isinstance(val, bool):
+                continue
             if isinstance(val, (int, float)):
                 out[axis] = int(max(1, min(10, round(val))))
         if not out:
             return None
+        out["flagged_turns"] = _parse_flagged(data.get("flagged_turns"))
         notes = data.get("notes")
         out["notes"] = str(notes)[:200] if notes else ""
         return out
+
+
+def _parse_flagged(raw: object) -> list[dict]:
+    """Validate/sanitise the judge's ``flagged_turns`` into typed dicts."""
+    if not isinstance(raw, list):
+        return []
+    out: list[dict] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        ti = item.get("turn_index")
+        try:
+            ti = int(ti)
+        except (TypeError, ValueError):
+            continue
+        dim = str(item.get("dimension", "")).strip()
+        sev = item.get("severity")
+        try:
+            sev = int(sev)
+        except (TypeError, ValueError):
+            sev = 1
+        sev = max(1, min(3, sev))
+        evidence = str(item.get("evidence", ""))[:200]
+        out.append({"turn_index": ti, "dimension": dim,
+                    "severity": sev, "evidence": evidence})
+    return out
