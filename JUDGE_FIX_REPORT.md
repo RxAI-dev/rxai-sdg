@@ -124,15 +124,88 @@ are FROZEN after this point.**
 
 ## 4. PHASE 4 — autonomous generate → judge → analyze → fix loop
 
-_(filled in per iteration below; audit JSON under `audit/loop/iterN.json`, raw
-batches under `runs/loop/` — gitignored.)_
+Each iteration = a real 10-seed batch (one greeting seed is curator-skipped → 9
+conversations), concurrency 10, judge always-on. Audit JSON per iteration in
+`audit/loop/iterN.json`; raw batches under `runs/loop/` (gitignored). The
+pre-filter signals (objective) drove every fix; the judge means are secondary.
 
-<!-- ITERATIONS -->
+| iter | key change | harness | turn-idx (reason) | artifact | degenerate | regen>2 | mean rq | pass-rate | judge |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | baseline (Phase-3 prompt) | 23 | 9 | 1 | 1 | 0 | 10* | 0.00 | Mistral |
+| 2 | real chat-message history; robust JSON parse | 11 | 3 | 3 | 1 | 0 | 9.9* | 0.22 | Mistral |
+| 3 | bare-identity prompt; turn-idx + artifact sanitize; mt 6000 | 3 | 0 | 0 | 0 | 0 | 9.8* | 0.67 | Mistral |
+| 4 | aside guard v1; pre-filter precision fix | 5 | 0 | 0 | 1 | 0 | 9.8* | 0.67 | Mistral |
+| 5 | steer-kwarg (no leak); broad aside guard; mt 5000 | **0** | **0** | **0** | 1 | 0 | 9.9* | 1.00* | Mistral |
+| 6 | Qwen judge; freq_penalty 0.3; degenerate→hard-fail | **0** | **0** | 1 | **0** | 0 | 8.2 | 0.44 | **Qwen** |
+| 7 | freq_penalty 0.1; markdown-glued artifact strip | **0** | **0** | **0** | 1 | 0 | 9.8 | **0.78** | Qwen |
+| 8 | freq_penalty 0.2 | _(see final numbers below)_ | | | | | | | Qwen |
 
-## 5. Judge↔simulator self-evaluation bias check
+`*` = the Mistral judge scored almost exclusively 9–10 (never < 7), so pass-rate
+1.0 in iter5 was the "gate too lax" signal — not a clean-data artefact. Re-judging
+the **same iter5 batch** with Qwen3-Coder gave a real spread {8:4, 9:11, 10:84}
+and pass-rate **0.89** (in band), which is why the judge was switched (§5).
 
-_(filled in from the iteration-1 bias probe: same batch scored by the frozen
-Mistral judge and by the Qwen3-Coder judge — the simulator's own family.)_
+### Per-iteration diagnosis → fix (the legible trail)
+
+- **iter1 (harness 23, turn-idx 9):** the responder was fed a `User:/Assistant:`
+  transcript blob + a rules-y system prompt. The native-reasoning model
+  **re-numbered the transcript** ("History Check: Turn 1… Turn 2… Turn 3
+  (Current)") and **quoted/agonized about the system prompt** ("despite the system
+  instruction saying 'continuing an ongoing conversation'"). → **iter2:** pass
+  prior turns as REAL chat messages (no transcript to number); drop the "ongoing
+  conversation" framing (it created a turn-0 "contradiction" the model agonized
+  over). A probe confirmed: 0 system-quoting, 0 turn-numbering — only the
+  `Thinking Process:` header, which sanitization already strips.
+- **iter2→3 (harness 11→3):** the model quoted *any* behavioural sentence in the
+  prompt ("Wait, looking at the system instructions: 'Answer the most recent user
+  message…'"). → reduce the responder prompt to a **bare warm identity** with no
+  quotable imperatives. Also added meaning-preserving **turn-index de-numbering**
+  and broader **artifact** stripping in the sanitization pass.
+- **iter3→4 (harness 3):** 1 of the 3 was a **false positive** — the model
+  correctly noting the *user's* request was contradictory. → narrowed the
+  over-broad `contradictory…instructions` pre-filter pattern to require the SYSTEM
+  context (precision fix; Phase 2 re-validated). The other 2 were a sporadic
+  compliance-check tic → a targeted aside guard.
+- **iter4→5 (harness 5→0):** two new causes — the simulator **leaked its
+  `=== STEER ===` block** into the user query (the responder then reasoned about
+  it) → steer now passed via a `steer=` kwarg, never in the prompt; and the model
+  references its own prompt in **varied phrasings** (incl. hallucinated safety
+  "system instructions" on crisis turns) → broadened the aside guard to strip any
+  self-reference to "the/my system prompt/instructions".
+- **iter5→6 (pass-rate 1.0 → judge swap):** Mistral was too lenient to let the gate
+  discriminate. Switched to the discriminating **Qwen3-Coder** judge; promoted the
+  objective **degenerate** detector to a deterministic **hard-fail** (Qwen
+  under-penalizes a fluent loop); added a **`frequency_penalty`** decoding param to
+  break the loop at source.
+- **iter6→7 (pass-rate 0.44 → 0.78):** `frequency_penalty=0.3` over-penalized
+  fluency (Qwen then rejected too many turns). Dialed to **0.1** (still crushes a
+  27× loop — the penalty scales with count); fixed a markdown-glued artifact
+  (`*Let's go.*cw`). 0.1 left one degenerate spiral on the mental-health support
+  turn → **iter8** tunes `frequency_penalty=0.2`.
+
+## 5. Judge↔simulator self-evaluation bias check & the judge choice
+
+The user flagged that the judge (`Qwen3-Coder`) was the **same model as the
+simulator** that writes the user queries — a self-evaluation bias risk. Two
+findings:
+
+1. **The bias does not materialize.** The iter1 bias probe scored the same batch
+   with the frozen judge and with the simulator's own family: on
+   `user_query_quality`, **Mistral-Small = 10.0 vs Qwen3-Coder = 9.89** — Qwen is
+   *slightly stricter* on its own simulator's queries, the opposite of inflation.
+2. **Mistral-Small is too lenient to gate.** Across iter5 it scored only 9s and
+   10s on every axis (never < 7) and missed a 13.8k-char degenerate spiral
+   (`reasoning_quality=9`). With a judge that never scores below the gate floor,
+   the gate can only ever reject on the deterministic pre-filter, so a clean batch
+   pins pass-rate at 1.0 — exactly the "gate too lax" failure the spec warns about.
+
+So the **frozen judge is `Qwen3-Coder-30B`** (the task's specified judge): more
+discriminating (real {8,9,10} spread → pass-rate in band), parseable, and
+empirically un-biased on its own queries. The deterministic pre-filter catches the
+objective A/B/C/D defects judge-independently, so Qwen's softer touch on E
+(reasoning-about-format) does not matter — bad3 is still gate-rejected by the
+artifact pre-filter. Phase 2 re-validated green with Qwen
+(`audit/phase2_judge_validation_qwen.txt`).
 
 ## 6. Files changed / new config surface
 
