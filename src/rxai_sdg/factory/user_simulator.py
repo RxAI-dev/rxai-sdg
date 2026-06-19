@@ -237,7 +237,8 @@ class UserSimulator:
         verbosity = self.rng.choice(VERBOSITIES)
         steer = {"op": "recall_content", "topic": topic}
         prompt = self._build_prompt(prior_turns, persona, verbosity, steer)
-        text = self._call_llm(prompt, prompt_pack) or (
+        steer_meta = {**steer, "persona": persona, "length": verbosity}
+        text = self._call_llm(prompt, prompt_pack, steer=steer_meta) or (
             f"Earlier you touched on {topic} - can you say more about that point?")
         return SimulatorResult(
             nl_query=text, constraint_spec=spec, draw=draw,
@@ -293,9 +294,10 @@ class UserSimulator:
         verbosity = self.rng.choice(VERBOSITIES)
         steer = self._steer(intent, policy, spec, topic, directive)
         prompt = self._build_prompt(prior_turns, persona, verbosity, steer)
+        steer_meta = {**steer, "persona": persona, "length": verbosity}
 
         for _ in range(2):  # initial generation + one regeneration
-            text = self._call_llm(prompt, prompt_pack)
+            text = self._call_llm(prompt, prompt_pack, steer=steer_meta)
             if self._coherence_ok(text, intent, policy, spec, topic):
                 # NB: the ledger plant/update commit is intentionally NOT done here.
                 # A generated query can still be discarded by the loop if the
@@ -394,15 +396,13 @@ class UserSimulator:
         lines.append(
             "\nOutput only the user's message - no labels, no quotes, do not answer "
             "your own question.")
-        # Machine-readable steer for the deterministic test client (a real LLM
-        # simply follows the prose above).
-        lines.append("\n=== STEER ===")
-        for key in ("op", "say", "fact_label", "fact_value", "topic"):
-            if key in steer:
-                lines.append(f"{key}: {steer[key]}")
-        lines.append(f"persona: {persona}")
-        lines.append(f"length: {verbosity}")
-        lines.append("=== END STEER ===")
+        # NB: the machine-readable STEER block used to be appended here for the
+        # deterministic test client. A real simulator model sometimes COPIED that
+        # block into its output, so the responder then saw "=== STEER ===" inside
+        # the user query and reasoned about it ("this message has no STEER block,
+        # revert to the system prompt") - a harness leak. The steer dict is now
+        # passed to the client via the ``steer=`` kwarg instead (the mock reads it
+        # from there; real clients ignore it), so it can never leak into output.
         return "\n".join(lines)
 
     @staticmethod
@@ -415,10 +415,12 @@ class UserSimulator:
                 out.append(f"Assistant: {t.answer}")
         return "\n".join(out)
 
-    def _call_llm(self, prompt: str, prompt_pack: PromptPack) -> str:
+    def _call_llm(self, prompt: str, prompt_pack: PromptPack,
+                  steer: Optional[dict] = None) -> str:
         try:
             resp = self.client.generate(  # type: ignore[union-attr]
-                prompt, system_prompt=prompt_pack.simulator_system, temperature=0.9)
+                prompt, system_prompt=prompt_pack.simulator_system, temperature=0.9,
+                steer=steer)
             # strip any glued trailing generation artifact (failure mode C) from the
             # user query before it is verified / stored.
             return sanitize_generated_text(resp.text or "") or ""

@@ -298,19 +298,21 @@ _TURN_REF_PAREN_RE = re.compile(r"\(\s*Turn\s+\d+\s*\)")
 _TURN_REF_LINE_RE = re.compile(r"^(\s*[-*]\s*)Turn\s+\d+\s*:\s*", re.IGNORECASE | re.MULTILINE)
 
 
-# The native-reasoning model sporadically narrates a compliance-check against its
-# own system prompt inside its reasoning ("*Wait, I need to check the system
-# instructions:* 'You are a warm, knowledgeable... assistant.'"). Source fixes
-# (real chat-message history + a bare identity prompt) cut this from ~23/9-convs to
-# a sporadic residual, but a model tic cannot be deterministically prompted away.
-# This guard removes the meta-aside. It matches ONLY a deliberation cue + "system
-# prompt/instruction(s)" so it never strips topical discussion of system prompts
-# (e.g. a user asking what guidelines the assistant follows).
+# The native-reasoning model narrates, in varied phrasings, a meta-reference to
+# its OWN system prompt inside its reasoning - quoting it ("The system instructions
+# say '...'"), reverting to it ("revert to the system prompt: '...'"), or even
+# hallucinating extra safety "system instructions" on crisis turns. Source fixes
+# (real chat-message history + a bare identity prompt + removing the leaked steer
+# block) cut this sharply, but a model tic cannot be deterministically prompted
+# away. This guard removes the meta-aside LINE. It targets only a SELF-reference to
+# "the/my system prompt/instructions" - generic topical discussion of system
+# prompts ("a system prompt is...") is not matched, so a user asking what
+# guidelines the assistant follows is preserved.
 _HARNESS_ASIDE_RE = re.compile(
-    r"(?im)^.*\b(?:wait|let me|i (?:need|have|should|'?ll|'?m going) |looking at|"
-    r"look at|check(?:ing)?|re-?read|consult|refer(?:ring)? to|recall(?:ing)?|"
-    r"according to|per the|following the|follow the|stick(?:ing)? to|as for|note:?)\b"
-    r"[^.\n]{0,60}?\bsystem\s+(?:prompt|instructions?|message)\b.*$")
+    r"(?im)^.*(?:\bthe\s+system\s+(?:prompt|instructions?|message)\b"
+    r"|\bmy\s+(?:system\s+)?(?:prompt|instructions?)\b"
+    r"|\brevert(?:ing)?\s+to\s+the\s+system\b"
+    r"|\bsystem\s+prompt\s*:).*$")
 
 
 def _strip_harness_asides(text: str) -> str:
