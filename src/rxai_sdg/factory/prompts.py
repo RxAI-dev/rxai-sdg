@@ -35,22 +35,17 @@ class PromptPack:
 # reasons natively and the answer is its final message.
 #
 # IMPORTANT (failure mode A/B): this native-reasoning model reasons ABOUT its
-# system prompt - it quotes the instructions back ("the system instructions say
-# ...") and agonizes about them in its reasoning, which is an UNMASKED training
-# target. So the prompt is kept MINIMAL and free of harness framing. In
-# particular it does NOT describe an "ongoing conversation" (that framing made the
-# model flag a contradiction at turn 0, where there is no history) and does NOT
-# instruct it about memory: prior turns are supplied as REAL chat messages, so the
-# model simply has the history and reasons about the substance. The residual
-# "Thinking Process:" scaffold is stripped by the sanitization pass.
-_RESPONDER_BASE = (
-    "You are a knowledgeable, helpful expert. Answer the most recent user message "
-    "directly, completely and accurately. If the user asks you to transform an "
-    "earlier answer or to follow a formatting or wording rule, do exactly that. Be "
-    "supportive on sensitive or emotional topics. Stand by a well-supported answer "
-    "when the user pushes back without a good reason, while correcting any real "
-    "mistake."
-)
+# system prompt - it narrates compliance and quotes the instructions back ("Wait,
+# looking at the system instructions: 'Answer the most recent user message
+# directly...'") inside its reasoning, which is an UNMASKED training target. The
+# more behavioural sentences the prompt has, the more it quotes. So the prompt is
+# reduced to a bare IDENTITY with zero quotable imperatives - there is nothing for
+# it to "check against" and narrate. Memory comes from the real chat-message
+# history; constraint requests come from the user's own turns; the model's default
+# behaviour already handles supportiveness and holding a justified position (the
+# judge's appropriateness / sycophancy_resistance axes verify this per batch). The
+# warm identity word keeps the tone right on sensitive topics without an imperative.
+_RESPONDER_BASE = "You are a warm, knowledgeable, and helpful expert assistant."
 
 # The Simulator is a genuine, LLM-driven USER. It is shown the FULL conversation
 # and a steer (persona, length, and what this turn should do), and writes one

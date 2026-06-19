@@ -243,9 +243,10 @@ def has_turn_index_leak(text: str) -> bool:
 
 
 # (C) Trailing generation artifact: a corrupted short token glued to the final
-# word, e.g. "...output.cw", "...generate.cltr", "...Ready.cw". Detection is
-# broad; sanitization only strips the known corruption suffixes so a real filename
-# / domain ending (".py", ".com") is never mangled.
+# word, e.g. "...output.cw", "...generate.cltr", "...Ready to write.s",
+# "...ready to generate.ot". Detection is broad; sanitization keeps the sentence
+# and strips only the glued junk so a real filename / domain ending (".py",
+# ".com") is never mangled.
 _ARTIFACT_KNOWN_RE = re.compile(r"\.(?:cw|cltr|clt|cwt|ctr)\b\s*$|(?:\bcw|\bcltr)\s*$")
 _ARTIFACT_GENERIC_RE = re.compile(r"[A-Za-z]{3,}\.([a-z]{1,4})\s*$")
 _ARTIFACT_ALLOW = {
@@ -253,7 +254,6 @@ _ARTIFACT_ALLOW = {
     "md", "txt", "csv", "json", "html", "htm", "xml", "yaml", "yml", "pdf",
     "png", "jpg", "jpeg", "gif", "svg", "sh", "go", "rs", "rb", "cpp", "etc",
 }
-_ARTIFACT_STRIP_RE = re.compile(r"\s*\.(?:cw|cltr|clt|cwt|ctr)\b\s*$")
 
 
 def has_trailing_artifact(text: str) -> bool:
@@ -265,6 +265,43 @@ def has_trailing_artifact(text: str) -> bool:
         return True
     m = _ARTIFACT_GENERIC_RE.search(t)
     return bool(m and m.group(1).lower() not in _ARTIFACT_ALLOW)
+
+
+def _strip_trailing_artifact(text: str) -> str:
+    """Strip a glued trailing artifact, preserving the sentence and its period."""
+    t = (text or "").rstrip()
+    if not t:
+        return text
+    # known corruption suffix glued after a period, e.g. "391.cw" / "Ready.cw"
+    t2 = re.sub(r"\.(?:cw|cltr|clt|cwt|ctr)\b\s*$", ".", t)
+    if t2 != t:
+        return t2
+    # generic short junk after a period: "write.s", "generate.ot" (not a real ext)
+    m = re.search(r"[A-Za-z]{3,}\.([a-z]{1,4})$", t)
+    if m and m.group(1).lower() not in _ARTIFACT_ALLOW:
+        return t[: m.start(1) - 1] + "."
+    return re.sub(r"\s+(?:cw|cltr)\s*$", "", t)     # bare "... cw"
+
+
+# (B) De-number turn-index references that the model writes into its reasoning
+# when it recaps a long conversation ("History Check: Turn 1: ... Turn 2: ...").
+# This is meaning-preserving (the recap content is kept, the turn numbers - which
+# do not exist at inference - are removed). Applied to reasoning ONLY; a turn
+# index in an ANSWER is left to the pre-filter to hard-fail (it must be dropped /
+# regenerated, not silently patched, since it corrupts the training target).
+_TURN_REF_CURRENT_RE = re.compile(r"\bTurn\s+\d+\s*\(current\)\s*:?", re.IGNORECASE)
+_TURN_REF_PAREN_RE = re.compile(r"\(\s*Turn\s+\d+\s*\)")
+_TURN_REF_LINE_RE = re.compile(r"^(\s*[-*]\s*)Turn\s+\d+\s*:\s*", re.IGNORECASE | re.MULTILINE)
+
+
+def _desensitize_turn_index(text: str) -> str:
+    text = _TURN_REF_CURRENT_RE.sub("Now:", text)
+    text = _TURN_REF_PAREN_RE.sub("", text)
+    text = _TURN_REF_LINE_RE.sub(r"\1", text)
+    # guaranteed sweep so the result never trips the (frozen) pre-filter detector
+    text = _TURN_INDEX_CUE_RE.sub("earlier", text)
+    text = _TURN_INDEX_STRICT_RE.sub("earlier", text)
+    return text
 
 
 # "standing instruction" is reserved schema vocabulary in this system (it named
@@ -306,15 +343,20 @@ def sanitize_reasoning(text: Optional[str]) -> Optional[str]:
         return text
     text = _THINKING_HEADER_RE.sub("", text, count=1)
     text = _normalize_reasoning(text) or ""
-    text = _ARTIFACT_STRIP_RE.sub(".", text)
+    text = _desensitize_turn_index(text)
+    text = _strip_trailing_artifact(text)
     return text.strip()
 
 
 def sanitize_generated_text(text: Optional[str]) -> Optional[str]:
-    """Strip a glued trailing artifact from a generated answer / user query."""
+    """Strip a glued trailing artifact from a generated answer / user query.
+
+    Does NOT de-number turn indices: a turn index in an answer is fatal and must
+    be hard-failed (dropped/regenerated), not silently patched.
+    """
     if not text:
         return text
-    return _ARTIFACT_STRIP_RE.sub(".", text).strip()
+    return _strip_trailing_artifact(text).strip()
 
 
 def is_memory_disclaimer(answer: str) -> bool:
