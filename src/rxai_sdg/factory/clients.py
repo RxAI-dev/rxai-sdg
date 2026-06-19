@@ -78,6 +78,8 @@ class OpenAILLMClient:
         log_first_raw: bool = False,
         reasoning_field_name: str = 'reasoning',
         timeout: float = 120,
+        frequency_penalty: float = 0.0,
+        presence_penalty: float = 0.0,
     ):
         # Imported lazily to keep the factory package import-light.
         from ..base import BaseDatasetGenerator
@@ -101,6 +103,12 @@ class OpenAILLMClient:
         #: default per-request timeout (seconds); slow reasoning models under high
         #: concurrency need a generous value or calls time out and regenerate.
         self.timeout = timeout
+        #: small decoding penalties break the native-reasoning model's occasional
+        #: degenerate loop (it repeats a poetic/derivation phrase dozens of times in
+        #: its reasoning). frequency_penalty is the targeted, source-level fix for
+        #: failure mode D; 0.0 keeps default behaviour for other roles.
+        self.frequency_penalty = frequency_penalty
+        self.presence_penalty = presence_penalty
         #: cumulative token usage (thread-safe), for the iteration audit trail.
         self._usage = {"calls": 0, "prompt_tokens": 0,
                        "completion_tokens": 0, "total_tokens": 0}
@@ -172,6 +180,8 @@ class OpenAILLMClient:
                 max_tokens=max_tokens,
                 temperature=temperature,
                 top_p=kwargs.get("top_p", self.default_top_p),
+                frequency_penalty=kwargs.get("frequency_penalty", self.frequency_penalty),
+                presence_penalty=kwargs.get("presence_penalty", self.presence_penalty),
                 timeout=kwargs.get("timeout", self.timeout),
             )
         except Exception as exc:  # pragma: no cover - network dependent

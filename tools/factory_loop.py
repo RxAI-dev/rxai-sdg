@@ -71,17 +71,21 @@ def build_factory(args):
     responder = OpenAILLMClient(
         model_name=_env("RXAI_RESPONDER_MODEL", default="Qwen3.5-397B-A17B"),
         api_url=base, api_key=key, reasoning_field_name="reasoning",
-        log_first_raw=args.log_raw, timeout=t)
+        log_first_raw=args.log_raw, timeout=t,
+        frequency_penalty=args.frequency_penalty)
     simulator = OpenAILLMClient(
         model_name=_env("RXAI_SIMULATOR_MODEL", default="Qwen3-Coder-30B-A3B-Instruct"),
         api_url=base, api_key=key, timeout=t)
     curator = OpenAILLMClient(
         model_name=_env("RXAI_CURATOR_MODEL", default="Mistral-Small-3.2-24B-Instruct-2506"),
         api_url=base, api_key=key, timeout=t)
-    # FROZEN judge: Mistral-Small (different family from responder Qwen3.5 AND
-    # simulator Qwen3-Coder -> no self-evaluation bias).
+    # FROZEN judge model = Qwen3-Coder-30B (the task's specified judge): the most
+    # discriminating of the candidates (Mistral scored only 9-10 and never let the
+    # gate reject clean-ish data -> pass-rate pinned at 1.0). The judge<->simulator
+    # self-eval concern was checked empirically (iter1 bias probe: Qwen 9.89 vs
+    # Mistral 10 on user_query_quality - NOT inflated, slightly stricter).
     judge = OpenAILLMClient(
-        model_name=_env("RXAI_JUDGE_MODEL", default="Mistral-Small-3.2-24B-Instruct-2506"),
+        model_name=_env("RXAI_JUDGE_MODEL", default="Qwen3-Coder-30B-A3B-Instruct"),
         api_url=base, api_key=key, timeout=t)
 
     cfg = FactoryConfig(
@@ -216,6 +220,8 @@ def main(argv=None) -> int:
     ap.add_argument("--max-turns", type=int, default=9)
     ap.add_argument("--max-tokens", type=int, default=8000)
     ap.add_argument("--temperature", type=float, default=0.7)
+    ap.add_argument("--frequency-penalty", type=float, default=0.0,
+                    help="responder decoding frequency_penalty (breaks degenerate loops)")
     ap.add_argument("--request-timeout", type=float, default=240)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--memory-ratio", type=float, default=0.2)
