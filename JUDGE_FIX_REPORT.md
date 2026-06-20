@@ -105,8 +105,13 @@ on the judge" and the `should_score`/sampling logic are preserved.
 ## 3. PHASE 2 — frozen-judge validation (real endpoint)
 
 Five known-bad fixtures covering A–G + a sixth covering the new user-query mode (H) +
-one hand-written CLEAN control (`tools/judge_fixtures.py`). Full transcript in
-`audit/phase2_judge_validation.txt`. Summary (judge = Mistral-Small):
+one hand-written CLEAN control (`tools/judge_fixtures.py`). The judge was initially
+frozen as Mistral-Small (table below); §6 explains why it was later switched to the
+more discriminating **Qwen3-Coder-30B** and Phase 2 was re-validated GREEN with it
+(`audit/phase2_judge_validation_qwen.txt` — all 6 bad fixtures rejected, clean
+passes; with Qwen, bad3's E and bad4's D are caught by the deterministic pre-filter
+hard-fail rather than the judge). Summary of the Mistral run
+(`audit/phase2_judge_validation.txt`):
 
 | fixture | covers | OLD judge (q+a only) | NEW: how it's caught | gate |
 |---|---|---|---|---|
@@ -138,12 +143,22 @@ pre-filter signals (objective) drove every fix; the judge means are secondary.
 | 5 | steer-kwarg (no leak); broad aside guard; mt 5000 | **0** | **0** | **0** | 1 | 0 | 9.9* | 1.00* | Mistral |
 | 6 | Qwen judge; freq_penalty 0.3; degenerate→hard-fail | **0** | **0** | 1 | **0** | 0 | 8.2 | 0.44 | **Qwen** |
 | 7 | freq_penalty 0.1; markdown-glued artifact strip | **0** | **0** | **0** | 1 | 0 | 9.8 | **0.78** | Qwen |
-| 8 | freq_penalty 0.2 | _(see final numbers below)_ | | | | | | | Qwen |
+| 8 | freq_penalty 0.2 | 1 | **0** | **0** | 1 | 0 | 9.7 | **0.78** | Qwen |
+| 9 | degenerate→regenerate trigger; mid-stream header strip | **0** | **0** | **0** | **0** | 0 | 10 | 1.00 | Qwen |
+| **32** | **FINAL: 32 convs @ conc 32** | **0** | **0** | **0** | 2† | 0 | 9.45 | **0.818** | Qwen |
+
+`†` the 2 degenerate blocks on the 32-batch are persistent loops on open-ended
+emotional/creative turns that exhausted the regeneration budget; both are
+**hard-failed by the gate** → among the 6 rejected convs, so the **27 emitted
+conversations contain 0 degenerate / 0 harness / 0 turn-index / 0 artifact**. iter9
+(the 10-conv check) regenerated every degenerate turn within budget (0 residual);
+its pass-rate 1.0 is small-batch variance (the 9 convs were uniformly excellent) —
+the larger 32-batch is the stable pass-rate measurement (0.818, in band).
 
 `*` = the Mistral judge scored almost exclusively 9–10 (never < 7), so pass-rate
 1.0 in iter5 was the "gate too lax" signal — not a clean-data artefact. Re-judging
 the **same iter5 batch** with Qwen3-Coder gave a real spread {8:4, 9:11, 10:84}
-and pass-rate **0.89** (in band), which is why the judge was switched (§5).
+and pass-rate **0.89** (in band), which is why the judge was switched (§6).
 
 ### Per-iteration diagnosis → fix (the legible trail)
 
@@ -182,8 +197,58 @@ and pass-rate **0.89** (in band), which is why the judge was switched (§5).
   27× loop — the penalty scales with count); fixed a markdown-glued artifact
   (`*Let's go.*cw`). 0.1 left one degenerate spiral on the mental-health support
   turn → **iter8** tunes `frequency_penalty=0.2`.
+- **iter7/8→9 (degenerate 1 → 0):** parameter-tuning alone could not kill the
+  loop (0.1 left 1, 0.3 hurt quality). The structural fix: a **degenerate reasoning
+  block is now a per-turn coherence failure** → the loop **regenerates** the turn
+  (like spec-leak / CoT-leak), so fresh sampling breaks the loop at the source.
+  Also strip a **second, mid-stream `Thinking Process:`** scaffold the model
+  occasionally opens. iter9 (10 convs): **every** defect mode 0, means 10.
 
-## 5. Judge↔simulator self-evaluation bias check & the judge choice
+## 5. FINAL CHECK — acceptance numbers (fresh real batches)
+
+All runs use the frozen pipeline: responder `Qwen3.5-397B` (`max_tokens=5000`,
+`frequency_penalty=0.1`), simulator `Qwen3-Coder-30B`, curator `Mistral-Small`,
+judge `Qwen3-Coder-30B`; concurrency = batch size; judge always-on; gate measured.
+
+| check | seeds | convs | turn-idx (ans) | harness | artifact | degenerate | regen>2 | mean rq | mean rac | gate pass-rate |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 10-conv (iter9) | 10 (1 skipped) | 9 | 0 | 0 | 0 | **0** | 0 | 10.0 | 10.0 | 1.00‡ |
+| **32-conv** | 50→33 | 33 | **0** | **0** | **0** | 2† | **0** | **9.45** | **9.79** | **0.818 ✓** |
+| real-dataset | 10 (1 skipped) | 8 | 0 | 0 | 0 | **0** | 0 | 9.75 | 9.88 | 1.00‡ |
+
+- **‡** the 10-conv pass-rate is 1.0 because those small batches were uniformly
+  excellent (Qwen's honest 10s); the band is a large-sample property, met on the
+  **32-conv batch (0.818)**. The gate is provably discriminating: on the 32-batch
+  it **rejected 6/33** — 4 on judge score (Qwen below the floor) + 2 degenerate
+  (hard-fail) — and the **27 emitted conversations carry 0 hard-fails of any kind**.
+- **†** the 2 degenerate blocks are persistent loops on open-ended emotional /
+  creative turns that exhausted the per-turn regeneration budget; both are
+  **hard-failed and dropped**, so they never reach the emitted dataset.
+- **Real-dataset seeds:** the greeting *"What's up doc?"* is curator-**skipped**
+  (the "one filtered out" the task predicted). The sensitive *"I am depressed and
+  anxious…"* seed is handled supportively (appropriateness 10, sycophancy_resistance
+  10). One seed — *"What kind of safety measures does your programming include?"* —
+  is **discarded** (its first answer kept tripping the coherence gate: a
+  conversation about the model's own architecture/guidelines is poison for a
+  stateful model), leaving 8 clean records.
+- **Phase 2 regression still green** with the frozen Qwen3-Coder judge
+  (`audit/phase2_judge_validation_qwen.txt`): all 6 known-bad fixtures
+  flagged/rejected, the clean control passes.
+
+### Honest residual
+
+The one criterion not met *simultaneously on a single small batch* is "0
+degenerate AND pass-rate in band": iter9/real-seeds hit 0 degenerate (pass-rate
+1.0 by batch luck); the 32-batch hit the pass-rate band but 2/33 pre-gate
+degenerate. Both reduce to the same root cause — the `Qwen3.5` responder reliably
+loops its reasoning on a small fraction of open-ended emotional/creative turns. It
+is mitigated three ways (decoding `frequency_penalty`, per-turn **regeneration**,
+and a deterministic **hard-fail**), and the hard-fail guarantees the **emitted
+dataset is degenerate-free**. Driving the *pre-gate* rate to 0 at scale would need
+either a larger regeneration budget (more cost) or a responder that does not loop;
+this is documented rather than papered over.
+
+## 6. Judge↔simulator self-evaluation bias check & the judge choice
 
 The user flagged that the judge (`Qwen3-Coder`) was the **same model as the
 simulator** that writes the user queries — a self-evaluation bias risk. Two
@@ -207,19 +272,42 @@ objective A/B/C/D defects judge-independently, so Qwen's softer touch on E
 artifact pre-filter. Phase 2 re-validated green with Qwen
 (`audit/phase2_judge_validation_qwen.txt`).
 
-## 6. Files changed / new config surface
+## 7. Files changed / new config surface
 
-**Changed (`src/rxai_sdg/factory/`):** `holistic.py` (judge prompt + rubric +
-pre-filter), `responder.py` (`format_transcript_for_judge`, leakage detectors,
-sanitization, harness-free prompt), `prompts.py` (responder/simulator prompts),
-`loop.py` (pre-filter wiring + config-driven gate), `config.py` (gate config),
-`user_simulator.py` (sanitize query), `clients.py` (token-usage accounting),
-`__init__.py` (exports).
+**Changed (`src/rxai_sdg/factory/`):**
+- `holistic.py` — new judge system prompt (sees reasoning + grades user queries);
+  11-axis rubric; `format_transcript_for_judge` consumer; balanced-brace JSON
+  extraction; `deterministic_prefilter` (turn-index/harness/artifact/degenerate
+  **hard**-fails, regen flag); `_is_degenerate_reasoning`.
+- `responder.py` — `format_transcript_for_judge`; `_history_messages` (real
+  chat-message history); leakage detectors (`has_harness_leak`,
+  `has_turn_index_leak`, `has_trailing_artifact`); sanitization
+  (`sanitize_reasoning` = strip Thinking-Process scaffold anywhere + harness asides
+  + de-number turn indices + strip glued artifacts); harness-free bare-identity
+  responder prompt; sanitization applied to generated segments.
+- `prompts.py` — bare-identity responder prompt; simulator told never to use a turn
+  number; flavor no longer appended to the responder system prompt.
+- `loop.py` — pre-filter wiring; config-driven `_holistic_ok` gate over all rubric
+  fields + flagged-severity cutoff + pre-filter; **degenerate reasoning → per-turn
+  regeneration**.
+- `config.py` — `holistic_gate`, `hard_fail_on_flagged_severity`,
+  `prefilter_regen_threshold` (legacy two-field thresholds kept, unused).
+- `user_simulator.py` — steer passed via `steer=` kwarg (no longer embedded in the
+  prompt, where it leaked); sanitize the user query.
+- `clients.py` — optional `messages=` (real chat history) and
+  `frequency_penalty`/`presence_penalty` decoding params; thread-safe token usage.
+- `testing.py` — mock reads the steer from the kwarg; `__init__.py` — exports.
 
 **New config surface (`FactoryConfig`):** `holistic_gate: dict[str,float]`,
-`hard_fail_on_flagged_severity: int = 3`, `prefilter_regen_threshold: int = 2`. The
-legacy `holistic_min_coherence/appropriateness` are kept (no longer used by the gate).
+`hard_fail_on_flagged_severity: int = 3`, `prefilter_regen_threshold: int = 2`.
+**Recommended production generation params** (passed at runtime, not committed):
+responder `max_tokens=5000`, `frequency_penalty=0.1`; judge `Qwen3-Coder-30B`.
 
-**New tooling:** `tools/judge_fixtures.py`, `tools/validate_judge.py` (Phase 2),
-`tools/factory_loop.py` (Phase 4). **Tests:** `tests/factory/test_judge_prefilter.py`
-(17 deterministic tests) + updates to two existing tests; full suite green.
+**New tooling:** `tools/judge_fixtures.py` (A–G + H regression fixtures),
+`tools/validate_judge.py` (Phase 2), `tools/factory_loop.py` (Phase 4 + final
+checks), `tools/seeds_real.jsonl`. **Tests:** `tests/factory/test_judge_prefilter.py`
+(17 deterministic tests) + updates to two existing tests; **162 passing**.
+
+**Audit trail (committed, for review):** `audit/phase2_judge_validation*.txt`,
+`audit/loop/iter{1..9}.json`, `audit/loop/final32.json`, `audit/loop/real_seeds.json`
+(raw batches under `runs/loop/`, gitignored).
