@@ -75,8 +75,15 @@ def _lengthen(base: str, length: str) -> str:
 
 
 def simulator_user_turn_handler(prompt: str, system_prompt: str = "", **kwargs: Any) -> str:
-    """Realise the simulator's STEER into a natural, responder-parseable user turn."""
-    steer = _parse_steer(prompt)
+    """Realise the simulator's STEER into a natural, responder-parseable user turn.
+
+    The steer is passed via the ``steer=`` kwarg (it is no longer embedded in the
+    prompt, which leaked into real model output); fall back to parsing the prompt
+    for any legacy caller.
+    """
+    steer = kwargs.get("steer")
+    if not isinstance(steer, dict):
+        steer = _parse_steer(prompt)
     op = steer.get("op", "request_constraint")
     length = steer.get("length", "medium")
 

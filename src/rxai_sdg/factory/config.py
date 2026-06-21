@@ -93,9 +93,25 @@ class FactoryConfig:
     holistic_judge_sample_rate: float = 0.1
     holistic_judge_gate_on_programmatic: bool = True
     #: drop a conversation whose holistic score is below the quality floor (the
-    #: judge is the semantic gate). The thresholds mirror the ``judge_low`` detector
-    #: so the emitted dataset is clean by construction.
+    #: judge is the semantic gate). The gate is now a config-driven rule set over
+    #: ALL rubric fields plus a flagged-severity cutoff plus the deterministic
+    #: pre-filter (see ``ConversationLoop._holistic_ok``).
     holistic_gate_enabled: bool = True
+    #: per-field minimum scores; a conversation is rejected if any field PRESENT in
+    #: its score is below its minimum here. Only the listed fields are gated on.
+    #: ``user_query_quality`` is gated (a garbled/erroneous LLM-generated user turn
+    #: should reject the example) but ``user_query_difficulty`` is NOT - easy
+    #: exploration turns are legitimate by design, so it is detection-only.
+    holistic_gate: dict[str, float] = field(default_factory=lambda: {
+        "coherence": 7, "appropriateness": 7, "reasoning_quality": 7,
+        "reasoning_answer_consistency": 7, "sycophancy_resistance": 7,
+        "instruction_following": 6, "user_query_quality": 6})
+    #: reject if any ``flagged_turns`` entry has severity >= this cutoff.
+    hard_fail_on_flagged_severity: int = 3
+    #: deterministic pre-filter: flag a turn whose ``regenerations`` exceeds this.
+    prefilter_regen_threshold: int = 2
+    #: legacy two-field gate thresholds (kept for back-compat of existing JSON/YAML
+    #: configs; no longer used by the gate, which reads ``holistic_gate`` above).
     holistic_min_coherence: int = 6
     holistic_min_appropriateness: int = 7
     #: rule-based seed category tagging only; no per-seed LLM classifier on the

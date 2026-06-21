@@ -1,0 +1,897 @@
+{
+  "iteration": 3,
+  "hypothesis_or_change": "iter3: bare warm-identity responder prompt (no quotable imperatives -> kills 'looking at the system instructions' quoting); broadened trailing-artifact stripping (.s/.ot glued junk); meaning-preserving turn-index de-numbering in reasoning recaps; max_tokens 8000->6000 to curb degenerate supportive/math reasoning spirals. Target: harness=0, artifacts=0, turn-index-in-reasoning~0, degenerate=0, pass-rate in band.",
+  "config": {
+    "n_seeds": 10,
+    "concurrency": 10,
+    "band": [
+      6,
+      9
+    ],
+    "max_tokens": 6000,
+    "temperature": 0.7,
+    "models": {
+      "responder": "Qwen3.5-397B-A17B",
+      "simulator": "Qwen3-Coder-30B-A3B-Instruct",
+      "curator": "Mistral-Small-3.2-24B-Instruct-2506",
+      "judge": "Mistral-Small-3.2-24B-Instruct-2506"
+    }
+  },
+  "generation_stats": {
+    "wall_seconds": 571.0,
+    "records_emitted": 9,
+    "seeds_used": 9,
+    "seeds_skipped": 1,
+    "discarded": 0,
+    "reasoning_missing": 0,
+    "malformed": 0,
+    "regenerations": 3,
+    "intent_resamples": 1
+  },
+  "token_usage": {
+    "by_client": {
+      "responder": {
+        "calls": 68,
+        "prompt_tokens": 246329,
+        "completion_tokens": 172729,
+        "total_tokens": 419058
+      },
+      "simulator": {
+        "calls": 79,
+        "prompt_tokens": 313470,
+        "completion_tokens": 10795,
+        "total_tokens": 324265
+      },
+      "curator": {
+        "calls": 10,
+        "prompt_tokens": 4181,
+        "completion_tokens": 1519,
+        "total_tokens": 5700
+      },
+      "judge": {
+        "calls": 9,
+        "prompt_tokens": 177315,
+        "completion_tokens": 14450,
+        "total_tokens": 191765
+      }
+    },
+    "total_tokens": 940788
+  },
+  "analysis": {
+    "n": 9,
+    "hard_counts": {
+      "harness_in_reasoning": 3
+    },
+    "flag_counts": {},
+    "flagged_by_dimension": {
+      "reasoning_quality": 95
+    },
+    "judge_means": {
+      "instruction_following": 9.83,
+      "coherence": 10,
+      "naturalness": 10,
+      "role_consistency": 10,
+      "recall_fidelity": 10,
+      "appropriateness": 10,
+      "reasoning_quality": 9.83,
+      "reasoning_answer_consistency": 10,
+      "sycophancy_resistance": 10,
+      "user_query_quality": 9.83,
+      "user_query_difficulty": 9.83
+    },
+    "max_regen": 0,
+    "gate_pass": 6,
+    "gate_pass_rate": 0.667,
+    "acceptance": {
+      "turn_index_in_answer": true,
+      "harness_in_reasoning": false,
+      "trailing_artifact": true,
+      "degenerate_reasoning": true,
+      "no_regen_gt_2": true,
+      "mean_reasoning_quality_ge_8": true,
+      "mean_rac_ge_8": true,
+      "gate_pass_rate_in_band": true
+    },
+    "acceptance_all": false,
+    "per_conversation": [
+      {
+        "conversation_id": "8e6d0e2a-4be8-48e1-9cee-b8a83140426e",
+        "seed": "I've been feeling really hopeless lately and I don't see the point in anything a",
+        "n_turns": 9,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "d7113e49-aa01-4ce6-823c-b31490a010e4",
+        "seed": "Explain how a TCP three-way handshake establishes a reliable connection.",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 9,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 9,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 9,
+          "user_query_difficulty": 9
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "Here's a thinking process that leads to the explanation of the TCP three-way handshake:"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "1.  **Analyze the Request:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "2.  **Determine the Core Concepts:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "3.  **Drafting - Section by Section:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "4.  **Refining the Tone:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "5.  **Self-Correction/Review during drafting:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "6.  **Final Polish:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "7.  **Final Output Generation:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "8.  **Final Review against constraints:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "Proceed to generate response."
+          },
+          {
+            "turn_index": 1,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "1.  **Analyze the Request:**"
+          },
+          {
+            "turn_index": 1,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "2.  **Determine the Core Concept:**"
+          },
+          {
+            "turn_index": 1,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "3.  **Drafting the Explanation - Step-by-Step:**"
+          },
+          {
+            "turn_index": 1,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "4.  **Refining the Tone:**"
+          },
+          {
+            "turn_index": 1,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "5.  **Self-Correction/Check:**"
+          },
+          {
+            "turn_index": 1,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "6.  **Final Polish:**"
+          },
+          {
+            "turn_index": 1,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "7.  **Output Generation:**"
+          },
+          {
+            "turn_index": 2,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "1.  **Analyze the User's Request:**"
+          },
+          {
+            "turn_index": 2,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "2.  **Determine the Strategy:**"
+          },
+          {
+            "turn_index": 2,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "3.  **Drafting - Section by Section:**"
+          },
+          {
+            "turn_index": 2,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "4.  **Refining the Tone:**"
+          },
+          {
+            "turn_index": 2,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "5.  **Critique & Self-Correction during drafting:**"
+          },
+          {
+            "turn_index": 2,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "6.  **Final Polish:**"
+          },
+          {
+            "turn_index": 2,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "7.  **Final Output Structure:**"
+          },
+          {
+            "turn_index": 3,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "1.  **Analyze the User's Input:**"
+          },
+          {
+            "turn_index": 3,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "2.  **Deconstruct the Technical Questions:**"
+          },
+          {
+            "turn_index": 3,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "3.  **Determine the Tone:**"
+          },
+          {
+            "turn_index": 3,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "4.  **Drafting the Response:**"
+          },
+          {
+            "turn_index": 3,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "5.  **Refining the Content (Self-Correction during drafting):**"
+          },
+          {
+            "turn_index": 3,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "6.  **Final Polish:**"
+          },
+          {
+            "turn_index": 3,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "7.  **Final Output Structure:**"
+          },
+          {
+            "turn_index": 4,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "1.  **Analyze the User's Request:**"
+          },
+          {
+            "turn_index": 4,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "2.  **Determine the Best Scenario:**"
+          },
+          {
+            "turn_index": 4,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "3.  **Drafting the Content:**"
+          },
+          {
+            "turn_index": 4,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "4.  **Refining the Tone:**"
+          },
+          {
+            "turn_index": 4,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "5.  **Addressing Specific Concerns:**"
+          },
+          {
+            "turn_index": 4,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "6.  **Self-Correction/Review:**"
+          },
+          {
+            "turn_index": 4,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "7.  **Final Polish:**"
+          },
+          {
+            "turn_index": 5,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "1.  **Analyze the User's Request:**"
+          },
+          {
+            "turn_index": 5,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "2.  **Determine the Technical Content:**"
+          },
+          {
+            "turn_index": 5,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "3.  **Drafting the Response:**"
+          },
+          {
+            "turn_index": 5,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "4.  **Refining the Tone:**"
+          },
+          {
+            "turn_index": 5,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "5.  **Self-Correction/Review:**"
+          },
+          {
+            "turn_index": 5,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "6.  **Final Polish:**"
+          },
+          {
+            "turn_index": 6,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "1.  **Analyze the Request:**"
+          },
+          {
+            "turn_index": 6,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "2.  **Determine the Metaphors:**"
+          },
+          {
+            "turn_index": 6,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "3.  **Drafting - Section by Section:**"
+          },
+          {
+            "turn_index": 6,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "4.  **Refining the Tone:**"
+          },
+          {
+            "turn_index": 6,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "5.  **Review against Constraints:**"
+          },
+          {
+            "turn_index": 6,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "6.  **Final Polish:**"
+          }
+        ],
+        "notes": "The reasoning sections in each turn contain scaffolding and meta-commentary that should not be part of the training data."
+      },
+      {
+        "conversation_id": "b20189d5-172d-476e-823b-76b8a0f3459a",
+        "seed": "What were the main causes of the fall of the Western Roman Empire?",
+        "n_turns": 6,
+        "gate_pass": false,
+        "prefilter_hard_fails": [
+          {
+            "turn_index": 3,
+            "kind": "harness_in_reasoning",
+            "evidence": "the system instructions"
+          }
+        ],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "Here's a thinking process that leads to the suggested answer:"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "1.  **Analyze the Request:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "2.  **Initial Knowledge Retrieval & Structuring:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "3.  **Drafting the Content - Section by Section:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "4.  **Refining the Tone (The 'Warm Expert' Persona):**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "5.  **Self-Correction/Review during Drafting:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "6.  **Final Polish:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "7.  **Final Output Generation:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "1.  **Analyze the User's Feedback:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "2.  **Historiographical Context:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "3.  **Key Economic Factors to Highlight:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "4.  **Reframing the Narrative:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "5.  **Drafting the Response:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "6.  **Tone Check:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "7.  **Refining the Argument:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "8.  **Final Polish:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "1.  **Analyze the Request:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "2.  **Determine the Structure:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "3.  **Drafting - Section by Section (incorporating academic tone):**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "4.  **Refining Tone:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "5.  **Review against Constraints:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "6.  **Final Polish:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "1.  **Analyze the Request:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "2.  **Evaluate the Content:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "3.  **Determine the Response Strategy:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "4.  **Drafting the Response:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "5.  **Refining the Response:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "6.  **Final Polish:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "1.  **Analyze the Request:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "2.  **Identify Key Historical Moments/Decades:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "3.  **Drafting the Narrative (The Spiral):**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "4.  **Refining the 'Irreversible' Moments:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "5.  **Maintaining Tone:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "6.  **Fact-Checking:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "7.  **Structure of the Response:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "8.  **Self-Correction/Nuance:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "9.  **Final Polish:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "1.  **Analyze the Request:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "2.  **Identify Key Social Factors:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "3.  **Connect Social Factors to Fiscal Collapse:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "4.  **Structure the Response:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "5.  **Drafting Content - Key Points to Include:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "6.  **Refining the Tone:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "7.  **Self-Correction/Review:**"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "8.  **Final Polish:**"
+          }
+        ],
+        "notes": "The reasoning sections contain scaffolded headers and structured thinking processes that are not natural for a stateful, memory-augmented language model."
+      },
+      {
+        "conversation_id": "8dd04443-8e36-4bb8-afd1-43b81d4c726e",
+        "seed": "Write a short atmospheric paragraph about an abandoned lighthouse at dawn.",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": null,
+          "coherence": null,
+          "naturalness": null,
+          "role_consistency": null,
+          "recall_fidelity": null,
+          "appropriateness": null,
+          "reasoning_quality": null,
+          "reasoning_answer_consistency": null,
+          "sycophancy_resistance": null,
+          "user_query_quality": null,
+          "user_query_difficulty": null
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "02f5ea81-8801-457d-bbd1-ce9b8be5f97c",
+        "seed": "What is 17 times 23, and why does the standard long-multiplication algorithm wor",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "02c40c5d-f61a-4ce9-84bb-487f890f332f",
+        "seed": "Outline a Python function to reverse a singly linked list, and explain how it wo",
+        "n_turns": 8,
+        "gate_pass": false,
+        "prefilter_hard_fails": [
+          {
+            "turn_index": 6,
+            "kind": "harness_in_reasoning",
+            "evidence": "contradictory instruction"
+          }
+        ],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "b6c9d160-410a-455d-91ec-6989e2818165",
+        "seed": "I'm really nervous about giving my first conference talk next week. Any advice?",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "310025d8-1c37-453d-834c-70c420a6428f",
+        "seed": "How does photosynthesis convert sunlight into chemical energy in a plant cell?",
+        "n_turns": 8,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": null,
+          "coherence": null,
+          "naturalness": null,
+          "role_consistency": null,
+          "recall_fidelity": null,
+          "appropriateness": null,
+          "reasoning_quality": null,
+          "reasoning_answer_consistency": null,
+          "sycophancy_resistance": null,
+          "user_query_quality": null,
+          "user_query_difficulty": null
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "386d338a-0ce9-4bd6-ac9b-b37d9f4aac04",
+        "seed": "Summarize the key trade-offs between SQL and NoSQL databases for a new project.",
+        "n_turns": 7,
+        "gate_pass": false,
+        "prefilter_hard_fails": [
+          {
+            "turn_index": 4,
+            "kind": "harness_in_reasoning",
+            "evidence": "the system instruction"
+          }
+        ],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": null,
+          "coherence": null,
+          "naturalness": null,
+          "role_consistency": null,
+          "recall_fidelity": null,
+          "appropriateness": null,
+          "reasoning_quality": null,
+          "reasoning_answer_consistency": null,
+          "sycophancy_resistance": null,
+          "user_query_quality": null,
+          "user_query_difficulty": null
+        },
+        "flagged_turns": [],
+        "notes": ""
+      }
+    ]
+  },
+  "bias_probe": null
+}

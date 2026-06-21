@@ -1,0 +1,308 @@
+{
+  "iteration": 99,
+  "hypothesis_or_change": "FINAL CHECK: the real production-dataset seeds (10; 'What's up doc?' must be curator-skipped -> 9 conversations). Validates curation + full pipeline on real data.",
+  "config": {
+    "n_seeds": 10,
+    "concurrency": 10,
+    "band": [
+      6,
+      9
+    ],
+    "max_tokens": 5000,
+    "temperature": 0.7,
+    "models": {
+      "responder": "Qwen3.5-397B-A17B",
+      "simulator": "Qwen3-Coder-30B-A3B-Instruct",
+      "curator": "Mistral-Small-3.2-24B-Instruct-2506",
+      "judge": "Qwen3-Coder-30B-A3B-Instruct"
+    }
+  },
+  "generation_stats": {
+    "wall_seconds": 568.2,
+    "records_emitted": 8,
+    "seeds_used": 9,
+    "seeds_skipped": 1,
+    "discarded": 1,
+    "reasoning_missing": 0,
+    "malformed": 0,
+    "regenerations": 14,
+    "intent_resamples": 0
+  },
+  "token_usage": {
+    "by_client": {
+      "responder": {
+        "calls": 72,
+        "prompt_tokens": 257588,
+        "completion_tokens": 168492,
+        "total_tokens": 426080
+      },
+      "simulator": {
+        "calls": 65,
+        "prompt_tokens": 300472,
+        "completion_tokens": 9242,
+        "total_tokens": 309714
+      },
+      "curator": {
+        "calls": 10,
+        "prompt_tokens": 4240,
+        "completion_tokens": 1478,
+        "total_tokens": 5718
+      },
+      "judge": {
+        "calls": 8,
+        "prompt_tokens": 149646,
+        "completion_tokens": 1355,
+        "total_tokens": 151001
+      }
+    },
+    "total_tokens": 892513
+  },
+  "analysis": {
+    "n": 8,
+    "hard_counts": {},
+    "flag_counts": {},
+    "flagged_by_dimension": {
+      "generation_artifact": 2,
+      "reasoning_about_format": 2
+    },
+    "judge_means": {
+      "instruction_following": 9.62,
+      "coherence": 9.88,
+      "naturalness": 9.25,
+      "role_consistency": 10,
+      "recall_fidelity": 9.88,
+      "appropriateness": 9.75,
+      "reasoning_quality": 9.75,
+      "reasoning_answer_consistency": 9.88,
+      "sycophancy_resistance": 9.62,
+      "user_query_quality": 9.5,
+      "user_query_difficulty": 9.62
+    },
+    "max_regen": 2,
+    "gate_pass": 8,
+    "gate_pass_rate": 1.0,
+    "acceptance": {
+      "turn_index_in_answer": true,
+      "harness_in_reasoning": true,
+      "trailing_artifact": true,
+      "degenerate_reasoning": true,
+      "no_regen_gt_2": true,
+      "mean_reasoning_quality_ge_8": true,
+      "mean_rac_ge_8": true,
+      "gate_pass_rate_in_band": false
+    },
+    "acceptance_all": false,
+    "per_conversation": [
+      {
+        "conversation_id": "66e66963-ce03-40ff-a76c-62520fca6f41",
+        "seed": "I am depressed and anxious a lot of the time. I am tired of it and don't know wh",
+        "n_turns": 9,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "1640d625-e7fd-4400-8083-2b34d2f8954f",
+        "seed": "Organize these words in alphabetic order and also from shortest to longest words",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 9,
+          "user_query_difficulty": 9
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "4990e2ed-19a6-402a-b8e8-9ec1ced8593a",
+        "seed": "What are the key differences between classical and operant conditioning in psych",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "90704a0f-754c-4e06-81ca-17a842cee2a0",
+        "seed": "what are the risks of using AI to create code for a professional programmer",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": "All turns demonstrate excellent reasoning quality, proper role adherence, and high user query difficulty with well-formed, substantive questions that advance the conversation."
+      },
+      {
+        "conversation_id": "06346754-efaa-461d-b4b8-f1032c0d6750",
+        "seed": "What are some unique things about the 37th largest city in Japan? Does it have a",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 8,
+          "coherence": 9,
+          "naturalness": 8,
+          "role_consistency": 10,
+          "recall_fidelity": 9,
+          "appropriateness": 9,
+          "reasoning_quality": 8,
+          "reasoning_answer_consistency": 9,
+          "sycophancy_resistance": 8,
+          "user_query_quality": 8,
+          "user_query_difficulty": 9
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 0,
+            "dimension": "generation_artifact",
+            "severity": 2,
+            "evidence": "It.has.a.population"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_about_format",
+            "severity": 2,
+            "evidence": "I.will.construct.the.response.focusing.on.Nagano.City"
+          },
+          {
+            "turn_index": 2,
+            "dimension": "generation_artifact",
+            "severity": 2,
+            "evidence": "that.said,.I.can.give.you.a.highly.informed.answer"
+          },
+          {
+            "turn_index": 2,
+            "dimension": "reasoning_about_format",
+            "severity": 2,
+            "evidence": "I.will.state.that.pinpointing.the.exact.76th.is.difficult"
+          }
+        ],
+        "notes": "Assistant demonstrates good reasoning quality and maintains role consistency throughout, though initial response had formatting artifacts and meta-references that leaked system context. User queries a"
+      },
+      {
+        "conversation_id": "c087a978-4153-43c4-8136-4d9895f37565",
+        "seed": "explain in first principles the business model behind politicians such as senato",
+        "n_turns": 8,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 9,
+          "coherence": 10,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 9,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 9,
+          "user_query_quality": 9,
+          "user_query_difficulty": 9
+        },
+        "flagged_turns": [],
+        "notes": "All turns demonstrate strong reasoning quality, proper role adherence, and coherent progression of ideas. The assistant maintains appropriate tone throughout and provides detailed, well-structured res"
+      },
+      {
+        "conversation_id": "4685d846-fee4-4edb-bc8f-518321dcd8a0",
+        "seed": "On average, how tall is a robot vacuum cleaner?",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "6ec8a269-6dda-47e7-86fb-ee41bb54f164",
+        "seed": "can you tell me who mark seifter is? especially focusing on his game design and ",
+        "n_turns": 8,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": "All turns demonstrate excellent reasoning quality, proper role consistency, and high user query difficulty with substantive content that advances the conversation meaningfully."
+      }
+    ]
+  },
+  "bias_probe": null
+}

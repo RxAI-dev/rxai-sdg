@@ -29,7 +29,9 @@ from typing import Optional
 
 from .config import FactoryConfig
 from .cross_turn import run_cross_turn_checks, cross_turn_pass_rate
-from .holistic import HolisticJudge
+from .holistic import (
+    HolisticJudge, RUBRIC_AXES, deterministic_prefilter, _is_degenerate_reasoning,
+)
 from .ledger import FactLedger, NeedlePlanner
 from .planner import CompositionRatios, plan_conversation
 from .prompts import PromptPack
@@ -253,28 +255,50 @@ class ConversationLoop:
             cross_turn_checks=cross,
         )
 
-        # -- holistic judge: always-on, whole conversation (fix G) --------
+        # -- pre-filter + holistic judge: always-on, whole conversation ----
+        # The deterministic pre-filter runs FIRST (objective, model-independent
+        # defects); the LLM judge then scores the 9-axis rubric over the reasoning
+        # AND answer. Both feed the gate, which drops conversations so the emitted
+        # dataset is clean by construction.
         if self.holistic is not None:
-            record.holistic_score = self.holistic.score(turns)
-            # Quality gate: the judge is the semantic gate (it catches failures the
-            # programmatic verifier misses). Drop conversations below the floor so
-            # the emitted dataset is clean by construction.
+            prefilter = deterministic_prefilter(
+                turns, regen_threshold=self.config.prefilter_regen_threshold)
+            score = self.holistic.score(turns) or {}
+            score["prefilter"] = prefilter.to_dict()
+            record.holistic_score = score or None
             if self.config.holistic_gate_enabled and not self._holistic_ok(
-                    record.holistic_score):
+                    score, prefilter):
                 stats.holistic_gated += 1
                 return None, stats
 
         return record, stats
 
-    def _holistic_ok(self, score: Optional[dict]) -> bool:
+    def _holistic_ok(self, score: Optional[dict], prefilter=None) -> bool:
+        """Config-driven gate over the deterministic pre-filter + LLM rubric.
+
+        Reject when (a) the deterministic pre-filter hard-failed, (b) any rubric
+        field present in ``score`` is below its configured minimum, or (c) any
+        ``flagged_turns`` entry meets the severity cutoff. ``no rubric -> do not
+        gate on the judge`` is preserved (a pre-filter hard-fail still gates).
+        """
+        if prefilter is not None and not prefilter.passed:
+            return False
         if not score:
-            return True  # no score (judge unavailable) -> do not gate
-        coh = score.get("coherence")
-        appr = score.get("appropriateness")
-        if isinstance(coh, (int, float)) and coh < self.config.holistic_min_coherence:
-            return False
-        if isinstance(appr, (int, float)) and appr < self.config.holistic_min_appropriateness:
-            return False
+            return True
+        rubric_present = any(k in score for k in RUBRIC_AXES)
+        if not rubric_present:
+            return True  # judge unavailable -> do not gate on the judge
+        for field_name, minimum in self.config.holistic_gate.items():
+            val = score.get(field_name)
+            if isinstance(val, bool):
+                continue
+            if isinstance(val, (int, float)) and val < minimum:
+                return False
+        for ft in score.get("flagged_turns", []) or []:
+            sev = ft.get("severity")
+            if isinstance(sev, (int, float)) and \
+                    sev >= self.config.hard_fail_on_flagged_severity:
+                return False
         return True
 
     # -------------------------------------------------------------- internals
@@ -295,6 +319,8 @@ class ConversationLoop:
             ok, detail = self._answer_acceptable(out.turn.answer or "")
             if ok and has_spec_leak(out.turn.reasoning or ""):
                 ok, detail = False, "coherence: spec internals in reasoning"
+            if ok and _is_degenerate_reasoning(out.turn.reasoning or ""):
+                ok, detail = False, "coherence: degenerate reasoning loop"
             if ok:
                 out.turn.verification = VerifyResult(True, "first answer ok", regenerations)
                 return out.turn
@@ -449,6 +475,13 @@ class ConversationLoop:
         # spec internals must not surface in the stored reasoning (fix F)
         if has_spec_leak(turn.reasoning or ""):
             return False, "coherence: spec internals in reasoning"
+
+        # a degenerate-loop reasoning block (the model repeating a phrase dozens of
+        # times, e.g. on an open-ended creative/emotional turn) is a failed
+        # generation - regenerate it at the source (fix D), rather than relying only
+        # on the decoding frequency_penalty to suppress it.
+        if _is_degenerate_reasoning(turn.reasoning or ""):
+            return False, "coherence: degenerate reasoning loop"
 
         # this turn's own constraint (the recall/transform "reference prior content"
         # check: for recall the value-presence checker enforces it directly)

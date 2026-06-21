@@ -1,0 +1,440 @@
+{
+  "iteration": 6,
+  "hypothesis_or_change": "iter6 (final): Qwen3-Coder judge (discriminating -> pass-rate band); responder frequency_penalty=0.3 to break the degenerate decoding loop at source; degenerate now a deterministic hard-fail. Target: FULL acceptance.",
+  "config": {
+    "n_seeds": 10,
+    "concurrency": 10,
+    "band": [
+      6,
+      9
+    ],
+    "max_tokens": 5000,
+    "temperature": 0.7,
+    "models": {
+      "responder": "Qwen3.5-397B-A17B",
+      "simulator": "Qwen3-Coder-30B-A3B-Instruct",
+      "curator": "Mistral-Small-3.2-24B-Instruct-2506",
+      "judge": "Qwen3-Coder-30B-A3B-Instruct"
+    }
+  },
+  "generation_stats": {
+    "wall_seconds": 513.2,
+    "records_emitted": 9,
+    "seeds_used": 9,
+    "seeds_skipped": 1,
+    "discarded": 0,
+    "reasoning_missing": 0,
+    "malformed": 0,
+    "regenerations": 28,
+    "intent_resamples": 5
+  },
+  "token_usage": {
+    "by_client": {
+      "responder": {
+        "calls": 91,
+        "prompt_tokens": 229799,
+        "completion_tokens": 155335,
+        "total_tokens": 385134
+      },
+      "simulator": {
+        "calls": 76,
+        "prompt_tokens": 253962,
+        "completion_tokens": 8195,
+        "total_tokens": 262157
+      },
+      "curator": {
+        "calls": 10,
+        "prompt_tokens": 4181,
+        "completion_tokens": 1487,
+        "total_tokens": 5668
+      },
+      "judge": {
+        "calls": 9,
+        "prompt_tokens": 130042,
+        "completion_tokens": 2325,
+        "total_tokens": 132367
+      }
+    },
+    "total_tokens": 785326
+  },
+  "analysis": {
+    "n": 9,
+    "hard_counts": {
+      "trailing_artifact": 1
+    },
+    "flag_counts": {},
+    "flagged_by_dimension": {
+      "harness_leak": 4,
+      "generation_artifact": 14,
+      "reasoning_about_format": 2
+    },
+    "judge_means": {
+      "instruction_following": 8.44,
+      "coherence": 9.11,
+      "naturalness": 8.56,
+      "role_consistency": 9.33,
+      "recall_fidelity": 9.11,
+      "appropriateness": 8.89,
+      "reasoning_quality": 8.22,
+      "reasoning_answer_consistency": 8.44,
+      "sycophancy_resistance": 8.33,
+      "user_query_quality": 8.89,
+      "user_query_difficulty": 8.67
+    },
+    "max_regen": 2,
+    "gate_pass": 4,
+    "gate_pass_rate": 0.444,
+    "acceptance": {
+      "turn_index_in_answer": true,
+      "harness_in_reasoning": true,
+      "trailing_artifact": false,
+      "degenerate_reasoning": true,
+      "no_regen_gt_2": true,
+      "mean_reasoning_quality_ge_8": true,
+      "mean_rac_ge_8": true,
+      "gate_pass_rate_in_band": false
+    },
+    "acceptance_all": false,
+    "per_conversation": [
+      {
+        "conversation_id": "b14d2dab-24c5-4cb8-bb5d-9e596ca715ef",
+        "seed": "I've been feeling really hopeless lately and I don't see the point in anything a",
+        "n_turns": 9,
+        "gate_pass": false,
+        "prefilter_hard_fails": [
+          {
+            "turn_index": 0,
+            "kind": "trailing_artifact",
+            "evidence": "reasoning: ...to talk more.**\n\n*Let's go.*cw"
+          }
+        ],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "7cf02d37-b3a2-4efc-b25c-c65b13bfa394",
+        "seed": "Explain how a TCP three-way handshake establishes a reliable connection.",
+        "n_turns": 7,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 9,
+          "coherence": 10,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 9,
+          "reasoning_quality": 9,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 8,
+          "user_query_quality": 9,
+          "user_query_difficulty": 9
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 0,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Here's a thinking process that leads to the explanation"
+          },
+          {
+            "turn_index": 2,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Let me dust off my showman hat and give you the pitch"
+          },
+          {
+            "turn_index": 6,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Avast ye! \ud83c\udff4\u200d\u2620\ufe0f Ye want to hear it from a salty old sea dog"
+          }
+        ],
+        "notes": "Turns 0, 2, and 6 contain harness/meta leakage in reasoning with explicit 'thinking process' mentions and role-playing scaffolding that violates the training data constraints."
+      },
+      {
+        "conversation_id": "7db39770-1933-402b-8edf-b76228defbfc",
+        "seed": "What were the main causes of the fall of the Western Roman Empire?",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 9,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 9,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 9,
+          "user_query_quality": 9,
+          "user_query_difficulty": 9
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "b98e820a-8dd5-4dab-994c-d18c9a82caa3",
+        "seed": "Write a short atmospheric paragraph about an abandoned lighthouse at dawn.",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 8,
+          "coherence": 9,
+          "naturalness": 8,
+          "role_consistency": 9,
+          "recall_fidelity": 9,
+          "appropriateness": 9,
+          "reasoning_quality": 8,
+          "reasoning_answer_consistency": 8,
+          "sycophancy_resistance": 8,
+          "user_query_quality": 8,
+          "user_query_difficulty": 8
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 0,
+            "dimension": "harness_leak",
+            "severity": 2,
+            "evidence": "Role: Warm, knowledgeable, helpful expert assistant"
+          },
+          {
+            "turn_index": 1,
+            "dimension": "generation_artifact",
+            "severity": 2,
+            "evidence": "acrossthe, oncea, toa"
+          },
+          {
+            "turn_index": 2,
+            "dimension": "generation_artifact",
+            "severity": 2,
+            "evidence": "acrossthe, oncea, toa"
+          },
+          {
+            "turn_index": 3,
+            "dimension": "reasoning_about_format",
+            "severity": 2,
+            "evidence": "Ensure the spacing is correct (the previous output had significant spacing issues)"
+          }
+        ],
+        "notes": "Some minor harness leakage in initial reasoning and formatting artifacts in later turns, but overall strong performance in maintaining academic tone and addressing user requests."
+      },
+      {
+        "conversation_id": "43db95ea-8b79-482d-b709-2cf7fa8b79eb",
+        "seed": "What is 17 times 23, and why does the standard long-multiplication algorithm wor",
+        "n_turns": 7,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 3,
+          "coherence": 4,
+          "naturalness": 3,
+          "role_consistency": 5,
+          "recall_fidelity": 4,
+          "appropriateness": 3,
+          "reasoning_quality": 2,
+          "reasoning_answer_consistency": 2,
+          "sycophancy_resistance": 2,
+          "user_query_quality": 6,
+          "user_query_difficulty": 5
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 0,
+            "dimension": "generation_artifact",
+            "severity": 3,
+            "evidence": "produced gibberish ASCII art, repeated phrases (\"Step-by-Step\"), and failed to answer the question properly"
+          },
+          {
+            "turn_index": 1,
+            "dimension": "generation_artifact",
+            "severity": 3,
+            "evidence": "produced garbled output with broken LaTeX and repetition"
+          },
+          {
+            "turn_index": 2,
+            "dimension": "reasoning_about_format",
+            "severity": 3,
+            "evidence": "over-constrained by previous formatting failures, over-analyzed word count"
+          },
+          {
+            "turn_index": 3,
+            "dimension": "generation_artifact",
+            "severity": 3,
+            "evidence": "output contains repeated characters and broken LaTeX \"{=} {=} {=}...\""
+          },
+          {
+            "turn_index": 4,
+            "dimension": "generation_artifact",
+            "severity": 3,
+            "evidence": "output contains repeated characters and broken LaTeX \"{=} {=} {=}...\""
+          },
+          {
+            "turn_index": 5,
+            "dimension": "generation_artifact",
+            "severity": 3,
+            "evidence": "output contains repeated characters and broken LaTeX \"{=} {=} {=}...\""
+          },
+          {
+            "turn_index": 6,
+            "dimension": "generation_artifact",
+            "severity": 3,
+            "evidence": "output contains repeated characters and broken LaTeX \"{=} {=} {=}...\""
+          }
+        ],
+        "notes": "Multiple generation artifacts and formatting failures throughout the conversation, with the assistant repeatedly producing broken LaTeX and repetitive text patterns, indicating a systemic issue with o"
+      },
+      {
+        "conversation_id": "c8b464da-0c78-4c9f-9f22-6dbfb6dd425b",
+        "seed": "Outline a Python function to reverse a singly linked list, and explain how it wo",
+        "n_turns": 8,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 9,
+          "coherence": 10,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 9,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 9,
+          "user_query_difficulty": 8
+        },
+        "flagged_turns": [],
+        "notes": "All turns demonstrate strong reasoning quality, proper role adherence, and high coherence. The assistant maintains a helpful, knowledgeable tone throughout while accurately explaining complex concepts"
+      },
+      {
+        "conversation_id": "700076cc-6dca-47ad-8c60-feba76f822b3",
+        "seed": "I'm really nervous about giving my first conference talk next week. Any advice?",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "beb076d2-70ec-4806-a5b2-e93cbd31d3eb",
+        "seed": "How does photosynthesis convert sunlight into chemical energy in a plant cell?",
+        "n_turns": 8,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 8,
+          "coherence": 9,
+          "naturalness": 8,
+          "role_consistency": 10,
+          "recall_fidelity": 9,
+          "appropriateness": 9,
+          "reasoning_quality": 7,
+          "reasoning_answer_consistency": 6,
+          "sycophancy_resistance": 8,
+          "user_query_quality": 9,
+          "user_query_difficulty": 9
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 0,
+            "dimension": "generation_artifact",
+            "severity": 3,
+            "evidence": "ask me about photosynthesis! It truly is like peeking inside a microscopic solar power plant that runs on sunshine and water"
+          },
+          {
+            "turn_index": 2,
+            "dimension": "generation_artifact",
+            "severity": 3,
+            "evidence": "Wait,IseeIamhavingtroubleformattingthetableproperlyinmythoughtprocess"
+          },
+          {
+            "turn_index": 2,
+            "dimension": "generation_artifact",
+            "severity": 3,
+            "evidence": "Okay\uff0cletmewritethatsectioncleanly"
+          },
+          {
+            "turn_index": 2,
+            "dimension": "generation_artifact",
+            "severity": 3,
+            "evidence": "Actually\uff0clet'sjustwriteitoutclearly"
+          },
+          {
+            "turn_index": 6,
+            "dimension": "generation_artifact",
+            "severity": 3,
+            "evidence": "It is completely understandable that you feel this way"
+          }
+        ],
+        "notes": "Multiple generation artifacts found in early turns including repetitive text loops and internal thought process leakage. Reasoning quality suffers due to these artifacts and some degenerate reasoning "
+      },
+      {
+        "conversation_id": "ea1ead77-1494-45cf-95cd-997df008ef87",
+        "seed": "Summarize the key trade-offs between SQL and NoSQL databases for a new project.",
+        "n_turns": 7,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 6,
+            "dimension": "generation_artifact",
+            "severity": 3,
+            "evidence": "when things go wrong when things go wrong when things go wrong when things go wrong when things go wrong when things go wrong when things go wrong when things go wrong"
+          }
+        ],
+        "notes": "Turn 6 contains a generation artifact with repetitive text that renders the response unusable."
+      }
+    ]
+  },
+  "bias_probe": null
+}

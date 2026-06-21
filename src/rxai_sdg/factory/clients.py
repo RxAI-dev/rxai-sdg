@@ -13,6 +13,7 @@ provided:
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional, Protocol, Sequence, runtime_checkable
 
@@ -50,6 +51,7 @@ class LLMClient(Protocol):
         temperature: float = 0.7,
         max_tokens: int = 4096,
         capture_logits: bool = False,
+        messages: Optional[Sequence[dict]] = None,
         **kwargs: Any,
     ) -> LLMResponse:
         ...
@@ -76,6 +78,8 @@ class OpenAILLMClient:
         log_first_raw: bool = False,
         reasoning_field_name: str = 'reasoning',
         timeout: float = 120,
+        frequency_penalty: float = 0.0,
+        presence_penalty: float = 0.0,
     ):
         # Imported lazily to keep the factory package import-light.
         from ..base import BaseDatasetGenerator
@@ -99,6 +103,30 @@ class OpenAILLMClient:
         #: default per-request timeout (seconds); slow reasoning models under high
         #: concurrency need a generous value or calls time out and regenerate.
         self.timeout = timeout
+        #: small decoding penalties break the native-reasoning model's occasional
+        #: degenerate loop (it repeats a poetic/derivation phrase dozens of times in
+        #: its reasoning). frequency_penalty is the targeted, source-level fix for
+        #: failure mode D; 0.0 keeps default behaviour for other roles.
+        self.frequency_penalty = frequency_penalty
+        self.presence_penalty = presence_penalty
+        #: cumulative token usage (thread-safe), for the iteration audit trail.
+        self._usage = {"calls": 0, "prompt_tokens": 0,
+                       "completion_tokens": 0, "total_tokens": 0}
+        self._usage_lock = threading.Lock()
+
+    def usage(self) -> dict[str, int]:
+        """Return a copy of the accumulated token usage for this client."""
+        with self._usage_lock:
+            return dict(self._usage)
+
+    def _record_usage(self, completion: Any) -> None:
+        u = getattr(completion, "usage", None)
+        with self._usage_lock:
+            self._usage["calls"] += 1
+            for k in ("prompt_tokens", "completion_tokens", "total_tokens"):
+                v = getattr(u, k, None)
+                if isinstance(v, int):
+                    self._usage[k] += v
 
     def generate(
         self,
@@ -108,13 +136,27 @@ class OpenAILLMClient:
         temperature: float = 0.7,
         max_tokens: int = 4096,
         capture_logits: bool = False,
+        messages: Optional[Sequence[dict]] = None,
         **kwargs: Any,
     ) -> LLMResponse:
+        # ``messages`` (optional) carries PRIOR conversation turns as real
+        # role-tagged chat messages. Passing the history as genuine messages -
+        # rather than a "User:/Assistant:" transcript jammed into one user prompt -
+        # stops the native-reasoning model from re-numbering the turns ("Turn 1,
+        # Turn 2") or agonizing about the harness in its reasoning (failure A/B).
+        prior = list(messages or [])
+
         # Ollama path: the shared helper returns content only (reasoning, if any,
-        # is inlined as a <think> block the Responder parses).
+        # is inlined as a <think> block the Responder parses). Render any prior
+        # messages into a transcript prefix (best-effort; the OpenAI path is primary).
         if getattr(self._backend, "use_ollama", False):
+            full_prompt = prompt
+            if prior:
+                lines = [f"{m.get('role','user').capitalize()}: {m.get('content','')}"
+                         for m in prior]
+                full_prompt = "\n".join(lines) + "\n\n" + prompt
             text = self._backend.generate_items(
-                prompt=prompt, system_prompt=system_prompt, temperature=temperature,
+                prompt=full_prompt, system_prompt=system_prompt, temperature=temperature,
                 top_p=kwargs.get("top_p", self.default_top_p), max_tokens=max_tokens,
                 stream=kwargs.get("stream", False),
                 timeout=kwargs.get("timeout", self.timeout), additional_config={})
@@ -129,20 +171,24 @@ class OpenAILLMClient:
         try:
             completion = self._backend.client.chat.completions.create(
                 model=self.model_name,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt},
-                ],
+                messages=(
+                    [{"role": "system", "content": system_prompt}]
+                    + prior
+                    + [{"role": "user", "content": prompt}]
+                ),
                 stream=False,
                 max_tokens=max_tokens,
                 temperature=temperature,
                 top_p=kwargs.get("top_p", self.default_top_p),
+                frequency_penalty=kwargs.get("frequency_penalty", self.frequency_penalty),
+                presence_penalty=kwargs.get("presence_penalty", self.presence_penalty),
                 timeout=kwargs.get("timeout", self.timeout),
             )
         except Exception as exc:  # pragma: no cover - network dependent
             print("API Error", exc)
             return LLMResponse(text="", reasoning=None)
 
+        self._record_usage(completion)
         message = completion.choices[0].message
         text = getattr(message, "content", None) or ""
         reasoning = getattr(message, self._reasoning_field_name, None)
@@ -195,11 +241,13 @@ class MockLLMClient:
         temperature: float = 0.7,
         max_tokens: int = 4096,
         capture_logits: bool = False,
+        messages: Optional[Sequence[dict]] = None,
         **kwargs: Any,
     ) -> LLMResponse:
         self.calls.append({
             "prompt": prompt, "system_prompt": system_prompt,
-            "temperature": temperature, "max_tokens": max_tokens, "kwargs": kwargs,
+            "temperature": temperature, "max_tokens": max_tokens,
+            "messages": list(messages or []), "kwargs": kwargs,
         })
         if self.handler is not None:
             result = self.handler(prompt, system_prompt=system_prompt, **kwargs)

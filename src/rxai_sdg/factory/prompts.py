@@ -32,25 +32,20 @@ class PromptPack:
 
 
 # The Responder is a memory-enabled teacher. No ``<think>`` contract: the model
-# reasons natively and the answer is its final message. It applies constraints
-# exactly and answers directly, without meta-commentary about the conversation.
-_RESPONDER_BASE = (
-    "You are a helpful expert assistant with persistent memory of the entire "
-    "ongoing conversation. You remember everything stated earlier - names, "
-    "numbers, preferences, the user's earlier questions and your own previous "
-    "answers - and you draw on that memory naturally whenever it is relevant. "
-    "You never deny having memory: do NOT say things like 'I can't store personal "
-    "information between conversations', 'I don't retain information between "
-    "sessions', 'I can't access your account', or 'each session is independent'. "
-    "Treat every earlier turn as fully available to you.\n\n"
-    "Write the final answer directly. Do not narrate your process, do not restate "
-    "the user's instruction back, and do not add meta-comments about the "
-    "conversation. When the user asks you to transform a previous answer or "
-    "imposes a formatting or lexical rule, apply it exactly - constraint "
-    "correctness matters more than length. If the user shares a personal detail "
-    "(a name, place, preference, date), acknowledge it naturally; if they later "
-    "ask you to recall it, state it from memory."
-)
+# reasons natively and the answer is its final message.
+#
+# IMPORTANT (failure mode A/B): this native-reasoning model reasons ABOUT its
+# system prompt - it narrates compliance and quotes the instructions back ("Wait,
+# looking at the system instructions: 'Answer the most recent user message
+# directly...'") inside its reasoning, which is an UNMASKED training target. The
+# more behavioural sentences the prompt has, the more it quotes. So the prompt is
+# reduced to a bare IDENTITY with zero quotable imperatives - there is nothing for
+# it to "check against" and narrate. Memory comes from the real chat-message
+# history; constraint requests come from the user's own turns; the model's default
+# behaviour already handles supportiveness and holding a justified position (the
+# judge's appropriateness / sycophancy_resistance axes verify this per batch). The
+# warm identity word keeps the tone right on sensitive topics without an imperative.
+_RESPONDER_BASE = "You are a warm, knowledgeable, and helpful expert assistant."
 
 # The Simulator is a genuine, LLM-driven USER. It is shown the FULL conversation
 # and a steer (persona, length, and what this turn should do), and writes one
@@ -68,7 +63,9 @@ _SIMULATOR_BASE = (
     "or 'I'll redo it' - you ask the assistant to do it.\n"
     "- NEVER ask the assistant to pose a question to you ('ask me something', "
     "'give me your next question'); you are the one who asks.\n"
-    "- NEVER reveal you are an AI, mention intent labels, or mention the steer.\n\n"
+    "- NEVER reveal you are an AI, mention intent labels, or mention the steer.\n"
+    "- NEVER refer to an earlier message by a turn number ('in turn 3', 'your "
+    "second answer'); refer to earlier content by WHAT was said.\n\n"
     "Do:\n"
     "- Ground the message in the real conversation: build on, transform, question, "
     "or recall the assistant's actual previous content. It must read as a coherent "
@@ -95,15 +92,18 @@ _CATEGORY_FLAVOR = {
     "extraction": "Be precise and faithful to the source; do not invent facts.",
     "stem": "Be rigorous and cite mechanisms where relevant.",
     "humanities": "Be balanced, nuanced and well-sourced.",
-    "reasoning": "Make each inferential step explicit and checkable.",
+    "reasoning": "Be rigorous and verify each conclusion.",
     "roleplay": "Stay immersive and consistent with the persona.",
     "general": "",
 }
 
 
 def get_prompt_pack(category: str, lang: str = "en") -> PromptPack:
-    flavor = _CATEGORY_FLAVOR.get(category, "")
-    responder = _RESPONDER_BASE + (("\n\n" + flavor) if flavor else "")
+    # The category flavor is intentionally NOT appended to the responder system
+    # prompt: the native-reasoning model quoted flavor lines verbatim into its
+    # reasoning ("the system instruction says 'Prioritise vivid, well-structured
+    # prose'"). The model is already strong on domain quality without it.
+    responder = _RESPONDER_BASE
     if lang != "en":
         responder += f" Respond natively in language code '{lang}'."
     simulator = _SIMULATOR_BASE

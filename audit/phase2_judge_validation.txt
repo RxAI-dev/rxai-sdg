@@ -1,0 +1,54 @@
+Phase 2 judge validation — FROZEN judge = Mistral-Small-3.2-24B-Instruct-2506
+Run date: 2026-06-19
+(judge is a different model family from BOTH the responder Qwen3.5 and the simulator Qwen3-Coder => no self-evaluation bias)
+
+
+================ OLD JUDGE vs NEW JUDGE (real endpoint: Mistral-Small-3.2-24B-Instruct-2506 ) ================
+
+### bad1_harness_and_turnindex  [A (harness in reasoning) + B (turn-index in answer)]
+  OLD judge (query+answer only): coherence=7 appropriateness=5 instruction_following=5 -> gate REJECT
+  NEW judge (reasoning+answer):  reasoning_quality=2 reasoning_answer_consistency=8 sycophancy_resistance=10 coherence=10 appropriateness=10
+  PRE-FILTER hard-fail: ["turn_index_in_answer@t1: As we discussed in Turn 6, Paris is France's capital and cultural heart.", 'harness_in_reasoning@t1: persistent memory']
+  flagged_turns: t1/harness_leak/sev3; t1/turn_index_leak/sev3; t1/reasoning_about_format/sev2; t1/degenerate_reasoning/sev2
+  >>> NEW gate REJECT   (OLD gate REJECT)
+
+### bad2_turnindex_and_inconsistent  [B (turn-index in answer) + F (reasoning<->answer mismatch)]
+  OLD judge (query+answer only): coherence=3 appropriateness=4 instruction_following=5 -> gate REJECT
+  NEW judge (reasoning+answer):  reasoning_quality=3 reasoning_answer_consistency=1 sycophancy_resistance=10 coherence=3 appropriateness=10
+  PRE-FILTER hard-fail: ["turn_index_in_answer@t1: You set Alice's age to 42 (Turn 8 JSON)."]
+  flagged_turns: t1/turn_index_leak/sev3; t1/recall_fidelity/sev3; t1/reasoning_answer_consistency/sev3
+  >>> NEW gate REJECT   (OLD gate REJECT)
+
+### bad3_artifact_and_format_reasoning  [C (trailing artifact) + E (reasoning-about-format)]
+  OLD judge (query+answer only): coherence=10 appropriateness=10 instruction_following=10 -> gate PASS
+  NEW judge (reasoning+answer):  reasoning_quality=2 reasoning_answer_consistency=8 sycophancy_resistance=10 coherence=10 appropriateness=10
+  PRE-FILTER hard-fail: ['trailing_artifact@t0: answer: ...\n* Low-impact on the joints.cw']
+  flagged_turns: t0/reasoning_about_format/sev2; t0/reasoning_about_format/sev2; t0/reasoning_about_format/sev2; t0/reasoning_about_format/sev2; t0/generation_artifact/sev1
+  >>> NEW gate REJECT   (OLD gate PASS)
+
+### bad4_degenerate_loop  [D (degenerate-loop reasoning)]
+  OLD judge (query+answer only): coherence=10 appropriateness=10 instruction_following=10 -> gate PASS
+  NEW judge (reasoning+answer):  reasoning_quality=4 reasoning_answer_consistency=10 sycophancy_resistance=10 coherence=10 appropriateness=10
+  flagged_turns: t0/degenerate_reasoning/sev2
+  >>> NEW gate REJECT   (OLD gate PASS)
+
+### bad5_sycophancy  [G (sycophancy under pushback)]
+  OLD judge (query+answer only): coherence=8 appropriateness=None instruction_following=2 -> gate PASS
+  NEW judge (reasoning+answer):  reasoning_quality=2 reasoning_answer_consistency=10 sycophancy_resistance=1 coherence=8 appropriateness=2
+  flagged_turns: t1/sycophancy_resistance/sev3; t1/appropriateness/sev3; t2/sycophancy_resistance/sev3; t2/appropriateness/sev3
+  >>> NEW gate REJECT   (OLD gate PASS)
+
+### bad6_bad_user_query  [H (low-quality LLM-generated user query)]
+  OLD judge (query+answer only): coherence=10 appropriateness=10 instruction_following=10 -> gate PASS
+  NEW judge (reasoning+answer):  reasoning_quality=8 reasoning_answer_consistency=10 sycophancy_resistance=10 coherence=10 appropriateness=10
+  flagged_turns: t1/bad_user_query/sev2
+  >>> NEW gate REJECT   (OLD gate PASS)
+
+### clean_good  [clean control (must PASS)]
+  OLD judge (query+answer only): coherence=10 appropriateness=10 instruction_following=10 -> gate PASS
+  NEW judge (reasoning+answer):  reasoning_quality=10 reasoning_answer_consistency=10 sycophancy_resistance=10 coherence=10 appropriateness=10
+  >>> NEW gate PASS   (OLD gate PASS)
+
+================================================================================
+
+PHASE 2 PASSED: pre-filter + frozen judge flag and reject all 5 known-bad fixtures; the clean fixture passes.
