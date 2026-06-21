@@ -68,12 +68,12 @@ def build_factory(args):
     base = _env("RXAI_GEN_API_URL", "OVH_BASE_URL")
     key = _env("RXAI_GEN_API_KEY", "OVH_API_KEY")
     t = args.request_timeout
-    # The Responder/Teacher MUST be an INSTRUCT model: the native-reasoning
-    # Qwen3.5-397B emits un-promptable meta-reasoning poison (see prompts.py). An
-    # instruct model follows the <think> reasoning-format and produces clean,
-    # substance-only reasoning (validated: harness/restart/flow all 0).
+    # The Responder/Teacher MUST be a REASONING model with CLEAN genuine CoT (see
+    # prompts.py): gpt-oss-120b (default). The Qwen family bakes in meta-reasoning
+    # poison; instruct models only fake <think> (and do so unreliably). The genuine
+    # reasoning is captured from the ``reasoning`` field.
     responder = OpenAILLMClient(
-        model_name=_env("RXAI_RESPONDER_MODEL", default="Meta-Llama-3_3-70B-Instruct"),
+        model_name=_env("RXAI_RESPONDER_MODEL", default="gpt-oss-120b"),
         api_url=base, api_key=key, reasoning_field_name="reasoning",
         log_first_raw=args.log_raw, timeout=t,
         frequency_penalty=args.frequency_penalty)
