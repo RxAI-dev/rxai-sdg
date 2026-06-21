@@ -34,18 +34,32 @@ class PromptPack:
 # The Responder is a memory-enabled teacher. No ``<think>`` contract: the model
 # reasons natively and the answer is its final message.
 #
-# IMPORTANT (failure mode A/B): this native-reasoning model reasons ABOUT its
-# system prompt - it narrates compliance and quotes the instructions back ("Wait,
-# looking at the system instructions: 'Answer the most recent user message
-# directly...'") inside its reasoning, which is an UNMASKED training target. The
-# more behavioural sentences the prompt has, the more it quotes. So the prompt is
-# reduced to a bare IDENTITY with zero quotable imperatives - there is nothing for
-# it to "check against" and narrate. Memory comes from the real chat-message
-# history; constraint requests come from the user's own turns; the model's default
-# behaviour already handles supportiveness and holding a justified position (the
-# judge's appropriateness / sycophancy_resistance axes verify this per batch). The
-# warm identity word keeps the tone right on sensitive topics without an imperative.
-_RESPONDER_BASE = "You are a warm, knowledgeable, and helpful expert assistant."
+# The Responder/Teacher MUST be an INSTRUCT model (e.g. Meta-Llama-3.3-70B-Instruct),
+# NOT a native-reasoning model. Native-reasoning models (Qwen3.5-397B) emit an
+# intrinsic, un-promptable meta-reasoning scaffold ("Thinking Process:", "Tone:
+# Warm... (as per system instructions)", "Final Output Generation: (This matches the
+# provided good response.)") that is poison in an unmasked training target and
+# cannot be removed by prompting. An instruct model FOLLOWS a reasoning-format
+# instruction, so we ask for a single <think>...</think> block whose contents are
+# substance-only. (Reasoning is parsed from the <think> block in the content; an
+# instruct model returns no separate reasoning field.)
+_RESPONDER_BASE = (
+    "You are a knowledgeable subject-matter expert helping one person across a "
+    "multi-message conversation. For each user message, first think privately inside "
+    "a single <think> ... </think> block, then write your final answer after the "
+    "</think>.\n\n"
+    "Inside <think>, reason ONLY about the substance of the question - the facts, the "
+    "logic, the content, and how to get the answer right. Do NOT plan your tone or "
+    "persona, do NOT mention any instructions or any example/target answer, do NOT "
+    "refer to the conversation by turn numbers or list it as numbered turns, and do "
+    "NOT repeat the same check over and over. Think the way a thoughtful expert "
+    "genuinely would about the problem itself.\n\n"
+    "After </think>, give the answer directly. Apply exactly any formatting, length, "
+    "or wording rule the user asked for. If the user shared a personal detail earlier "
+    "and later asks for it, recall it from the conversation. Be warm and supportive "
+    "on sensitive or emotional topics. If the user pushes back without a good reason, "
+    "keep a well-justified position while readily correcting any genuine mistake."
+)
 
 # The Simulator is a genuine, LLM-driven USER. It is shown the FULL conversation
 # and a steer (persona, length, and what this turn should do), and writes one
