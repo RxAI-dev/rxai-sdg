@@ -75,6 +75,20 @@ def test_harness_leak_detector():
     assert not has_harness_leak("Paris is the capital, on the Seine.")
 
 
+def test_harness_leak_simulator_role_confusion():
+    # If the simulator echoes its scaffold, the responder may reason as the
+    # simulator ("write the user's next message"). That role-crossing leak must
+    # hard-fail; a genuine assistant never plans the user's turn.
+    assert has_harness_leak(
+        "The user wants me to write the user's next message, i.e. simulate the user")
+    assert has_harness_leak("I should simulate what the user would say next")
+    assert has_harness_leak("Now produce a user message that critiques the answer")
+    assert has_harness_leak("Draft the user's next reply in a terse persona")
+    # substantive talk about a chatbot/user must NOT flag
+    assert not has_harness_leak("The user asked about TCP; I will explain the handshake.")
+    assert not has_harness_leak("Microsoft's Tay was an AI chatbot that learned from users.")
+
+
 def test_harness_leak_tone_bookkeeping():
     # "<style-adjective> tone:" mid-sentence output-planning bookkeeping (the form
     # that slipped into emitted data) must flag.

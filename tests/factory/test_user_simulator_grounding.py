@@ -274,6 +274,22 @@ def test_user_role_is_never_inverted():
             assert flag not in low, f"role inversion ({flag!r}): {res.nl_query!r}"
 
 
+def test_simulator_rejects_prompt_echo():
+    # The simulator must never pass through its own instruction scaffold as the
+    # user message (it poisons the responder's reasoning). _coherence_ok rejects it.
+    from rxai_sdg.factory.user_simulator import _PROMPT_ECHO_RE
+    echo = ("Write the user's NEXT message. Make it a coherent continuation that "
+            "engages the assistant's real prior content above.\n"
+            "- Persona: terse-expert.\n- Length: a longer message.\n"
+            "Output only the user's message - do not answer your own question.")
+    assert _PROMPT_ECHO_RE.search(echo)
+    # genuine user messages (even ones that use the word 'persona') must NOT match
+    assert not _PROMPT_ECHO_RE.search(
+        "Thanks, but your last answer was vague about the flavor profile - fix it?")
+    assert not _PROMPT_ECHO_RE.search(
+        "What's the persona of the narrator in chapter two?")
+
+
 # ---- no hardcoded production query strings remain (grep) -------------------
 
 _OLD_TEMPLATES = [

@@ -79,6 +79,26 @@ _ROLE_CONFUSION_RE = re.compile(
     re.IGNORECASE,
 )
 
+# The simulator (an instruct model) occasionally REGURGITATES its own instruction
+# scaffold instead of producing the user message - e.g. it returns "...Write the
+# user's NEXT message. - Persona: terse-expert. - Length: ... - Your request to the
+# assistant this turn: ... Output only the user's message...". The lenient
+# operates-on-prior coherence path ("accept any non-empty turn") used to let that
+# through, and the echoed scaffold then poisoned the RESPONDER's reasoning (it
+# reasoned "the user wants me to write the user's next message... terse-expert
+# persona"). Reject any output carrying these scaffold markers so it regenerates.
+_PROMPT_ECHO_RE = re.compile(
+    r"write the user'?s? next message"
+    r"|output only the user'?s? message"
+    r"|your request to the assistant this turn"
+    r"|make it a coherent continuation"
+    r"|full conversation so far"
+    r"|do not answer your own question"
+    r"|(?:^|\n)\s*-\s*persona\s*:"
+    r"|(?:^|\n)\s*-\s*length\s*:",
+    re.IGNORECASE,
+)
+
 
 @dataclass
 class SimulatorResult:
@@ -436,6 +456,11 @@ class UserSimulator:
         # The simulated user must never claim authorship of the assistant's output,
         # offer to do its job, or invert roles (fix E). Reject and regenerate.
         if _ROLE_CONFUSION_RE.search(text):
+            return False
+        # The simulator must produce the user message, never echo its own prompt
+        # scaffold ("Write the user's NEXT message", "- Persona:", "Output only the
+        # user's message", ...). Such an echo poisons the responder's reasoning.
+        if _PROMPT_ECHO_RE.search(text):
             return False
         low = text.lower()
         grounding = self._grounding_for(intent, policy)

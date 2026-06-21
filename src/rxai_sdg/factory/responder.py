@@ -249,6 +249,14 @@ HARNESS_REASONING_RES: list[re.Pattern] = [
     re.compile(r"(?:^|\n)\s*\**\s*(?:persona|target audience|format|structure)\s*\**\s*:", re.IGNORECASE),
     re.compile(r"\bthinking process\s*:", re.IGNORECASE),
     re.compile(r"contradictory\s+(?:\w+\s+){0,3}system\s+(?:prompt|instructions?)", re.IGNORECASE),
+    # --- simulator-role confusion: the teacher's reasoning planning the USER's
+    #     message instead of answering it. A role-crossing leak (the simulator's
+    #     persona/verbosity steer surfaced in the responder's reasoning field).
+    #     These phrases never occur in a genuine assistant's private reasoning. ---
+    re.compile(r"write\s+the\s+user'?s?\s+(?:next\s+)?(?:message|reply|turn)", re.IGNORECASE),
+    re.compile(r"\bthe\s+user'?s?\s+next\s+(?:message|reply|turn)\b", re.IGNORECASE),
+    re.compile(r"\bproduce\s+(?:a|the)\s+user\s+(?:message|reply)\b", re.IGNORECASE),
+    re.compile(r"simulate\s+what\s+the\s+user\s+would\s+say", re.IGNORECASE),
 ]
 
 
