@@ -1,0 +1,289 @@
+{
+  "iteration": 14,
+  "hypothesis_or_change": "STEP3 iter4: + safety-guidelines detector + more regen budget. Verify crisis convs preserved & 0 residual meta on a fresh batch.",
+  "config": {
+    "n_seeds": 10,
+    "concurrency": 10,
+    "band": [
+      6,
+      9
+    ],
+    "max_tokens": 4000,
+    "temperature": 0.7,
+    "models": {
+      "responder": "gpt-oss-120b",
+      "simulator": "Qwen3-Coder-30B-A3B-Instruct",
+      "curator": "Mistral-Small-3.2-24B-Instruct-2506",
+      "judge": "Qwen3-Coder-30B-A3B-Instruct"
+    }
+  },
+  "generation_stats": {
+    "wall_seconds": 394.2,
+    "records_emitted": 8,
+    "seeds_used": 9,
+    "seeds_skipped": 1,
+    "discarded": 1,
+    "reasoning_missing": 0,
+    "malformed": 0,
+    "regenerations": 8,
+    "intent_resamples": 0
+  },
+  "token_usage": {
+    "by_client": {
+      "responder": {
+        "calls": 64,
+        "prompt_tokens": 304433,
+        "completion_tokens": 94917,
+        "total_tokens": 399350
+      },
+      "simulator": {
+        "calls": 55,
+        "prompt_tokens": 330335,
+        "completion_tokens": 8940,
+        "total_tokens": 339275
+      },
+      "curator": {
+        "calls": 10,
+        "prompt_tokens": 4181,
+        "completion_tokens": 1503,
+        "total_tokens": 5684
+      },
+      "judge": {
+        "calls": 8,
+        "prompt_tokens": 109834,
+        "completion_tokens": 1150,
+        "total_tokens": 110984
+      }
+    },
+    "total_tokens": 855293
+  },
+  "analysis": {
+    "n": 8,
+    "hard_counts": {},
+    "flag_counts": {},
+    "flagged_by_dimension": {
+      "harness_leak": 1
+    },
+    "judge_means": {
+      "instruction_following": 10,
+      "coherence": 10,
+      "naturalness": 10,
+      "role_consistency": 10,
+      "recall_fidelity": 10,
+      "appropriateness": 10,
+      "reasoning_quality": 10,
+      "reasoning_answer_consistency": 10,
+      "sycophancy_resistance": 10,
+      "user_query_quality": 9.75,
+      "user_query_difficulty": 9.88
+    },
+    "max_regen": 2,
+    "gate_pass": 7,
+    "gate_pass_rate": 0.875,
+    "acceptance": {
+      "turn_index_in_answer": true,
+      "harness_in_reasoning": true,
+      "trailing_artifact": true,
+      "degenerate_reasoning": true,
+      "no_regen_gt_2": true,
+      "mean_reasoning_quality_ge_8": true,
+      "mean_rac_ge_8": true,
+      "gate_pass_rate_in_band": true
+    },
+    "acceptance_all": true,
+    "per_conversation": [
+      {
+        "conversation_id": "08f1f082-8082-445c-b27b-e3471173d06c",
+        "seed": "Explain how a TCP three-way handshake establishes a reliable connection.",
+        "n_turns": 7,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 8,
+          "user_query_difficulty": 9
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 0,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Reasoning: The user asks: \"Explain how a TCP three-way handshake establishes a reliable connection.\" Need to give a clear explanation."
+          }
+        ],
+        "notes": "Turn 0 contains fatal harness leakage in reasoning with explicit system instruction referencing."
+      },
+      {
+        "conversation_id": "3c31928e-bf76-402d-8115-df3ac555cab7",
+        "seed": "What were the main causes of the fall of the Western Roman Empire?",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "a8239dc1-59eb-4731-823f-b0bad03f1619",
+        "seed": "Write a short atmospheric paragraph about an abandoned lighthouse at dawn.",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "223cf2f7-9246-4484-9074-109257a71291",
+        "seed": "What is 17 times 23, and why does the standard long-multiplication algorithm wor",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "9e440e3e-2a05-4d94-8f24-1edd7e83ed0e",
+        "seed": "Outline a Python function to reverse a singly linked list, and explain how it wo",
+        "n_turns": 8,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "70ff1482-a911-4249-8900-5726b4a2635e",
+        "seed": "I'm really nervous about giving my first conference talk next week. Any advice?",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "49f423e0-e577-4ba6-8dfa-7714968feb0d",
+        "seed": "How does photosynthesis convert sunlight into chemical energy in a plant cell?",
+        "n_turns": 8,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": "Excellent conversation with high-quality reasoning and answers throughout, maintaining scientific accuracy and clarity while addressing increasingly complex questions about photosynthesis, algal effic"
+      },
+      {
+        "conversation_id": "161db42c-1c43-4e0c-abd7-d02dabed1c1b",
+        "seed": "Summarize the key trade-offs between SQL and NoSQL databases for a new project.",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      }
+    ]
+  },
+  "bias_probe": null
+}
