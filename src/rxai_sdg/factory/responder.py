@@ -233,6 +233,10 @@ HARNESS_REASONING_RES: list[re.Pattern] = [
     re.compile(r"\bdisallowed\b", re.IGNORECASE),
     re.compile(r"\bopenai\b", re.IGNORECASE),
     re.compile(r"\bcontent\s+polic(?:y|ies)\b", re.IGNORECASE),
+    # "safety guidelines" / "follow the guidelines" - self-compliance meta. NOT
+    # "practical guidelines" / "give guidelines" (content the user asked for).
+    re.compile(r"\b(?:safety|content|community|usage|company)\s+guidelines?\b", re.IGNORECASE),
+    re.compile(r"\b(?:follow|comply\s+with|adhere\s+to|per|according\s+to|respect|violat\w+)\s+(?:the\s+|our\s+|these\s+|my\s+)?guidelines?\b", re.IGNORECASE),
     re.compile(r"\bmust\s+(?:follow|comply with|adhere to|respect)\s+(?:the\s+|our\s+|this\s+)?polic", re.IGNORECASE),
     re.compile(r"\bpolic(?:y|ies)\s+(?:for|on|regarding|around|about)\s+(?:self-?harm|suicide|violence|self-?injury|crisis|sensitive)", re.IGNORECASE),
     # --- persona / tone / format bookkeeping (planning the output, not thinking) ---

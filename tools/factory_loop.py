@@ -97,8 +97,8 @@ def build_factory(args):
         concurrency=args.concurrency,
         max_tokens=args.max_tokens,
         temperature=args.temperature,
-        regeneration_limit=2,
-        max_responder_calls_per_turn=4,
+        regeneration_limit=3,
+        max_responder_calls_per_turn=6,   # room to resample a sporadically-leaky turn
         min_recall_distance=args.min_recall_distance,
         memory_ratio=args.memory_ratio,
         transform_ratio=args.transform_ratio,
