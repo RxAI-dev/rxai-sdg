@@ -187,36 +187,50 @@ def split_reasoning_answer(text: str) -> tuple[str, str]:
 
 
 # ---------------------------------------------------------------------------
-# Leakage detection + sanitization (failure modes A / B / C)
+# Leakage detection + sanitization (failure modes A / B / C / D)
 # ---------------------------------------------------------------------------
 #
-# These regexes are shared by the generation sanitization pass (here) and the
-# judge's deterministic pre-filter (``holistic.deterministic_prefilter``). The
-# pre-filter HARD-FAILS on them; the sanitization pass below removes only the
-# mechanical, meaning-preserving artifacts (a leading "Thinking Process:" scaffold
-# and a glued trailing token) so the primary fix stays the generation prompt, not
-# string-stripping (task Phase 3).
+# DETECT, do not scrub. An earlier version SCRUBBED turn-index / harness asides
+# out of the reasoning before the pre-filter saw them - which both hid the defect
+# from the pre-filter AND left broken artifacts ("...earlier and 4. earlier and
+# 6..."). That is removed. The pre-filter now HARD-FAILS the raw defect; the only
+# sanitization kept is the mechanical trailing-artifact strip (mode C), which is a
+# decoding glitch the pre-filter and judge agree is safe to remove.
 
-# (A) Harness / meta phrases that must never appear in stored *reasoning*. These
-# are high-signal: organic, substance-only reasoning does not contain them. They
-# are checked against ``reasoning`` only (never answers).
+# (A) Harness / meta phrases that must never appear in stored *reasoning*. Built
+# from the verbatim ground-truth fixtures: the native-reasoning model plans its
+# output meta-style ("Tone: Warm... (as per system instructions)") and - worst -
+# writes its reasoning to match a pre-existing target ("Final Output Generation:
+# (This matches the provided good response.)"), which is poison because at
+# inference there is no target. Checked against ``reasoning`` only.
 HARNESS_REASONING_RES: list[re.Pattern] = [
+    # --- target-answer / "provided response" leakage (the worst) ---
+    re.compile(r"provided\s+good\s+response", re.IGNORECASE),
+    re.compile(r"matches?\s+the\s+(?:provided|detailed|good|suggested)", re.IGNORECASE),
+    re.compile(r"similar\s+to\s+the\s+provided", re.IGNORECASE),
+    re.compile(r"(?:response|answer)\s+provided\s+(?:previously|earlier|above)", re.IGNORECASE),
+    re.compile(r"suggested\s+(?:response|answer)\b", re.IGNORECASE),
+    re.compile(r"here'?s\s+(?:a|the|my)\s+thinking\s+process", re.IGNORECASE),
+    re.compile(r"final\s+output\s+generation", re.IGNORECASE),
+    # --- meta about the system prompt / generation harness ---
+    re.compile(r"\bas\s+per\s+(?:the\s+)?system\b", re.IGNORECASE),
+    re.compile(r"\bsystem\s+(?:prompt|instructions?|message)\b", re.IGNORECASE),
+    re.compile(r"\bmy\s+(?:system\s+)?(?:prompt|instructions?)\b", re.IGNORECASE),
+    re.compile(r"continue\s+to\s+honor\s+each\s+of\s+these", re.IGNORECASE),
+    re.compile(r"(?:the\s+)?history\s+provided\b", re.IGNORECASE),
     re.compile(r"persistent memory", re.IGNORECASE),
-    re.compile(r"you are a (?:helpful |expert |strong |memory-enabled )*assistant", re.IGNORECASE),
+    re.compile(r"you are a (?:helpful |expert |strong |warm |knowledgeable |memory-enabled )*assistant", re.IGNORECASE),
     re.compile(r"drawing on the (?:whole|entire) conversation", re.IGNORECASE),
     re.compile(r"the (?:whole |entire )?conversation above", re.IGNORECASE),
     re.compile(r"write only the final answer", re.IGNORECASE),
     re.compile(r"never deny having memory", re.IGNORECASE),
-    re.compile(r"make each inferential step explicit and checkable", re.IGNORECASE),
-    re.compile(r"\bthinking process\s*:", re.IGNORECASE),
-    # NB: a bare "contradictory instructions" is NOT listed - the model legitimately
-    # reasons that *the user's* request is contradictory, which is good reasoning,
-    # not harness leakage. Genuine mode-A agonizing about contradictory SYSTEM
-    # instructions is caught by the "the system instructions" pattern below.
-    re.compile(r"contradictory\s+(?:\w+\s+){0,3}system\s+(?:prompt|instructions?)", re.IGNORECASE),
-    re.compile(r"\bthe system (?:prompt|message|instructions?)\b", re.IGNORECASE),
-    re.compile(r"\bmy (?:system )?(?:prompt|instructions?)\b", re.IGNORECASE),
+    re.compile(r"make each inferential step explicit", re.IGNORECASE),
     re.compile(r"\bas an ai language model\b", re.IGNORECASE),
+    # --- persona / tone / format bookkeeping (planning the output, not thinking) ---
+    re.compile(r"(?:^|\n)\s*\**\s*tone\s*\**\s*:\s*\**\s*(?:warm|knowledgeable|expert|helpful|friendly|professional|conversational|casual)", re.IGNORECASE),
+    re.compile(r"(?:^|\n)\s*\**\s*(?:persona|target audience|format|structure)\s*\**\s*:", re.IGNORECASE),
+    re.compile(r"\bthinking process\s*:", re.IGNORECASE),
+    re.compile(r"contradictory\s+(?:\w+\s+){0,3}system\s+(?:prompt|instructions?)", re.IGNORECASE),
 ]
 
 
@@ -238,12 +252,35 @@ _TURN_INDEX_CUE_RE = re.compile(
     r"\b(?:in|from|during|at|see|per|back in|back to|discussed in|mentioned in|"
     r"as (?:we|you) (?:discussed|said|noted|mentioned) in)\s+turn\s+\d+\b",
     re.IGNORECASE)
+# A numbered conversation-flow recap in reasoning: "1. User: ... 2. Model: ...",
+# "Turn 1: User ...". The model has no turn numbering at inference, so enumerating
+# the conversation as a numbered User/Model/Assistant list is poison.
+_FLOW_LIST_RE = re.compile(
+    r"(?im)^\s*(?:\d+\.\s*|[-*]\s*|turn\s+\d+\s*[:.\-]\s*)?\**\s*"
+    r"(?:user|model|assistant)\**\s*[:\-]", )
 
 
 def has_turn_index_leak(text: str) -> bool:
     """True if ``text`` references a turn by index (failure mode B)."""
     t = text or ""
     return bool(_TURN_INDEX_STRICT_RE.search(t) or _TURN_INDEX_CUE_RE.search(t))
+
+
+def has_numbered_flow_list(reasoning: str) -> bool:
+    """True if ``reasoning`` recaps the conversation as a numbered User/Model list.
+
+    Requires >=2 such lines so a single "User: ..." quote is not flagged.
+    """
+    return len(_FLOW_LIST_RE.findall(reasoning or "")) >= 2
+
+
+# (D) restart-spiral signal: the model loops self-correction ("Wait, ...",
+# "Okay, ...", "Hold on, ...", "Actually, ...") many times in one reasoning block.
+_RESTART_RE = re.compile(r"(?im)(?:^|\n|\.)\s*(?:wait|hold on|actually|okay,? so|let me reconsider|on second thought)\b")
+
+
+def count_restart_markers(reasoning: str) -> int:
+    return len(_RESTART_RE.findall(reasoning or ""))
 
 
 # (C) Trailing generation artifact: a corrupted short token glued to the final
@@ -291,77 +328,14 @@ def _strip_trailing_artifact(text: str) -> str:
     return re.sub(rf"\s+(?:{_ARTIFACT_JUNK})\s*$", "", t)     # bare "... cw"
 
 
-# (B) De-number turn-index references that the model writes into its reasoning
-# when it recaps a long conversation ("History Check: Turn 1: ... Turn 2: ...").
-# This is meaning-preserving (the recap content is kept, the turn numbers - which
-# do not exist at inference - are removed). Applied to reasoning ONLY; a turn
-# index in an ANSWER is left to the pre-filter to hard-fail (it must be dropped /
-# regenerated, not silently patched, since it corrupts the training target).
-_TURN_REF_CURRENT_RE = re.compile(r"\bTurn\s+\d+\s*\(current\)\s*:?", re.IGNORECASE)
-_TURN_REF_PAREN_RE = re.compile(r"\(\s*Turn\s+\d+\s*\)")
-_TURN_REF_LINE_RE = re.compile(r"^(\s*[-*]\s*)Turn\s+\d+\s*:\s*", re.IGNORECASE | re.MULTILINE)
-
-
-# The native-reasoning model narrates, in varied phrasings, a meta-reference to
-# its OWN system prompt inside its reasoning - quoting it ("The system instructions
-# say '...'"), reverting to it ("revert to the system prompt: '...'"), or even
-# hallucinating extra safety "system instructions" on crisis turns. Source fixes
-# (real chat-message history + a bare identity prompt + removing the leaked steer
-# block) cut this sharply, but a model tic cannot be deterministically prompted
-# away. This guard removes the meta-aside LINE. It targets only a SELF-reference to
-# "the/my system prompt/instructions" - generic topical discussion of system
-# prompts ("a system prompt is...") is not matched, so a user asking what
-# guidelines the assistant follows is preserved.
-_HARNESS_ASIDE_RE = re.compile(
-    r"(?im)^.*(?:\bthe\s+system\s+(?:prompt|instructions?|message)\b"
-    r"|\bmy\s+(?:system\s+)?(?:prompt|instructions?)\b"
-    r"|\brevert(?:ing)?\s+to\s+the\s+system\b"
-    r"|\bsystem\s+prompt\s*:).*$")
-
-
-def _strip_harness_asides(text: str) -> str:
-    text = _HARNESS_ASIDE_RE.sub("", text)
-    return re.sub(r"\n{3,}", "\n\n", text)
-
-
-def _desensitize_turn_index(text: str) -> str:
-    text = _TURN_REF_CURRENT_RE.sub("Now:", text)
-    text = _TURN_REF_PAREN_RE.sub("", text)
-    text = _TURN_REF_LINE_RE.sub(r"\1", text)
-    # guaranteed sweep so the result never trips the (frozen) pre-filter detector
-    text = _TURN_INDEX_CUE_RE.sub("earlier", text)
-    text = _TURN_INDEX_STRICT_RE.sub("earlier", text)
-    return text
-
-
 # "standing instruction" is reserved schema vocabulary in this system (it named
 # the old raw-spec note). A native-reasoning model occasionally uses it as plain
 # English when an active standing constraint exists. That is not a schema leak,
 # but it collides with our reserved term, so we normalize the exact phrase to a
-# meaning-preserving synonym in the captured reasoning. The genuine schema tokens
-# (json_valid, top_type, forbidden_token, constraint_spec) are never English and
-# are handled by the loop's spec-leak coherence gate instead.
+# meaning-preserving synonym. (This is the ONLY reasoning rewrite that remains:
+# turn-index / harness asides are NO LONGER scrubbed - that hid the defect from
+# the pre-filter and left broken text; they now hard-fail instead.)
 _RESERVED_PHRASE_RE = re.compile(r"\bstanding (instruction)", re.IGNORECASE)
-
-# A leading scaffold header this native-reasoning model emits on essentially every
-# turn ("Thinking Process:\n\n1. **Analyze the Request:**..."). The header itself
-# is failure-mode-A scaffolding (it cannot be prompted away - the model echoes any
-# instruction about it straight back into the reasoning), so it is stripped here
-# as a meaning-preserving sanitization. The reasoning's substance is untouched.
-_THINKING_HEADER_RE = re.compile(
-    r"\A\s*(?:thinking process|thought process|reasoning process|chain[- ]of[- ]thought|"
-    r"here'?s my (?:thinking|reasoning|thought process)|let me think(?: this through)?|"
-    r"my (?:reasoning|thought process))\s*:?\s*\n+",
-    re.IGNORECASE)
-
-# The model sometimes opens a SECOND "Thinking Process:" block mid-reasoning
-# ("...new framework.\n*(Let's write)*.\n**Thinking Process:**\n1. Analyze..."),
-# which the leading-only strip above misses. This scaffold header is never
-# substantive content, so strip the marker wherever it appears (markdown bold and
-# an optional trailing enumeration prefix on the same line are tolerated).
-_THINKING_HEADER_ANYWHERE_RE = re.compile(
-    r"\*{0,2}\s*(?:thinking|thought|reasoning)\s+process\s*:\s*\*{0,2}",
-    re.IGNORECASE)
 
 
 def _normalize_reasoning(text: Optional[str]) -> Optional[str]:
@@ -371,20 +345,17 @@ def _normalize_reasoning(text: Optional[str]) -> Optional[str]:
 
 
 def sanitize_reasoning(text: Optional[str]) -> Optional[str]:
-    """Mechanical, meaning-preserving clean-up of a generated reasoning segment.
+    """THIN, mechanical clean-up of a generated reasoning segment (safety net only).
 
-    Strips the leading "Thinking Process:" scaffold, normalizes the reserved
-    "standing instruction" phrase, and strips a glued trailing artifact. It does
-    **not** attempt to rewrite substantive content - genuine harness/meta leakage
-    woven into the reasoning is left for the judge pre-filter to hard-fail.
+    Strips ONLY the glued trailing decoding artifact (mode C) and normalizes the
+    reserved "standing instruction" token. It deliberately does NOT scrub harness
+    leakage, turn-index references, or restart spirals - those are real defects the
+    deterministic pre-filter must HARD-FAIL (an earlier scrubbing version hid them
+    from the pre-filter and left broken artifacts). The real fix is in generation.
     """
     if not text:
         return text
-    text = _THINKING_HEADER_RE.sub("", text, count=1)
-    text = _THINKING_HEADER_ANYWHERE_RE.sub("", text)  # second/mid-stream headers
     text = _normalize_reasoning(text) or ""
-    text = _strip_harness_asides(text)
-    text = _desensitize_turn_index(text)
     text = _strip_trailing_artifact(text)
     return text.strip()
 

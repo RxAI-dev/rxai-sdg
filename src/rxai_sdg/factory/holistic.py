@@ -32,11 +32,18 @@ from typing import Optional
 from .clients import LLMClient
 from .responder import (
     HARNESS_REASONING_RES,
+    count_restart_markers,
     format_transcript_for_judge,
     has_harness_leak,
+    has_numbered_flow_list,
     has_trailing_artifact,
     has_turn_index_leak,
 )
+
+#: a reasoning block with this many self-correction restarts ("Wait, ...") is a
+#: degenerate spiral (calibrated against the ground-truth fixtures: clean reasoning
+#: has 0-2, the spirals have 8-26).
+_RESTART_HARD_FAIL = 6
 from .schemas import Turn
 
 #: The 1-10 rubric axes stored on every record:
@@ -72,12 +79,19 @@ _JUDGE_SYSTEM = (
     "- At inference the model has NO full conversation transcript, NO turn numbers, "
     "and NO system/harness prompt - only the current message plus a small neural "
     "memory. Therefore anything in the data that assumes those things is POISON:\n"
-    "    * harness/meta leakage in the reasoning (e.g. 'You are a helpful assistant "
-    "with persistent memory', 'drawing on the whole conversation above', 'Write only "
-    "the final answer', 'You never deny having memory', a 'Thinking Process:' header, "
-    "or the model agonizing about its system instructions);\n"
+    "    * harness/meta leakage in the reasoning. THESE ARE FATAL and you MUST score "
+    "reasoning_quality 1-2 and add a severity-3 flagged_turn for ANY of them, even if "
+    "the answer is excellent: a 'Thinking Process:' header; planning the output style "
+    "as bookkeeping ('Tone: Warm, knowledgeable, helpful expert', 'Persona:', "
+    "'Format:'); 'as per system instruction(s)' / quoting the system prompt; and - "
+    "worst of all - writing the reasoning to match a TARGET answer ('Final Output "
+    "Generation: (This matches the provided good response.)', '(similar to the "
+    "provided good response)', 'Here's a thinking process that leads to the suggested "
+    "response'). At inference there is NO target answer and NO system prompt, so this "
+    "is poison. Do NOT be fooled by a high-quality answer - grade the REASONING.\n"
     "    * references to a turn by index ('Turn 6', 'as we discussed in Turn 6', "
-    "'reference_turn_2'). A turn-index reference inside an ANSWER is the worst case.\n"
+    "'reference_turn_2') or a numbered conversation recap ('1. User: ... 2. Model: "
+    "...'). A turn-index reference inside an ANSWER is the worst case.\n"
     "- The [Turn i] labels in the transcript I show you are MY annotation so you can "
     "cite a turn. They are NOT part of the data; do not penalize them.\n\n"
     "Score every axis as an integer 1 (terrible) to 10 (excellent). Anchors:\n"
@@ -91,12 +105,13 @@ _JUDGE_SYSTEM = (
     "is it recalled correctly (no false memory, no wrongful 'I can't remember')?\n"
     "- appropriateness: tone fits the topic, especially supportive for sensitive/"
     "distressing topics (never flippant or trivializing).\n"
-    "- reasoning_quality: is the REASONING substantive thinking about the problem? "
-    "10 = clean, on-topic reasoning that derives the answer. Score LOW (1-4) if the "
-    "reasoning leaks harness/meta phrases, opens with a 'Thinking Process:' scaffold, "
-    "references turn numbers, repeats itself / spirals (degenerate loop), or is "
-    "dominated by format/constraint bookkeeping and word-counting instead of "
-    "substance.\n"
+    "- reasoning_quality: is the REASONING substantive thinking about the PROBLEM "
+    "(the facts, the math, the argument)? 10 = clean, on-topic reasoning a person "
+    "would actually have. Score 1-3 if the reasoning leaks ANY harness/meta phrase "
+    "above (target-answer matching, 'Tone:'/persona planning, 'as per system "
+    "instruction', a 'Thinking Process:' header), references turn numbers, repeats "
+    "itself / spirals ('Wait, ... Wait, ...' many times), or is dominated by "
+    "format/constraint bookkeeping and word-counting instead of substance.\n"
     "- reasoning_answer_consistency: does the reasoning actually produce the answer? "
     "10 = answer follows from the reasoning. Score LOW (1-4) if the reasoning "
     "contradicts the answer, invents 'memory checks' that never happened, or asserts "
@@ -202,12 +217,16 @@ def deterministic_prefilter(turns: list[Turn], regen_threshold: int = 2) -> Pref
         reasoning = t.reasoning or ""
         answer = t.answer or ""
 
-        # (B) turn-index leakage. In an answer it corrupts the training target.
+        # (B) turn-index leakage in any segment (answer OR reasoning), plus a
+        # numbered conversation-flow recap in reasoning ("1. User: ... 2. Model").
         if has_turn_index_leak(answer):
             hard.append({"turn_index": ti, "kind": "turn_index_in_answer",
                          "evidence": _evidence(answer)})
         if has_turn_index_leak(reasoning):
             hard.append({"turn_index": ti, "kind": "turn_index_in_reasoning",
+                         "evidence": _evidence(reasoning)})
+        if has_numbered_flow_list(reasoning):
+            hard.append({"turn_index": ti, "kind": "numbered_flow_in_reasoning",
                          "evidence": _evidence(reasoning)})
 
         # (A) harness / meta leakage in reasoning.
@@ -222,22 +241,24 @@ def deterministic_prefilter(turns: list[Turn], regen_threshold: int = 2) -> Pref
                 hard.append({"turn_index": ti, "kind": "trailing_artifact",
                              "evidence": f"{seg_name}: ...{seg.rstrip()[-30:]}"})
 
-        # (soft) excess regenerations.
-        ver = getattr(t, "verification", None)
-        regen = getattr(ver, "regenerations", 0) if ver is not None else 0
-        if isinstance(regen, (int, float)) and regen > regen_threshold:
-            soft.append({"turn_index": ti, "kind": "excess_regenerations",
-                         "evidence": str(int(regen))})
-
-        # (D) degenerate-loop reasoning. This is an OBJECTIVE defect (>40 %
-        # duplicated units), so it is a HARD fail - not left to the stochastic
-        # judge. A discriminating judge (Qwen3-Coder) under-penalizes a
-        # fluent-sounding poetic/derivation loop (scoring reasoning_quality 8 on a
-        # phrase repeated 27x), so the deterministic detector must gate it. The
-        # responder's frequency_penalty prevents the loop at the source.
+        # (D) degenerate-loop reasoning - OBJECTIVE (the judge demonstrably misses
+        # it), so a HARD fail. Two signals: a high duplicated-unit ratio AND an
+        # excessive self-correction restart count ("Wait, ... Wait, ...").
         if _is_degenerate_reasoning(reasoning):
             hard.append({"turn_index": ti, "kind": "degenerate_reasoning",
                          "evidence": _evidence(reasoning)})
+        elif count_restart_markers(reasoning) >= _RESTART_HARD_FAIL:
+            hard.append({"turn_index": ti, "kind": "restart_spiral",
+                         "evidence": f"{count_restart_markers(reasoning)} restarts: "
+                                     + _evidence(reasoning)})
+
+        # excess regenerations -> HARD fail (was a soft flag; correlated with
+        # degenerate/low-yield turns the judge passed).
+        ver = getattr(t, "verification", None)
+        regen = getattr(ver, "regenerations", 0) if ver is not None else 0
+        if isinstance(regen, (int, float)) and regen > regen_threshold:
+            hard.append({"turn_index": ti, "kind": "excess_regenerations",
+                         "evidence": str(int(regen))})
 
     return PrefilterResult(passed=(len(hard) == 0), hard_fails=hard, flags=soft)
 

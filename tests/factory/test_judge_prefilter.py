@@ -86,13 +86,14 @@ def test_trailing_artifact_detector():
 
 
 # --------------------------------------------------------------- sanitization
-def test_sanitize_strips_thinking_header_and_artifact():
-    r = sanitize_reasoning("Thinking Process:\n\n1. Analyze: the sum is 391.cw")
-    assert not r.lower().startswith("thinking process")
+def test_sanitize_is_thin_artifact_only():
+    # sanitization is now THIN: it strips ONLY the trailing decoding artifact (C).
+    # It does NOT scrub the "Thinking Process:" scaffold or harness phrases - those
+    # are real defects the pre-filter must HARD-FAIL (the scrubber hid them before).
+    r = sanitize_reasoning("Reasoning about the sum is 391.cw")
     assert "391" in r and not r.endswith(".cw")
-    # harness phrase NOT at the leading header is left for the pre-filter to fail
-    assert "persistent memory" in sanitize_reasoning(
-        "1. I have persistent memory here.")
+    assert "Thinking Process:" in sanitize_reasoning("Thinking Process:\n1. step.")
+    assert "persistent memory" in sanitize_reasoning("1. I have persistent memory here.")
 
 
 def test_sanitize_answer_strips_artifact_only():
@@ -119,15 +120,31 @@ def test_prefilter_hard_fails_harness_in_reasoning():
     assert "harness_in_reasoning" in {h["kind"] for h in res.hard_fails}
 
 
-def test_prefilter_hard_fails_degenerate_flags_regen_soft():
+def test_prefilter_hard_fails_degenerate_and_regen():
     spiral = (". ".join(["avoid water"] * 8)) + ". check no water. check no water."
     turns = [_turn(0, "q", spiral, "The blue sea.", regen=4)]
     res = deterministic_prefilter(turns, regen_threshold=2)
-    # degenerate-loop reasoning is an OBJECTIVE defect -> HARD fail
+    kinds = {h["kind"] for h in res.hard_fails}
+    # degenerate-loop reasoning AND excess regenerations are BOTH hard fails now
     assert res.passed is False
-    assert "degenerate_reasoning" in {h["kind"] for h in res.hard_fails}
-    # excess regenerations remains a soft (audit-only) flag
-    assert "excess_regenerations" in {f["kind"] for f in res.flags}
+    assert "degenerate_reasoning" in kinds
+    assert "excess_regenerations" in kinds
+
+
+def test_prefilter_hard_fails_restart_spiral_and_numbered_flow():
+    spiral = " ".join(f"Wait, let me reconsider point {i}." for i in range(8))
+    turns = [_turn(0, "q", spiral, "ok.")]
+    assert "restart_spiral" in {h["kind"] for h in deterministic_prefilter(turns).hard_fails}
+    flow = "1. User: asked about X.\n2. Model: explained X.\n3. User: asked Y."
+    turns2 = [_turn(0, "q", flow, "ok.")]
+    assert "numbered_flow_in_reasoning" in {h["kind"] for h in deterministic_prefilter(turns2).hard_fails}
+
+
+def test_prefilter_hard_fails_target_answer_leak():
+    turns = [_turn(0, "q",
+                   "Final Output Generation: (This matches the provided good response.)",
+                   "An answer.")]
+    assert "harness_in_reasoning" in {h["kind"] for h in deterministic_prefilter(turns).hard_fails}
 
 
 def test_prefilter_clean_passes():
