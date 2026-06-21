@@ -51,12 +51,50 @@ the "clean" final batch. The root causes:
 
 ### Round-2 result (real endpoint, `gpt-oss-120b` teacher)
 
-On a fresh 10-seed batch (judge=Qwen3-Coder): an **independent residual-meta scan
-over the emitted data returns NONE** (vs 30/33 leaking in Round 1); pre-filter
-hard-fails = 0; gate pass-rate ≈ 0.88 (in band); the frozen ground-truth stays
-green. Manual reading confirms the reasoning is genuine, substantive CoT (e.g. the
-crisis turn reasons *as a counsellor about the person*, not about policy). See
-`audit/loop/newloop_iter*.json`.
+The STEP-3 acceptance batch (fresh 25–26 conversations, `seeds50`, judge =
+Qwen3-Coder) was run, and **after each run the independent residual scan
+(`tools/scan_emitted.py`) was read end-to-end** — it re-runs the frozen pre-filter
+over the emitted data *and* sweeps an exploratory cue net for meta phrases the
+detectors do not yet catch, so a brand-new leak class surfaces here instead of in
+the dataset. Three runs converged, each one fixing exactly the residual the scan
+exposed (always at the generation source, or by *strengthening* a detector — never
+by loosening the judge, gate, pre-filter, acceptance, or the frozen fixtures):
+
+| run | acceptance | residual the scan exposed | fix |
+|---|---|---|---|
+| 25  | not met | harness reminder echoed; `<adj> tone:` bookkeeping; a turn needing 3 regens | first-person standing-reminder; tone detector; simulator forbidden to fabricate content |
+| 25b | **PASS** | simulator **prompt-echo** → responder reasoned *"write the user's next message… terse-expert persona"* | reject simulator prompt-echo in `_coherence_ok`; add a responder role-confusion detector |
+| 25c | **PASS** | `tone: supportive` (adjective *after* the colon) | tone detector now catches both orderings |
+
+**Final state (run 25c).** Pre-filter hard-fails `{}`; **0** harness / turn-index /
+trailing-artifact / degenerate / role-confusion leaks; max regenerations across all
+turns = **2** (≤ the threshold — no conversation needed a 3rd); judge means
+reasoning_quality **9.65**, reasoning_answer_consistency **9.88**, appropriateness
+**9.92**; gate pass-rate **0.769** (in `[0.65, 0.95]`). The exploratory net shows no
+remaining leak class — only legitimate, substantive cues (`policy implications`,
+`word count` for a user-imposed length limit, `as per <a real table>`).
+
+**Frozen ground-truth (real judge, current code).** GREEN: all 5 human-labeled
+defective fixtures REJECTED (each via the deterministic pre-filter *and*, where
+applicable, judge reasoning lows of 2–4), the clean control ACCEPTED with zero
+flags. The detector strengthening did not perturb the anchor.
+
+**Real-world seeds** (`tools/seeds_real.jsonl`, 10 real prompts). The low-value
+greeting (*"What's up doc?"*) is correctly dropped at curation (discarded = 1),
+leaving 8 conversations: pre-filter hard-fails `{}`, max regen = 2, and **perfect
+judge means (10.0 / 10.0 / 10.0** for reasoning_quality / consistency /
+appropriateness). The independent scan is clean (the only cues are `as per user
+instruction` — honouring the user's 30-word limit — and `policy` naming real
+Japanese/Chinese city policy examples). The *only* unmet acceptance signal here is
+the pass-rate ceiling: 8/8 = **1.0** > 0.95. That is a small-sample artifact of
+eight genuinely-flawless real conversations, **not** a rubber-stamping gate — the
+gate's discriminating power is proved independently by the green ground-truth
+(it still rejects all five defects) and by the 0.769 pass-rate on the larger 25c
+batch. Per the hard rule the band is **not** widened to make it pass.
+
+Manual reading confirms the reasoning is genuine, substantive CoT (e.g. the
+depression/anxiety seed reasons *as a counsellor about the person*, not about
+policy). See `audit/loop/newloop_25{,b,c}.json`, `audit/loop/real10.json`.
 
 ---
 

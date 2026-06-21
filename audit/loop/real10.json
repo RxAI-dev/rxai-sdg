@@ -1,0 +1,280 @@
+{
+  "iteration": 90,
+  "hypothesis_or_change": "Real-dataset seeds check: 10 real-world seeds (incl. a low-value greeting that should filter at curation).",
+  "config": {
+    "n_seeds": 10,
+    "concurrency": 10,
+    "band": [
+      6,
+      9
+    ],
+    "max_tokens": 4000,
+    "temperature": 0.7,
+    "models": {
+      "responder": "gpt-oss-120b",
+      "simulator": "Qwen3-Coder-30B-A3B-Instruct",
+      "curator": "Mistral-Small-3.2-24B-Instruct-2506",
+      "judge": "Qwen3-Coder-30B-A3B-Instruct"
+    }
+  },
+  "generation_stats": {
+    "wall_seconds": 425.2,
+    "records_emitted": 8,
+    "seeds_used": 9,
+    "seeds_skipped": 1,
+    "discarded": 1,
+    "reasoning_missing": 0,
+    "malformed": 0,
+    "regenerations": 23,
+    "intent_resamples": 3
+  },
+  "token_usage": {
+    "by_client": {
+      "responder": {
+        "calls": 80,
+        "prompt_tokens": 460370,
+        "completion_tokens": 128068,
+        "total_tokens": 588438
+      },
+      "simulator": {
+        "calls": 61,
+        "prompt_tokens": 421233,
+        "completion_tokens": 9142,
+        "total_tokens": 430375
+      },
+      "curator": {
+        "calls": 10,
+        "prompt_tokens": 4240,
+        "completion_tokens": 1485,
+        "total_tokens": 5725
+      },
+      "judge": {
+        "calls": 8,
+        "prompt_tokens": 119262,
+        "completion_tokens": 1036,
+        "total_tokens": 120298
+      }
+    },
+    "total_tokens": 1144836
+  },
+  "analysis": {
+    "n": 8,
+    "hard_counts": {},
+    "flag_counts": {},
+    "flagged_by_dimension": {},
+    "judge_means": {
+      "instruction_following": 10,
+      "coherence": 10,
+      "naturalness": 9.75,
+      "role_consistency": 10,
+      "recall_fidelity": 10,
+      "appropriateness": 10,
+      "reasoning_quality": 10,
+      "reasoning_answer_consistency": 10,
+      "sycophancy_resistance": 10,
+      "user_query_quality": 9.88,
+      "user_query_difficulty": 9.75
+    },
+    "max_regen": 2,
+    "gate_pass": 8,
+    "gate_pass_rate": 1.0,
+    "acceptance": {
+      "turn_index_in_answer": true,
+      "harness_in_reasoning": true,
+      "trailing_artifact": true,
+      "degenerate_reasoning": true,
+      "no_regen_gt_2": true,
+      "mean_reasoning_quality_ge_8": true,
+      "mean_rac_ge_8": true,
+      "gate_pass_rate_in_band": false
+    },
+    "acceptance_all": false,
+    "per_conversation": [
+      {
+        "conversation_id": "546106b0-e4f4-4f50-bed4-cb3c3f650c18",
+        "seed": "I am depressed and anxious a lot of the time. I am tired of it and don't know wh",
+        "n_turns": 9,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "9981a259-3f96-4b90-9532-060ce0eed09e",
+        "seed": "Organize these words in alphabetic order and also from shortest to longest words",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 9,
+          "user_query_difficulty": 8
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "cc73f136-e0de-4a46-aae6-70cff3e46c7e",
+        "seed": "What are the key differences between classical and operant conditioning in psych",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "83ca66f1-6092-4cd8-a9f0-0bbcd15bf373",
+        "seed": "what are the risks of using AI to create code for a professional programmer",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "327ada15-84f5-42ce-a749-676fa7641cee",
+        "seed": "What are some unique things about the 37th largest city in Japan? Does it have a",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "b494434e-fe36-4173-908d-e5947f791d64",
+        "seed": "On average, how tall is a robot vacuum cleaner?",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "95c8af5f-5fc4-47a0-9b5f-cc942052809a",
+        "seed": "can you tell me who mark seifter is? especially focusing on his game design and ",
+        "n_turns": 8,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "d44accac-68f0-486d-bce5-85974e335dfb",
+        "seed": "What kind of safety measures does your programming include?",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      }
+    ]
+  },
+  "bias_probe": null
+}
