@@ -75,6 +75,45 @@ def test_harness_leak_detector():
     assert not has_harness_leak("Paris is the capital, on the Seine.")
 
 
+def test_harness_leak_tone_bookkeeping():
+    # "<style-adjective> tone:" mid-sentence output-planning bookkeeping (the form
+    # that slipped into emitted data) must flag.
+    assert has_harness_leak("Need empathetic tone: acknowledge frustration, give steps")
+    assert has_harness_leak("Should be formal tone: subject, greeting, body")
+    assert has_harness_leak("Tone: warm and knowledgeable, then list the steps")
+    # substantive tone-ANALYSIS uses content adjectives, not delivery-style ones,
+    # so it must NOT flag.
+    assert not has_harness_leak("The poem's tone: melancholic, with a somber close.")
+    assert not has_harness_leak("Her tone shifted from anger to calm across the scene.")
+
+
+def test_harness_leak_gpt_oss_safety_meta():
+    # gpt-oss reasons about its safety-RL harness on sensitive turns; these are
+    # leakage (they reference the policy, not the person's situation).
+    assert has_harness_leak("Must follow safety guidelines: provide a supportive response")
+    assert has_harness_leak("I should give a safe completion here")
+    assert has_harness_leak("This request is disallowed content")
+    assert has_harness_leak("per openai policy on crisis")
+    assert has_harness_leak("must follow policy for self-harm situations")
+    assert has_harness_leak("the policy for suicide ideation says to provide resources")
+    assert has_harness_leak("I must comply with the guidelines")
+
+
+def test_harness_leak_topical_policy_not_flagged():
+    # The FP guard: a substantive discussion that happens to use "policy" /
+    # "guidelines" topically is genuine reasoning and must NOT hard-fail.
+    assert not has_harness_leak(
+        "The foederati policy of the late Roman Empire let tribes settle inside the limes.")
+    assert not has_harness_leak(
+        "Carbon sequestration policy differs sharply between the EU and the US.")
+    assert not has_harness_leak(
+        "Monetary policy tightening raises the cost of borrowing, cooling demand.")
+    assert not has_harness_leak(
+        "Here are some practical guidelines for composting at home.")
+    assert not has_harness_leak(
+        "Their privacy policy lets users export data, which is what she asked about.")
+
+
 def test_trailing_artifact_detector():
     assert has_trailing_artifact("...low-impact on the joints.cw")
     assert has_trailing_artifact("Ready to generate.cltr")

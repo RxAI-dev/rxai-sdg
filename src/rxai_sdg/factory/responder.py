@@ -241,6 +241,11 @@ HARNESS_REASONING_RES: list[re.Pattern] = [
     re.compile(r"\bpolic(?:y|ies)\s+(?:for|on|regarding|around|about)\s+(?:self-?harm|suicide|violence|self-?injury|crisis|sensitive)", re.IGNORECASE),
     # --- persona / tone / format bookkeeping (planning the output, not thinking) ---
     re.compile(r"(?:^|\n)\s*\**\s*tone\s*\**\s*:\s*\**\s*(?:warm|knowledgeable|expert|helpful|friendly|professional|conversational|casual)", re.IGNORECASE),
+    # "<style-adjective> tone:" mid-sentence bookkeeping (e.g. "Need empathetic
+    # tone: acknowledge frustration, give clear steps"). Scoped to OUTPUT-STYLE
+    # adjectives so substantive tone-analysis ("the poem's tone: melancholic")
+    # does not match - those use content adjectives, not delivery-style ones.
+    re.compile(r"\b(?:warm|knowledgeable|expert|helpful|friendly|professional|conversational|casual|empathetic|formal|gentle|supportive|encouraging|compassionate|reassuring|enthusiastic|playful|sympathetic|respectful)\s+tone\s*:", re.IGNORECASE),
     re.compile(r"(?:^|\n)\s*\**\s*(?:persona|target audience|format|structure)\s*\**\s*:", re.IGNORECASE),
     re.compile(r"\bthinking process\s*:", re.IGNORECASE),
     re.compile(r"contradictory\s+(?:\w+\s+){0,3}system\s+(?:prompt|instructions?)", re.IGNORECASE),

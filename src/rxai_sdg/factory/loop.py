@@ -538,9 +538,13 @@ class ConversationLoop:
         if not active:
             return ""
         bullets = [f"- {render_constraint_nl(cs)}" for cs in active]
-        # Phrased to be unambiguously persistent so the model does not deliberate
-        # about whether the rule is "standing" (which leaks reserved vocabulary into
-        # its reasoning); see also _normalize_reasoning in responder.py.
-        return ("The user earlier asked you to keep doing the following in every "
-                "reply from now on. Continue to honor each of these while you also "
-                "answer the new question:\n" + "\n".join(bullets))
+        # First-person, natural USER voice. The earlier phrasing ("The user earlier
+        # asked you to keep doing the following in every reply from now on. Continue
+        # to honor each of these...") was third-person harness meta: the model read
+        # it as a system instruction and leaked that into its reasoning ("I must
+        # treat this as an active system instruction/constraint"). Phrasing it as the
+        # user's own casual reminder makes the model simply satisfy it - the rule is
+        # re-injected every turn it is active, so the model only needs to apply it
+        # now, never to reason about its persistence.
+        return ("Quick reminder from me - please keep doing what I asked you "
+                "earlier as you answer this too:\n" + "\n".join(bullets))
