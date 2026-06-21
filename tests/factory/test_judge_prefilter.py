@@ -95,6 +95,8 @@ def test_harness_leak_tone_bookkeeping():
     assert has_harness_leak("Need empathetic tone: acknowledge frustration, give steps")
     assert has_harness_leak("Should be formal tone: subject, greeting, body")
     assert has_harness_leak("Tone: warm and knowledgeable, then list the steps")
+    # adjective AFTER the colon too ("be mindful of tone: supportive")
+    assert has_harness_leak("Also be mindful of tone: supportive. Provide the summary.")
     # substantive tone-ANALYSIS uses content adjectives, not delivery-style ones,
     # so it must NOT flag.
     assert not has_harness_leak("The poem's tone: melancholic, with a somber close.")
