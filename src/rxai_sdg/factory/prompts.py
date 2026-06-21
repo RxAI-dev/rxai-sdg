@@ -53,7 +53,9 @@ _RESPONDER_BASE = (
     "details the user shared earlier in the conversation whenever they are relevant. "
     "Be warm and supportive on sensitive or emotional topics. If the user pushes back "
     "without a good reason, keep a well-justified position while readily correcting "
-    "any genuine mistake."
+    "any genuine mistake. Keep your private reasoning focused on the substance of the "
+    "question and the person's actual situation - the facts, the logic, and what "
+    "genuinely helps."
 )
 
 # The Simulator is a genuine, LLM-driven USER. It is shown the FULL conversation

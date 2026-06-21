@@ -225,7 +225,16 @@ HARNESS_REASONING_RES: list[re.Pattern] = [
     re.compile(r"write only the final answer", re.IGNORECASE),
     re.compile(r"never deny having memory", re.IGNORECASE),
     re.compile(r"make each inferential step explicit", re.IGNORECASE),
-    re.compile(r"\bas an ai language model\b", re.IGNORECASE),
+    re.compile(r"\bas an ai\b", re.IGNORECASE),
+    # --- gpt-oss safety-RL meta vocabulary (references the generation harness /
+    #     policy, not the substance; localized to sensitive turns). Targeted so a
+    #     topical discussion of monetary/privacy/political "policy" is NOT flagged. ---
+    re.compile(r"safe\s+completion", re.IGNORECASE),
+    re.compile(r"\bdisallowed\b", re.IGNORECASE),
+    re.compile(r"\bopenai\b", re.IGNORECASE),
+    re.compile(r"\bcontent\s+polic(?:y|ies)\b", re.IGNORECASE),
+    re.compile(r"\bmust\s+(?:follow|comply with|adhere to|respect)\s+(?:the\s+|our\s+|this\s+)?polic", re.IGNORECASE),
+    re.compile(r"\bpolic(?:y|ies)\s+(?:for|on|regarding|around|about)\s+(?:self-?harm|suicide|violence|self-?injury|crisis|sensitive)", re.IGNORECASE),
     # --- persona / tone / format bookkeeping (planning the output, not thinking) ---
     re.compile(r"(?:^|\n)\s*\**\s*tone\s*\**\s*:\s*\**\s*(?:warm|knowledgeable|expert|helpful|friendly|professional|conversational|casual)", re.IGNORECASE),
     re.compile(r"(?:^|\n)\s*\**\s*(?:persona|target audience|format|structure)\s*\**\s*:", re.IGNORECASE),
