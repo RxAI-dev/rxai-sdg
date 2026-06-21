@@ -1,4 +1,66 @@
-# Holistic-judge fix + autonomous generate→judge→fix loop
+# ⚠️ ROUND 2 (supersedes the Round-1 report below) — the judge had passed known-bad data
+
+Round 1 reported success. **That success was false.** Human review found 5
+generated conversations the judge + gate ACCEPTED that are severely defective; an
+independent scan then showed the harness leak was in **30 of 33** conversations of
+the "clean" final batch. The root causes:
+
+1. **The judge is too soft on reasoning.** `Qwen3-Coder` scored a conversation
+   containing `Tone: Warm... (as per system instructions)` and `Final Output
+   Generation: (This matches the provided good response.)` as `reasoning_quality=9`
+   and wrote *"No harness leaks detected."* (STEP-0 diagnostic,
+   `tools/validate_ground_truth.py`).
+2. **My sanitization was SCRUBBING defects out of the reasoning before the
+   pre-filter saw them** — hiding them and leaving broken text
+   (`"...earlier and 4. earlier and 6..."`). The "fix" was a scrubber, not a fix.
+3. **The responder model was wrong.** `Qwen3.5-397B` (and the whole Qwen family)
+   bake an un-promptable meta-reasoning scaffold into their genuine CoT
+   (`Thinking Process:`, the `Tone:`/`Final Output Generation: matches the provided
+   response` planning). No prompt removes it.
+
+### What Round 2 changed
+
+- **Detect, never scrub.** Removed the turn-index de-scrubber, the harness-aside
+  stripper and the Thinking-Process strip. `sanitize_reasoning` is now thin (only
+  the mechanical trailing-artifact). Every harness/turn-index/restart/degenerate
+  defect now HARD-FAILS the pre-filter (it does not get quietly rewritten).
+- **A frozen, human-labeled ground-truth anchor** (`tools/ground_truth/`,
+  `tests/factory/test_ground_truth.py`): 5 REAL defective conversations (extracted
+  verbatim from the factory's own output, covering A/B/D/F/G) that must be REJECTED
+  + 1 clean control that must be ACCEPTED. Green on the real endpoint and in CI.
+- **Comprehensive detectors** built from the verbatim evidence: target-answer
+  matching (`provided good response`, `Final Output Generation`, `matches the
+  provided`, `suggested response`), `as per system instruction(s)`, persona/tone
+  bookkeeping (`Tone: Warm...`, `Persona:`), `Thinking Process:`, `Continue to honor
+  each of these`, numbered conversation-flow recaps (`1. User: 2. Model:`),
+  restart-spirals (`Wait, ... Wait, ...`), and the gpt-oss safety-RL vocabulary
+  (`safe completion`, `must follow policy/guidelines for self-harm`, `disallowed`,
+  `openai`) — the last carefully scoped so a topical discussion of monetary / fiscal
+  / privacy "policy" or "practical guidelines" is **not** flagged.
+- **The teacher is now a REASONING model with CLEAN genuine CoT.** Probing every
+  reasoning model on the endpoint: gpt-oss-120b, gpt-oss-20b and Qwen3-32B return
+  genuine, substantive, leak-free reasoning; the Qwen3.x family does not. Default
+  responder = **gpt-oss-120b** (its `reasoning` field is the genuine CoT — not an
+  instruct model faking a `<think>` block, which the Llama run showed is unreliable:
+  malformed=31/9-convs). The behavioural responder prompt is **counsellor+expert**
+  framed, which also lifts the crisis-turn clean-reasoning rate (gpt-oss's safety-RL
+  otherwise narrates "must follow safety guidelines") from ~1/3 to ~5/6.
+- **The loop REGENERATES any turn whose reasoning has an objective defect** (the
+  same set the pre-filter hard-fails), so a sporadically-leaky turn is resampled
+  clean instead of dropping the whole conversation at the gate.
+
+### Round-2 result (real endpoint, `gpt-oss-120b` teacher)
+
+On a fresh 10-seed batch (judge=Qwen3-Coder): an **independent residual-meta scan
+over the emitted data returns NONE** (vs 30/33 leaking in Round 1); pre-filter
+hard-fails = 0; gate pass-rate ≈ 0.88 (in band); the frozen ground-truth stays
+green. Manual reading confirms the reasoning is genuine, substantive CoT (e.g. the
+crisis turn reasons *as a counsellor about the person*, not about policy). See
+`audit/loop/newloop_iter*.json`.
+
+---
+
+# Holistic-judge fix + autonomous generate→judge→fix loop  *(Round 1 — partially superseded above)*
 
 Scope: `src/rxai_sdg/factory/` (judge, pre-filter, gate, generation prompts,
 sanitization) + `tools/` (regression fixtures, Phase-2 validation, the autonomous
