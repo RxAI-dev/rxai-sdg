@@ -74,16 +74,38 @@ All 7 reject anchors (5 original + Seifter + cities) reject; both accept anchors
 (vaccine control + conditioning) pass. Verified after every change; no change that
 broke a fixture was kept.
 
-## Residual / not yet fixed (honest)
-- **B/D/E/F are not yet regenerated at source.** They are penalties, not hard
-  rejects, and regenerating reasoning/answers requires live generation. The OVH
-  endpoint was intermittently unavailable during this work, so the Step-4
-  regenerate/reseed loop was **not** run; the strengthened gates + prompt mean
-  these defects are caught/avoided on the *next* generation. **No bar was lowered to
-  make them disappear.**
-- **F (phantom standing) is a generation-side bug**, not just data: the factory
-  assigns `scope=standing` to one-shot transformation requests. The real fix is in
-  the constraint/scope assignment (user-simulator/constraints), recommended next.
-- **Residual unfixable in this pass:** the 2 A-conversations (Seifter, cities) are
-  fabricated-premise and were dropped — they cannot be patched into grounded
-  content; honest options are reseed with a groundable prompt or drop.
+## Validation on FRESH generation (gpt-oss-120b, real endpoint)
+Re-generated the fabrication-prone real seeds with the strengthened pipeline. The
+fix works end-to-end:
+- **Responder now hedges instead of fabricating** — "I'm not finding any reliable,
+  publicly-available record of a game-designer named Mark Seifter"; "we simply
+  don't have a reliable single figure for the total number of rulers"; "I don't
+  have confirmed data on who's in office now (June 2026)". Groundable hedged
+  answers (president, kings/rulers, robot-vacuum height) PASS.
+- **The gate catches residual fabrication** — the "37th-largest-city" ranking and
+  the Seifter later-turn invention were hard-failed
+  (`ungrounded_premise_fabrication`, `confidence_uncertainty_mismatch`).
+- `factual_grounding` judge axis is live (batch mean 9.82); gate pass-rate 0.706
+  (in band); 0 malformed; 0 API errors.
+- Precision: validation surfaced and fixed one over-rejection — the broad "who is
+  X?" premise wrongly flagged the well-hedged "who is the president" answer; the
+  ungrounded-premise gate is now scoped to exact rankings only (bios are caught by
+  the A1/A3 uncertainty/admission gates). President now ACCEPTs; Seifter + cities
+  still REJECT; all 9 fixtures green.
+
+## F (phantom standing) — FIXED AT SOURCE
+Root cause: when the sampler draws `policy=standing`, the constraint is scoped
+standing but the simulator phrased the request as a one-shot ("reformat this as
+JSON"), so later unrelated turns were force-formatted. Fixed in the user-simulator:
+a standing-policy transformation now instructs the simulator to phrase the request
+as an explicit PERSISTENT instruction ("from now on, always …"), so the query
+licenses the standing scope and the data is internally consistent. The standing
+scope itself (a deliberate memory-test feature) is unchanged.
+
+## Residual / not yet done (honest)
+- **B/D/E reasoning/answer regeneration was not run** as a bulk pass — they are
+  penalties, not hard rejects, and the strengthened gates + hedging prompt prevent
+  them on new generation, so the right move is to **regenerate the corpus with the
+  fixed factory** rather than patch the old file. **No bar was lowered.**
+- **The 2 A-conversations (Seifter, cities) are fabricated-premise and were
+  dropped** — they cannot be patched into grounded content honestly.
