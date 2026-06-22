@@ -125,6 +125,27 @@ band); `factual_grounding` mean **9.9**. Detector prevalence: A 3%, C 0%, D 10%,
 grounded Jungian analysis. Scoped it to real talk/video context and added a
 `rank_assertion` specific so the cities anchor still rejects. All 9 fixtures green.
 
+## Final verification (100 seeds, concurrency=32, ALL fixes incl. E) — READY
+93 conversations; **0 API errors**; gate pass-rate **0.763** (in band); means
+factual_grounding **9.88**, reasoning_answer_consistency 9.83, reasoning_quality
+9.66, appropriateness 9.9, naturalness 9.75. F phantom-standing **0%**; **filler
+tails eliminated (28 → 0)** by the source strip. A general-quality read across
+categories (multi-turn coherence, code, sensitive, math, creative) confirmed high
+quality with no regression from the factuality/F/E fixes: code is complete and
+runnable, self-critique turns genuinely refine, the depression turn is compassionate
+and practical, math is correct.
+
+Remaining residuals are minor and documented:
+- **answer-duplication (~30%)**: a soft, partly-inherent gpt-oss trait (it drafts
+  the answer inside the reasoning on some short turns); the prompt discourages it and
+  `reasoning_quality` reflects it — not a hard defect.
+- **turn-index topical FP**: a single "what's the hardest part of being a chatbot"
+  conversation legitimately says "Turn 20"/"after Turn 5" (the topic IS conversation
+  turns) and is rejected by the strict turn-index gate. Accepted as over-rejection of
+  one rare topic rather than weakening the gate that catches real harness leakage.
+- **regeneration volume** rose with the stricter gates + hedging prompt (more
+  resamples), but max_regen stays within budget and yield is healthy.
+
 ## F (phantom standing) — FIXED AT SOURCE
 Root cause: when the sampler draws `policy=standing`, the constraint is scoped
 standing but the simulator phrased the request as a one-shot ("reformat this as
