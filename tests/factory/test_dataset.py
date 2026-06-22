@@ -6,11 +6,27 @@ import pytest
 
 from rxai_sdg.factory.dataset import (
     record_to_row, row_to_record, FactoryDatasetPostprocessor,
-    SCALAR_COLUMNS, JSON_COLUMNS,
+    SCALAR_COLUMNS, JSON_COLUMNS, _ensure_utf8_card,
 )
 from rxai_sdg.factory.schemas import (
     Seed, Segment, Turn, ConstraintSpec, VerifyResult, Fact, ConversationRecord,
 )
+
+
+def test_ensure_utf8_card_repairs_bad_encoding():
+    # already-valid UTF-8 (incl. real multibyte) -> no repair needed
+    assert _ensure_utf8_card("---\nconfigs: a\n---\ncafé — ok".encode("utf-8")) is None
+    # the reported crash: a stray cp1252 0x85 at position 0 of the card
+    bad = b"\x85---\nconfigs:\n- config_name: dolci-32b\n---\n# Card\n"
+    fixed = _ensure_utf8_card(bad)
+    assert fixed is not None
+    fixed.decode("utf-8")                       # no UnicodeDecodeError
+    assert fixed.startswith(b"---\n")           # YAML frontmatter parses
+    assert b"dolci-32b" in fixed                # config metadata preserved
+    # a lone invalid byte mid-document -> valid UTF-8, content kept
+    mid = _ensure_utf8_card(b"---\nconfigs: a\n---\nhello \x85 world")
+    mid.decode("utf-8")
+    assert b"hello" in mid and b"world" in mid
 
 
 def _record():
