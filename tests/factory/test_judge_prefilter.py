@@ -164,6 +164,19 @@ def test_sanitize_is_thin_artifact_only():
     assert "persistent memory" in sanitize_reasoning("1. I have persistent memory here.")
 
 
+def test_sanitize_strips_trailing_filler_signposts():
+    # trailing contentless self-direction is mechanical filler -> stripped
+    assert sanitize_reasoning("The gap is 7, so the answer is 21. Proceed.") == \
+        "The gap is 7, so the answer is 21."
+    assert sanitize_reasoning("Compute the integral by parts. Will produce final answer.") == \
+        "Compute the integral by parts."
+    assert sanitize_reasoning("Recall the bakery name. Now write the answer.") == \
+        "Recall the bakery name."
+    # a substantive mid-sentence "proceed" is preserved
+    assert sanitize_reasoning("We proceed by integrating ln(x) by parts; u=ln x.") == \
+        "We proceed by integrating ln(x) by parts; u=ln x."
+
+
 def test_sanitize_answer_strips_artifact_only():
     assert sanitize_generated_text("the joints.cw") == "the joints."
     assert sanitize_generated_text("see main.py") == "see main.py"

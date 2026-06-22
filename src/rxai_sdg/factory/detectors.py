@@ -345,7 +345,7 @@ def _overlap_ratio(a: str, b: str) -> float:
     return inter / max(1, min(len(ba), len(bb)))
 
 
-def detect_reasoning_artifacts(turns: list[dict], dup_threshold: float = 0.6) -> list[Flag]:
+def detect_reasoning_artifacts(turns: list[dict], dup_threshold: float = 0.82) -> list[Flag]:
     """E. (i) filler tails in reasoning; (ii) the answer pre-written verbatim inside
     the reasoning trace (high reasoning<->answer bigram overlap)."""
     flags: list[Flag] = []

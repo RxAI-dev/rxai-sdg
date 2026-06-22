@@ -364,6 +364,29 @@ def _strip_trailing_artifact(text: str) -> str:
     return re.sub(rf"\s+(?:{_ARTIFACT_JUNK})\s*$", "", t)     # bare "... cw"
 
 
+# Trailing filler signposts a model sometimes appends to its private reasoning
+# ("Proceed.", "Will produce final answer.", "Let's comply.", "Now write the
+# answer.") - mechanical, contentless self-direction, not substantive cognition.
+# Stripped from the END only (a substantive mid-sentence "we proceed by ..." is
+# preserved). This is mechanical clean-up like the trailing-artifact strip, not a
+# defect-scrub: it hides nothing the pre-filter needs to see.
+_FILLER_TAIL_RE = re.compile(
+    r"(?:\s*(?:"
+    r"(?:will\s+|now\s+|let'?s\s+|i'?ll\s+|then\s+)*(?:produce|write|give|output|provide|craft|deliver)\s+(?:the\s+)?(?:final\s+)?(?:answer|response|output|reply)\b[^.\n]*\.?"
+    r"|let'?s\s+(?:comply|proceed|do\s+it|go|begin|start|answer|write)\b[^.\n]*\.?"
+    r"|proceed\.?"
+    r"|time\s+to\s+(?:answer|write|respond|produce)\b[^.\n]*\.?"
+    r"|now\s+(?:answer|respond|write\s+it)\b[^.\n]*\.?"
+    r"|ok(?:ay)?,?\s+(?:let'?s\s+)?(?:proceed|go|comply|do\s+it)\.?"
+    r")\s*)+$", re.IGNORECASE)
+
+
+def _strip_filler_tail(text: str) -> str:
+    t = (text or "").rstrip()
+    out = _FILLER_TAIL_RE.sub("", t).rstrip()
+    return out if out else t  # never empty the whole reasoning
+
+
 # "standing instruction" is reserved schema vocabulary in this system (it named
 # the old raw-spec note). A native-reasoning model occasionally uses it as plain
 # English when an active standing constraint exists. That is not a schema leak,
@@ -383,16 +406,18 @@ def _normalize_reasoning(text: Optional[str]) -> Optional[str]:
 def sanitize_reasoning(text: Optional[str]) -> Optional[str]:
     """THIN, mechanical clean-up of a generated reasoning segment (safety net only).
 
-    Strips ONLY the glued trailing decoding artifact (mode C) and normalizes the
-    reserved "standing instruction" token. It deliberately does NOT scrub harness
-    leakage, turn-index references, or restart spirals - those are real defects the
-    deterministic pre-filter must HARD-FAIL (an earlier scrubbing version hid them
-    from the pre-filter and left broken artifacts). The real fix is in generation.
+    Strips the glued trailing decoding artifact (mode C), a trailing filler signpost
+    ("Proceed.", "Will produce final answer.") and normalizes the reserved "standing
+    instruction" token. It deliberately does NOT scrub harness leakage, turn-index
+    references, or restart spirals - those are real defects the deterministic
+    pre-filter must HARD-FAIL (an earlier scrubbing version hid them from the
+    pre-filter and left broken artifacts). The real fix is in generation.
     """
     if not text:
         return text
     text = _normalize_reasoning(text) or ""
     text = _strip_trailing_artifact(text)
+    text = _strip_filler_tail(text)
     return text.strip()
 
 
