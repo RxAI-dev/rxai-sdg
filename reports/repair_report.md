@@ -93,6 +93,15 @@ fix works end-to-end:
   the A1/A3 uncertainty/admission gates). President now ACCEPTs; Seifter + cities
   still REJECT; all 9 fixtures green.
 
+## All-fixes batch (seeds50, 26 conversations) — ACCEPTANCE PASS
+A full run with every fix (factuality gates + hedging prompt + F source-fix):
+gate pass-rate **0.769** (in band), `factual_grounding` mean **10**, reasoning_quality
+9.62, max regen 2, 0 discarded, 0 code-mismatch. Detector prevalence collapsed vs
+the original corpus: **F 81% → 0%** (all 23 standing constraints now licensed),
+**D 27% → 8%**, A/C caught by the gate. E (filler "Proceed." tails / answer-
+duplication) remains a ~50% **soft** penalty (severity 1, no reject) — discouraged
+by the prompt and reflected in reasoning_quality, not blocking.
+
 ## F (phantom standing) — FIXED AT SOURCE
 Root cause: when the sampler draws `policy=standing`, the constraint is scoped
 standing but the simulator phrased the request as a one-shot ("reformat this as
