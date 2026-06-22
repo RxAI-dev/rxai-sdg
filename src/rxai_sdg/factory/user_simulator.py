@@ -365,8 +365,13 @@ class UserSimulator:
                     "say": f"keep the conversation going about {topic} with an open, "
                            f"curious follow-up"}
         # transformation / operates-on-prior: the builder's directive is the steer.
+        # When the sampled policy is STANDING, the request must be phrased as a
+        # persistent instruction so the conversation actually licenses the standing
+        # scope (otherwise a one-shot "reformat this as JSON" gets labeled standing -
+        # a phantom constraint that later force-formats unrelated turns; detector F).
         return {"op": "request_constraint",
-                "say": directive or "revise your previous answer"}
+                "say": directive or "revise your previous answer",
+                "persistent": "yes" if policy == "standing" else ""}
 
     def _build_prompt(
         self, prior_turns: list[Turn], persona: str, verbosity: str,
@@ -413,6 +418,12 @@ class UserSimulator:
                 f"start a brand-new unrelated topic.")
         else:  # request_constraint / continue_topic
             lines.append(f"- Your request to the assistant this turn: {steer.get('say', '')}.")
+            if steer.get("persistent"):
+                lines.append(
+                    "- Make this a PERSISTENT rule, not a one-off: explicitly tell the "
+                    "assistant to keep doing it in EVERY reply from now on (phrase it "
+                    "naturally, e.g. 'from now on, always …' / 'for the rest of our chat, "
+                    "keep …'), so it is unmistakably a standing instruction.")
         lines.append(
             "\nOutput only the user's message - no labels, no quotes, do not answer "
             "your own question.")
