@@ -35,7 +35,8 @@ SCALAR_COLUMNS = [
     "is_haystack", "mode", "length",
 ]
 #: columns stored as JSON strings for a stable, append-safe schema
-JSON_COLUMNS = ["turns", "fact_ledger", "cross_turn_checks", "holistic_score"]
+JSON_COLUMNS = ["turns", "fact_ledger", "cross_turn_checks", "holistic_score",
+                "factory_models"]
 
 
 def record_to_row(record: ConversationRecord) -> dict[str, Any]:

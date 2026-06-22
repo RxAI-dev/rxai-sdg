@@ -99,6 +99,7 @@ def build_factory(args):
         max_tokens=args.max_tokens,
         temperature=args.temperature,
         reasoning_source=_env("RXAI_REASONING_SOURCE", default=args.reasoning_source),
+        dataset_name=_env("RXAI_DATASET_NAME", default=args.dataset_name),
         regeneration_limit=3,
         max_responder_calls_per_turn=6,   # room to resample a sporadically-leaky turn
         min_recall_distance=args.min_recall_distance,
@@ -235,6 +236,9 @@ def main(argv=None) -> int:
                     default=int(os.environ.get("RXAI_MAX_RETRIES", "4")),
                     help="per-call transient-error retries (5xx/429/timeout) with "
                          "backoff; raise it to ride out a flaky endpoint window")
+    ap.add_argument("--dataset-name", default="seeds",
+                    help="value stamped onto every emitted example's "
+                         "source_seed.dataset (also via RXAI_DATASET_NAME)")
     ap.add_argument("--frequency-penalty", type=float, default=0.0,
                     help="responder decoding frequency_penalty (breaks degenerate loops)")
     ap.add_argument("--request-timeout", type=float, default=240)

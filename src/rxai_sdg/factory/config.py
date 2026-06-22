@@ -133,6 +133,11 @@ class FactoryConfig:
     # -- reproducibility ------------------------------------------------------
     seed: Optional[int] = None
 
+    # -- emitted-example metadata ---------------------------------------------
+    #: stamped onto every emitted example's ``source_seed.dataset`` for the whole
+    #: iteration (controlled manually per run). Defaults to "seeds".
+    dataset_name: str = "seeds"
+
     # ------------------------------------------------------------------ build
     def build_taxonomy(self) -> Taxonomy:
         """Materialise a :class:`Taxonomy` with this config's overrides applied."""

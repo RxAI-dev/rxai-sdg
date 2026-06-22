@@ -252,6 +252,9 @@ class ConversationRecord:
     fact_ledger: list[Fact] = field(default_factory=list)
     cross_turn_checks: dict[str, Any] = field(default_factory=dict)
     holistic_score: Optional[dict[str, Any]] = None
+    #: the models that generated this example, stamped at emission time:
+    #: {"responder", "simulator", "curator", "judge"} -> each client's model_name.
+    factory_models: dict[str, Any] = field(default_factory=dict)
 
     @property
     def length(self) -> int:
@@ -267,6 +270,7 @@ class ConversationRecord:
             "fact_ledger": [f.to_dict() for f in self.fact_ledger],
             "cross_turn_checks": self.cross_turn_checks,
             "holistic_score": self.holistic_score,
+            "factory_models": self.factory_models,
         }
 
     @classmethod
@@ -279,6 +283,7 @@ class ConversationRecord:
             fact_ledger=[Fact.from_dict(f) for f in d.get("fact_ledger", [])],
             cross_turn_checks=d.get("cross_turn_checks", {}),
             holistic_score=d.get("holistic_score"),
+            factory_models=d.get("factory_models", {}),
         )
 
 
@@ -300,6 +305,7 @@ def validate_record(record: dict[str, Any]) -> None:
     required_top = {
         "conversation_id", "source_seed", "mode", "length",
         "turns", "fact_ledger", "cross_turn_checks", "holistic_score",
+        "factory_models",
     }
     missing = required_top - set(record)
     if missing:
