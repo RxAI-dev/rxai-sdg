@@ -64,6 +64,22 @@ def test_B_specifics_and_year_exclusion():
     assert not reasoning_specifics("This happened in 2023 and was important.")
 
 
+def test_B_timestamp_excludes_scripture_refs():
+    # a Bible verse (Genesis 4:17) must NOT be read as a fabricated talk timestamp
+    assert not reasoning_specifics("In Genesis 4:17 we read that Cain founded a city.")
+    assert not reasoning_specifics("The wrestling in Genesis 32:24-30 is key.")
+    # a real video/talk timestamp IS a fabricated specific (no retrieval)
+    assert dict(reasoning_specifics("The gag runs at 2:45 - 3:00 min of the short."))
+    assert dict(reasoning_specifics("He gave a GDC keynote on the topic."))
+
+
+def test_B_rank_assertion():
+    # an answer stating an exact ordinal ranking as fact is ungroundable
+    assert "rank_assertion" in dict(reasoning_specifics(
+        "Kure is the 37th-largest city in Japan by population."))
+    assert not reasoning_specifics("It is one of the largest cities in the region.")
+
+
 def test_markers_negation_guard():
     assert admission_markers("we can fabricate a plausible excerpt")
     assert not admission_markers("we cannot fabricate data")

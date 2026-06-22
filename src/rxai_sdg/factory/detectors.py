@@ -84,10 +84,13 @@ FAB_SPECIFIC_RES = {
     "metacritic_score": re.compile(r"\bMetacritic\b|\b\d{2,3}\s*/\s*100\b|\b\d{2}\s*/\s*100\b", re.I),
     "funding_sum": re.compile(r"[\$£€]\s?\d[\d,\.]*\s*(?:k|K|M|m|bn|thousand|million|billion)\b|\bKickstarter\b|\bcrowdfund|\braised\s+[\$£€]\s?\d|\bfunding of\b", re.I),
     "code_host": re.compile(r"\bGitHub\b|\bGitLab\b|\b\d[\d,\.]*\s*stars?\b", re.I),
-    "talk_timestamp": re.compile(r"\b\d{1,2}:\d{2}\b|\bGDC\b|GodotCon|\bkeynote at\b", re.I),
+    "talk_timestamp": re.compile(r"\bGDC\b|GodotCon|\bkeynote at\b|(?:\bat|@|around|timestamp|min(?:ute)?\s+mark)\s+\d{1,2}:\d{2}\b|\b\d{1,2}:\d{2}\s*(?:[-–—]\s*\d{1,2}:\d{2}\s*)?(?:min\b|minute|mark\b)", re.I),
     "attendance": re.compile(r"[≈~]?\s?\d[\d,\.]*\s*(?:million|M|k|thousand)?\s*(?:visitors|attendees|tourists|spectators|/\s?yr\b|per year|annually|people a year)\b", re.I),
     "poll_pct": re.compile(r"\b\d{1,3}\s?%[^.\n]{0,30}(?:poll|survey|approval|respondents|voted)", re.I),
     "named_citation": re.compile(r"\b(?:according to|cited in|as reported by|per)\b[^.\n]{0,40}\b(?:report|study|article|interview|blog|podcast)\b", re.I),
+    # an answer that asserts an exact ordinal ranking as fact ("the 37th-largest
+    # city") - ungroundable with no retrieval, and the core cities fabrication.
+    "rank_assertion": re.compile(r"\bthe\s+\d+(?:st|nd|rd|th)[‑\-\s](?:largest|biggest|smallest|most\s+populous|tallest|longest|highest)\b", re.I),
 }
 
 # A2: ungrounded-premise prompts - facts the base model cannot ground (no retrieval).
