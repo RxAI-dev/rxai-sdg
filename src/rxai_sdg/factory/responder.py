@@ -250,6 +250,15 @@ HARNESS_REASONING_RES: list[re.Pattern] = [
     re.compile(r"(?:^|\n)\s*\**\s*(?:persona|target audience|format|structure)\s*\**\s*:", re.IGNORECASE),
     re.compile(r"\bthinking process\s*:", re.IGNORECASE),
     re.compile(r"contradictory\s+(?:\w+\s+){0,3}system\s+(?:prompt|instructions?)", re.IGNORECASE),
+    # --- persona-echo of the responder system prompt: the model planning the
+    #     ASSIGNED persona ("respond as a warm, knowledgeable expert, both
+    #     subject-matter and caring counsellor") instead of reasoning about the
+    #     substance. Anchored on the verbatim system-prompt persona wording so a
+    #     genuine "I should be warm and supportive here" (good counsellor reasoning)
+    #     is NOT flagged. ~1.7% of gpt-oss turns; regeneration resamples them clean.
+    re.compile(r"warm,?\s+(?:deeply\s+)?knowledgeable expert", re.IGNORECASE),
+    re.compile(r"caring counsell?or", re.IGNORECASE),
+    re.compile(r"subject-matter(?:\s+expert)?\s+and caring", re.IGNORECASE),
     # --- simulator-role confusion: the teacher's reasoning planning the USER's
     #     message instead of answering it. A role-crossing leak (the simulator's
     #     persona/verbosity steer surfaced in the responder's reasoning field).

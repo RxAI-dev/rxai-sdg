@@ -89,6 +89,19 @@ def test_harness_leak_simulator_role_confusion():
     assert not has_harness_leak("Microsoft's Tay was an AI chatbot that learned from users.")
 
 
+def test_harness_leak_persona_echo():
+    # echoing the system-prompt persona ("warm, knowledgeable expert", "caring
+    # counsellor", "subject-matter ... and caring") is planning the role, not the
+    # substance -> flag.
+    assert has_harness_leak(
+        "We need to respond as a warm, knowledgeable expert, both subject-matter and caring counsellor.")
+    assert has_harness_leak("Respond as a caring counselor and reassure them.")
+    assert has_harness_leak("Act as a warm, deeply knowledgeable expert here.")
+    # genuine compassion / substance reasoning must NOT flag (no verbatim persona)
+    assert not has_harness_leak("This person is hurting; I should be warm and gentle, then give steps.")
+    assert not has_harness_leak("The user asks about entropy; explain the second law clearly.")
+
+
 def test_harness_leak_tone_bookkeeping():
     # "<style-adjective> tone:" mid-sentence output-planning bookkeeping (the form
     # that slipped into emitted data) must flag.
