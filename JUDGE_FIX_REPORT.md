@@ -1,3 +1,40 @@
+# Reasoning-model compatibility & teacher selection (model-independence)
+
+The factory works with **any genuine reasoning model**, regardless of how the
+endpoint surfaces the chain of thought. `reasoning_source` (`auto` | `field` |
+`inline`, on `FactoryConfig` / `--reasoning-source` / `RXAI_REASONING_SOURCE`)
+selects the source; `auto` uses the dedicated `reasoning_content` field when
+present and otherwise parses an inline `<think>...</think>` block. The `<think>`
+block is always stripped from the answer.
+
+| model | CoT surface | works? | gate pass-rate (20 real seeds) | notes |
+|---|---|---|---|---|
+| **gpt-oss-120b** | `reasoning_content` field | ✅ **production** | **0.765** | cleanest reasoning, highest yield |
+| gpt-oss-20b | `reasoning_content` field | ✅ viable | 0.562 | on-par per-axis means, but leakier reasoning -> lower yield |
+| Qwen3-32B | inline `<think>` | ✅ compatible | n/a (too slow on OVH) | valid data; ~6 conv/30 min on OVH, not for production |
+
+**gpt-oss-120b vs gpt-oss-20b** (same 20 real seeds, judge = Qwen3-Coder). Per-axis
+judge means are nearly identical (both excellent: reasoning_quality ~9.2,
+reasoning_answer_consistency 9.5-9.7, appropriateness ~9.8, role_consistency 10).
+The difference is **yield**: 20b's reasoning carries more procedural meta-talk
+("No special formatting requested. Just answer.", "We need to interpret", "We
+should not mention policy") and is more prone to confabulating obscure facts (it
+guessed at "the 37th largest city in Japan"), so the judge flags it more
+(`harness_leak` 18x vs 10x; `reasoning_quality` 10x) and it needs more
+regeneration (max_regen 3 vs 2). Net: **gpt-oss-120b is the production teacher**
+(higher first-pass yield, cleaner CoT); gpt-oss-20b is a viable cheaper/faster
+fallback at ~20% lower usable yield.
+
+**Endpoint robustness.** The OVH gpt-oss deployment intermittently returns HTTP 500
+for all gpt-oss requests (and sometimes the whole endpoint goes down). The client
+now retries transient 5xx/429/timeout with exponential backoff
+(`--max-retries`/`RXAI_MAX_RETRIES`); without it a single blip became a fake
+"malformed/reasoning_missing" turn (127 in one run). A *sustained* outage still
+fails cleanly (clean discards, no corrupt data emitted) - it is an endpoint issue,
+not a factory one.
+
+---
+
 # ⚠️ ROUND 2 (supersedes the Round-1 report below) — the judge had passed known-bad data
 
 Round 1 reported success. **That success was false.** Human review found 5
