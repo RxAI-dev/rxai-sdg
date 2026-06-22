@@ -102,6 +102,29 @@ the original corpus: **F 81% → 0%** (all 23 standing constraints now licensed)
 duplication) remains a ~50% **soft** penalty (severity 1, no reject) — discouraged
 by the prompt and reflected in reasoning_quality, not blocking.
 
+## 100-seed full verification (concurrency=32, all fixes)
+A real reasoning-dataset slice of 100 prompts (fabrication-prone, sensitive/refusal,
+code, math, low-content). 92 conversations emitted; **0 malformed, 0
+reasoning_missing, 0 API errors** at concurrency 32; gate pass-rate **0.739** (in
+band); `factual_grounding` mean **9.9**. Detector prevalence: A 3%, C 0%, D 10%,
+**F 2%** (was 81%), E 45% (soft). Read across categories confirmed:
+- Fabrication caught: 37th-largest-city ranking; a Bugs-Bunny "interview" that
+  invented a minute-by-minute cartoon timeline with SFX timings (reasoning admits
+  "don't have exact source").
+- Grounded facts PASS (no over-rejection): Sun parameters cite the real IAU 2015
+  Resolution B3; tallest skyscraper = Burj Khalifa 828 m; the Cain-and-Abel Jungian
+  analysis cites real verses (Genesis 4:17, 32:24).
+- Hedging on ungroundable: president, number-of-rulers, MSCI/Nordea live metrics
+  ("figures up to end-2024, may have moved since").
+- Sensitive handled: explicit-story and AI-doctor-roleplay seeds were declined /
+  filtered (not emitted); the bomb/slur dilemma got a measured ethical discussion.
+- Math correct: age-puzzle = 21; Alice probability = 3/28.
+
+**New issue found & fixed during verification:** the `talk_timestamp` specific
+(`\d{1,2}:\d{2}`) matched scripture references (Genesis 4:17), wrongly rejecting the
+grounded Jungian analysis. Scoped it to real talk/video context and added a
+`rank_assertion` specific so the cities anchor still rejects. All 9 fixtures green.
+
 ## F (phantom standing) — FIXED AT SOURCE
 Root cause: when the sampler draws `policy=standing`, the constraint is scoped
 standing but the simulator phrased the request as a one-shot ("reformat this as
