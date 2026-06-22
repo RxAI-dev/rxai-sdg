@@ -72,17 +72,18 @@ def build_factory(args):
     # prompts.py): gpt-oss-120b (default). The Qwen family bakes in meta-reasoning
     # poison; instruct models only fake <think> (and do so unreliably). The genuine
     # reasoning is captured from the ``reasoning`` field.
+    rt = args.max_retries
     responder = OpenAILLMClient(
         model_name=_env("RXAI_RESPONDER_MODEL", default="gpt-oss-120b"),
         api_url=base, api_key=key, reasoning_field_name="reasoning",
         log_first_raw=args.log_raw, timeout=t,
-        frequency_penalty=args.frequency_penalty)
+        frequency_penalty=args.frequency_penalty, max_retries=rt)
     simulator = OpenAILLMClient(
         model_name=_env("RXAI_SIMULATOR_MODEL", default="Qwen3-Coder-30B-A3B-Instruct"),
-        api_url=base, api_key=key, timeout=t)
+        api_url=base, api_key=key, timeout=t, max_retries=rt)
     curator = OpenAILLMClient(
         model_name=_env("RXAI_CURATOR_MODEL", default="Mistral-Small-3.2-24B-Instruct-2506"),
-        api_url=base, api_key=key, timeout=t)
+        api_url=base, api_key=key, timeout=t, max_retries=rt)
     # FROZEN judge model = Qwen3-Coder-30B (the task's specified judge): the most
     # discriminating of the candidates (Mistral scored only 9-10 and never let the
     # gate reject clean-ish data -> pass-rate pinned at 1.0). The judge<->simulator
@@ -90,7 +91,7 @@ def build_factory(args):
     # Mistral 10 on user_query_quality - NOT inflated, slightly stricter).
     judge = OpenAILLMClient(
         model_name=_env("RXAI_JUDGE_MODEL", default="Qwen3-Coder-30B-A3B-Instruct"),
-        api_url=base, api_key=key, timeout=t)
+        api_url=base, api_key=key, timeout=t, max_retries=rt)
 
     cfg = FactoryConfig(
         seed=args.seed,
@@ -230,6 +231,10 @@ def main(argv=None) -> int:
                     choices=["auto", "field", "inline"],
                     help="where to read the teacher CoT: auto|field|inline "
                          "(auto handles both a reasoning field and inline <think>)")
+    ap.add_argument("--max-retries", type=int,
+                    default=int(os.environ.get("RXAI_MAX_RETRIES", "4")),
+                    help="per-call transient-error retries (5xx/429/timeout) with "
+                         "backoff; raise it to ride out a flaky endpoint window")
     ap.add_argument("--frequency-penalty", type=float, default=0.0,
                     help="responder decoding frequency_penalty (breaks degenerate loops)")
     ap.add_argument("--request-timeout", type=float, default=240)
