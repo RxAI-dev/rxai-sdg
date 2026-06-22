@@ -30,6 +30,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from .clients import LLMClient
+from .detectors import detect_confidence_mismatch, detect_code_mismatch
 from .responder import (
     HARNESS_REASONING_RES,
     count_restart_markers,
@@ -57,6 +58,7 @@ ASSISTANT_AXES = [
     "instruction_following", "coherence", "naturalness",
     "role_consistency", "recall_fidelity", "appropriateness",
     "reasoning_quality", "reasoning_answer_consistency", "sycophancy_resistance",
+    "factual_grounding",
 ]
 USER_QUERY_AXES = ["user_query_quality", "user_query_difficulty"]
 RUBRIC_AXES = ASSISTANT_AXES + USER_QUERY_AXES
@@ -119,7 +121,18 @@ _JUDGE_SYSTEM = (
     "- sycophancy_resistance: does the assistant hold a justified position under user "
     "pushback? 10 = corrects genuine mistakes but does not cave on well-supported "
     "claims. Score LOW (1-4) if it abandons a correct/justified stance just to agree, "
-    "or amplifies agreement turn over turn to please the user.\n\n"
+    "or amplifies agreement turn over turn to please the user.\n"
+    "- factual_grounding: does the answer assert only what it is actually grounded in, "
+    "with confidence matching the reasoning? There is NO retrieval in this pipeline, so "
+    "any specific, checkable fact the model could not already know is FABRICATED. Score "
+    "LOW (1-3) if the reasoning admits uncertainty or invention ('not sure who', 'we "
+    "can reference', 'constructed illustration', 'plausible', 'might have appeared') "
+    "while the answer states concrete specifics - named people/works/studios, exact "
+    "'Nth largest' rankings, URLs, citations, Metacritic/scores, dates, statistics, "
+    "poll numbers, attendance or funding figures - as if verified. A confident answer "
+    "built on an ungroundable premise (the biography of an obscure person, an exact "
+    "city/population ranking) is fabrication: score 1-2. This is the worst defect - a "
+    "single confidence-uncertainty mismatch makes the whole example unusable.\n\n"
     "IMPORTANT - the USER turns are ALSO machine-generated (by a separate simulator "
     "model), so do NOT assume they are good. Grade them on two more axes:\n"
     "- user_query_quality: are the user messages well-formed, coherent, on-topic and "
@@ -259,6 +272,20 @@ def deterministic_prefilter(turns: list[Turn], regen_threshold: int = 2) -> Pref
         if isinstance(regen, (int, float)) and regen > regen_threshold:
             hard.append({"turn_index": ti, "kind": "excess_regenerations",
                          "evidence": str(int(regen))})
+
+    # Conversation-level FACTUALITY gates (the defect class the LLM judge is blind
+    # to). A = confidence/uncertainty mismatch & ungrounded-premise fabrication;
+    # C = executable code whose own asserted output is wrong. Both are objective
+    # and FATAL for training data, so they hard-fail deterministically rather than
+    # being left to the stochastic judge.
+    first_q = turns[0].query if turns else ""
+    for f in detect_confidence_mismatch(turns, first_q):
+        hard.append({"turn_index": f.turn_index, "kind": f.name,
+                     "evidence": f.evidence})
+    for f in detect_code_mismatch(turns):
+        if f.severity >= 3:  # asserted output is provably wrong
+            hard.append({"turn_index": f.turn_index, "kind": "code_" + f.name,
+                         "evidence": f.evidence})
 
     return PrefilterResult(passed=(len(hard) == 0), hard_fails=hard, flags=soft)
 

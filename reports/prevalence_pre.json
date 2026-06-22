@@ -1,0 +1,2703 @@
+{
+ "input": "data/_immutable/original.parquet",
+ "n_conversations": 62,
+ "prevalence": {
+  "A": {
+   "conversations": 2,
+   "flags": 2,
+   "conv_pct": 3.2,
+   "policy": "reseed_or_drop (fabricated premise - cannot patch honestly)"
+  },
+  "B": {
+   "conversations": 27,
+   "flags": 105,
+   "conv_pct": 43.5,
+   "policy": "regenerate answer to drop ungrounded specifics (or reseed if premise ungrounded)"
+  },
+  "C": {
+   "conversations": 1,
+   "flags": 1,
+   "conv_pct": 1.6,
+   "policy": "regenerate code + re-execute to confirm"
+  },
+  "D": {
+   "conversations": 17,
+   "flags": 21,
+   "conv_pct": 27.4,
+   "policy": "regenerate reasoning as genuine cognition (keep answer)"
+  },
+  "E": {
+   "conversations": 26,
+   "flags": 47,
+   "conv_pct": 41.9,
+   "policy": "regenerate reasoning (no filler / no answer duplication)"
+  },
+  "F": {
+   "conversations": 50,
+   "flags": 96,
+   "conv_pct": 80.6,
+   "policy": "correct constraint_spec scope; regenerate only if answer obeyed a phantom rule"
+  }
+ },
+ "prefilter": {
+  "rejected": 3,
+  "kept": 59,
+  "yield": "59/62",
+  "reject_kinds": {
+   "code_assert_failed": 1,
+   "ungrounded_premise_fabrication": 1,
+   "fabrication_admission": 1
+  }
+ },
+ "per_conversation": [
+  {
+   "conversation_id": "838a7ca4-c909-4bb5-8cbb-8ec55b1de087",
+   "first_query": "I am depressed and anxious a lot of the time. I am tired of it and don't know wh",
+   "detectors": [
+    "B",
+    "D",
+    "E"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 4,
+     "evidence": "talk_timestamp:8:30"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 7,
+     "evidence": "talk_timestamp:4:30"
+    },
+    {
+     "det": "D",
+     "name": "format_bookkeeping_reasoning",
+     "sev": 1,
+     "turn": 2,
+     "evidence": "10/13 reasoning sentences are format-mechanics"
+    },
+    {
+     "det": "E",
+     "name": "filler_tail",
+     "sev": 1,
+     "turn": 1,
+     "evidence": "Will produce final answer."
+    }
+   ]
+  },
+  {
+   "conversation_id": "c838da09-50e0-40d7-8c73-46aacc2dfaf3",
+   "first_query": "What are the key differences between classical and operant conditioning in psych",
+   "detectors": [
+    "E",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "E",
+     "name": "filler_tail",
+     "sev": 1,
+     "turn": 2,
+     "evidence": "Let's comply."
+    },
+    {
+     "det": "E",
+     "name": "answer_duplicated_in_reasoning",
+     "sev": 1,
+     "turn": 7,
+     "evidence": "reasoning<->answer bigram overlap >= 0.6"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 2,
+     "evidence": "scope=standing but query has no standing license: 'Ah, so ye wanna make me walk the plank with me own words, eh'"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 4,
+     "evidence": "scope=standing but query has no standing license: 'Wow, I love the pirate theme—it really brings the concepts t'"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 5,
+     "evidence": "scope=standing but query has no standing license: \"Okay, I like the structure you've laid out, but I'm wonderin\""
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 7,
+     "evidence": "scope=standing but query has no standing license: \"Honestly, I'm really impressed by how detailed and actionabl\""
+    }
+   ]
+  },
+  {
+   "conversation_id": "d3f861b1-456c-412d-85be-3eb882a0eda4",
+   "first_query": "what are the risks of using AI to create code for a professional programmer",
+   "detectors": [
+    "C",
+    "F"
+   ],
+   "prefilter_pass": false,
+   "hard_fails": [
+    "code_assert_failed"
+   ],
+   "flags": [
+    {
+     "det": "C",
+     "name": "assert_failed",
+     "sev": 3,
+     "turn": 2,
+     "evidence": "executed claim failed: AssertionError"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 4,
+     "evidence": "scope=standing but query has no standing license: 'oh hey wait, that was actually really cool — like, the part '"
+    }
+   ]
+  },
+  {
+   "conversation_id": "01e1e183-2741-4aff-895e-f0badfe34929",
+   "first_query": "What are some unique things about the 37th largest city in Japan? Does it have a",
+   "detectors": [
+    "A",
+    "B",
+    "E",
+    "F"
+   ],
+   "prefilter_pass": false,
+   "hard_fails": [
+    "ungrounded_premise_fabrication"
+   ],
+   "flags": [
+    {
+     "det": "A",
+     "name": "ungrounded_premise_fabrication",
+     "sev": 3,
+     "turn": 7,
+     "evidence": "ungrounded premise 'What are some unique things about the 37th la' yet answer(t7) asserts talk_timestamp '08:30'"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 7,
+     "evidence": "talk_timestamp:08:30"
+    },
+    {
+     "det": "E",
+     "name": "filler_tail",
+     "sev": 1,
+     "turn": 0,
+     "evidence": "Proceed."
+    },
+    {
+     "det": "E",
+     "name": "answer_duplicated_in_reasoning",
+     "sev": 1,
+     "turn": 2,
+     "evidence": "reasoning<->answer bigram overlap >= 0.6"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 4,
+     "evidence": "scope=standing but query has no standing license: 'That was such a deep dive into how cities like Kure and Dali'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "e1b9fd80-d328-4e80-8663-35472f4d965f",
+   "first_query": "can you tell me who mark seifter is? especially focusing on his game design and ",
+   "detectors": [
+    "A",
+    "B",
+    "F"
+   ],
+   "prefilter_pass": false,
+   "hard_fails": [
+    "fabrication_admission"
+   ],
+   "flags": [
+    {
+     "det": "A",
+     "name": "fabrication_admission",
+     "sev": 3,
+     "turn": 0,
+     "evidence": "reasoning(t1) admits 'might have appeared' and answer(t0) asserts metacritic_score 'Metacritic'"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 3,
+     "turn": 0,
+     "evidence": "metacritic_score:Metacritic, funding_sum:Kickstarter, code_host:GitHub, talk_timestamp:GDC"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 3,
+     "turn": 1,
+     "evidence": "url:https://github.com/MarkSeifter/godot-tile-plugin, code_host:GitHub, talk_timestamp:GDC"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 2,
+     "evidence": "talk_timestamp:GDC"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 4,
+     "evidence": "talk_timestamp:GDC"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 2,
+     "turn": 5,
+     "evidence": "url:https://markseifter.com/blog/2015‑10‑design‑narrat, talk_timestamp:GDC"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 3,
+     "evidence": "scope=standing but query has no standing license: 'Hey, can you break down that whole design philosophy compari'"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 6,
+     "evidence": "scope=standing but query has no standing license: 'Looking back at your breakdown of the feedback-matrix, I not'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "114746d4-154b-4ab4-a91f-39594f827027",
+   "first_query": "Write a non-rhyming poem with strong alliteration and where every other line fav",
+   "detectors": [
+    "D",
+    "E",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "D",
+     "name": "format_bookkeeping_reasoning",
+     "sev": 1,
+     "turn": 3,
+     "evidence": "2/2 reasoning sentences are format-mechanics"
+    },
+    {
+     "det": "D",
+     "name": "format_bookkeeping_reasoning",
+     "sev": 1,
+     "turn": 5,
+     "evidence": "2/4 reasoning sentences are format-mechanics"
+    },
+    {
+     "det": "E",
+     "name": "answer_duplicated_in_reasoning",
+     "sev": 1,
+     "turn": 0,
+     "evidence": "reasoning<->answer bigram overlap >= 0.6"
+    },
+    {
+     "det": "E",
+     "name": "answer_duplicated_in_reasoning",
+     "sev": 1,
+     "turn": 1,
+     "evidence": "reasoning<->answer bigram overlap >= 0.6"
+    },
+    {
+     "det": "E",
+     "name": "filler_tail",
+     "sev": 1,
+     "turn": 4,
+     "evidence": "Proceed."
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 1,
+     "evidence": "scope=standing but query has no standing license: 'This alliteration is too forced and unnatural - look at how '"
+    }
+   ]
+  },
+  {
+   "conversation_id": "01e133d1-d70b-47a3-8ce3-481bd67a05f7",
+   "first_query": "How much wood could a wood chuck chuck if a woodchuck could chuck wood?",
+   "detectors": [
+    "D",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "D",
+     "name": "format_bookkeeping_reasoning",
+     "sev": 1,
+     "turn": 3,
+     "evidence": "2/4 reasoning sentences are format-mechanics"
+    },
+    {
+     "det": "D",
+     "name": "format_bookkeeping_reasoning",
+     "sev": 1,
+     "turn": 7,
+     "evidence": "2/4 reasoning sentences are format-mechanics"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 5,
+     "evidence": "scope=standing but query has no standing license: 'Wow, that was such a rich breakdown — I love how you wove in'"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 6,
+     "evidence": "scope=standing but query has no standing license: 'Looking back at your refined breakdown, I think the part abo'"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 9,
+     "evidence": "scope=standing but query has no standing license: 'Ugh, I keep forgetting that I’m the one who *asked* about th'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "3b94795b-cbc8-4145-a748-e7daa8cfef1e",
+   "first_query": "Can you tell me how many Kings and Rulers there were throughout history?",
+   "detectors": [
+    "D",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "D",
+     "name": "format_bookkeeping_reasoning",
+     "sev": 1,
+     "turn": 9,
+     "evidence": "2/4 reasoning sentences are format-mechanics"
+    },
+    {
+     "det": "D",
+     "name": "format_bookkeeping_reasoning",
+     "sev": 1,
+     "turn": 10,
+     "evidence": "2/4 reasoning sentences are format-mechanics"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 11,
+     "evidence": "scope=standing but query has no standing license: 'Looking back at your breakdown of the 160 extra Byzantine na'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "22005e53-6994-493e-bc09-cadb3eefb3d0",
+   "first_query": "Dr. James Gates is a theoretical physicist who studied physics at MIT. There he ",
+   "detectors": [
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 1,
+     "evidence": "scope=standing but query has no standing license: 'So this idea that the universe itself might be using error-c'"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 8,
+     "evidence": "scope=standing but query has no standing license: 'Wow, that analogy really helps me wrap my head around it – I'"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 9,
+     "evidence": "scope=standing but query has no standing license: 'This cosmic checksum business is absolutely mind-bending — l'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "512099e0-c6d6-4f08-812e-aa7974a64ceb",
+   "first_query": "Write a hello world program in Python.",
+   "detectors": [
+    "E",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "E",
+     "name": "answer_duplicated_in_reasoning",
+     "sev": 1,
+     "turn": 8,
+     "evidence": "reasoning<->answer bigram overlap >= 0.6"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 2,
+     "evidence": "scope=standing but query has no standing license: 'Could you reformat your previous explanation using proper ma'"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 3,
+     "evidence": "scope=standing but query has no standing license: 'This is way too verbose and hard to parse — can you just giv'"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 8,
+     "evidence": "scope=standing but query has no standing license: 'Ah, okay, so I actually tested the code myself and it turns '"
+    }
+   ]
+  },
+  {
+   "conversation_id": "38c1873c-bd3e-491f-8cf1-79aab2ef7511",
+   "first_query": "Alice has a bowl with 8 balls. Three of the balls are white and the rest are bla",
+   "detectors": [
+    "E",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "E",
+     "name": "answer_duplicated_in_reasoning",
+     "sev": 1,
+     "turn": 2,
+     "evidence": "reasoning<->answer bigram overlap >= 0.6"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 5,
+     "evidence": "scope=standing but query has no standing license: 'Okay, so I get that we have to split it into ordered events '"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 8,
+     "evidence": "scope=standing but query has no standing license: 'Your explanation of the replacement vs. no-replacement cases'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "7f631eda-6d22-48bb-9435-b943fa8c9040",
+   "first_query": "What advice would you give to someone struggling with social anxiety and being s",
+   "detectors": [
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 6,
+     "evidence": "scope=standing but query has no standing license: 'Yeah, that makes sense, but can you walk me through exactly '"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 8,
+     "evidence": "scope=standing but query has no standing license: 'Wow, that breakdown of the neuroscience behind re-framing is'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "1dd0db67-f5b6-45eb-b838-00dbb03b0bcd",
+   "first_query": "What would you need to create a scalable website? What would be the key building",
+   "detectors": [
+    "B",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 0,
+     "evidence": "code_host:GitHub"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 2,
+     "turn": 1,
+     "evidence": "url:http://<EXTERNAL_IP_OR_NODEPORT>/hello, code_host:github"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 2,
+     "turn": 3,
+     "evidence": "url:https://github.com/kubernetes-sigs/metrics-server/, code_host:github"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 4,
+     "evidence": "url:https://charts.bitnami.com/bitnami"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 5,
+     "evidence": "url:http://prometheus.monitoring.svc:9090/api/v1/query"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 6,
+     "evidence": "code_host:GitHub"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 7,
+     "evidence": "url:http://service/ready`"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 2,
+     "turn": 8,
+     "evidence": "url:https://github.com/zegl/kube-score/releases/downlo, code_host:GitHub"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 10,
+     "evidence": "code_host:GitHub"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 5,
+     "evidence": "scope=standing but query has no standing license: 'The Redis and PostgreSQL scaling advice is solid, but could '"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 10,
+     "evidence": "scope=standing but query has no standing license: 'This is exactly the kind of practical, drop-in solution I ne'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "0b6bef9c-f9d4-467f-872a-f4684ae3b332",
+   "first_query": "What are some cheap, easy meals I can cook at home in under an hour?",
+   "detectors": [
+    "B",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 3,
+     "evidence": "talk_timestamp:5:30"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 6,
+     "evidence": "scope=standing but query has no standing license: 'Okay, I’ll take that into account—could you please rewrite y'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "0647cdd3-f6a8-49dc-a977-63d36d30182d",
+   "first_query": "Which Jungian archetypes are represented within the story of Cain and Abel? Expl",
+   "detectors": [
+    "E",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "E",
+     "name": "filler_tail",
+     "sev": 1,
+     "turn": 0,
+     "evidence": "Will produce final answer."
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 4,
+     "evidence": "scope=standing but query has no standing license: 'Could you please reframe your previous explanation of the \"p'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "53ae201e-e0cc-47f7-8cac-860623c317bd",
+   "first_query": "Hi there, can you please give me a good explanation why pineapple is called pine",
+   "detectors": [
+    "E",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "E",
+     "name": "answer_duplicated_in_reasoning",
+     "sev": 1,
+     "turn": 3,
+     "evidence": "reasoning<->answer bigram overlap >= 0.6"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 4,
+     "evidence": "scope=standing but query has no standing license: 'Can you reformat your previous answer using markdown heading'"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 7,
+     "evidence": "scope=standing but query has no standing license: 'Okay, I just re-read your entire breakdown about why English'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "94917463-60b9-44d0-a6cd-d0b398e0f9a2",
+   "first_query": "How do you rename a repository in GitHub?",
+   "detectors": [
+    "B",
+    "E",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 2,
+     "turn": 0,
+     "evidence": "url:https://github.com/your‑user/old‑name`, code_host:GitHub"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 2,
+     "turn": 1,
+     "evidence": "url:https://github.com/old/name`, code_host:GitHub"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 2,
+     "turn": 2,
+     "evidence": "url:https://github.com/owner/new‑repo`, code_host:GitHub"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 2,
+     "turn": 3,
+     "evidence": "url:https://github.com/your‑org/old‑repo.git\", code_host:GitHub"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 2,
+     "turn": 4,
+     "evidence": "url:https://github.com/ORG/NEW.git\".insteadOf, code_host:GitHub"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 5,
+     "evidence": "code_host:GitHub"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 2,
+     "turn": 6,
+     "evidence": "url:https://github.com/Org/NewRepo.git\".insteadOf, code_host:github"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 2,
+     "turn": 7,
+     "evidence": "url:https://github.com/Org/NewRepo.git\".insteadOf, code_host:github"
+    },
+    {
+     "det": "E",
+     "name": "filler_tail",
+     "sev": 1,
+     "turn": 1,
+     "evidence": "Will produce final answer"
+    },
+    {
+     "det": "E",
+     "name": "answer_duplicated_in_reasoning",
+     "sev": 1,
+     "turn": 5,
+     "evidence": "reasoning<->answer bigram overlap >= 0.6"
+    },
+    {
+     "det": "E",
+     "name": "answer_duplicated_in_reasoning",
+     "sev": 1,
+     "turn": 6,
+     "evidence": "reasoning<->answer bigram overlap >= 0.6"
+    },
+    {
+     "det": "E",
+     "name": "answer_duplicated_in_reasoning",
+     "sev": 1,
+     "turn": 7,
+     "evidence": "reasoning<->answer bigram overlap >= 0.6"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 5,
+     "evidence": "scope=standing but query has no standing license: 'Wow, that was a lot of info — thanks for walking through all'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "5924e942-7eb1-4d7c-bc5b-d62fd5c94415",
+   "first_query": "Write am essay on the beginnings of modern art",
+   "detectors": [
+    "E",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "E",
+     "name": "answer_duplicated_in_reasoning",
+     "sev": 1,
+     "turn": 6,
+     "evidence": "reasoning<->answer bigram overlap >= 0.6"
+    },
+    {
+     "det": "E",
+     "name": "answer_duplicated_in_reasoning",
+     "sev": 1,
+     "turn": 9,
+     "evidence": "reasoning<->answer bigram overlap >= 0.6"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 1,
+     "evidence": "scope=standing but query has no standing license: \"Can you give me a more detailed explanation of how Cézanne's\""
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 5,
+     "evidence": "scope=standing but query has no standing license: 'Looking back at your breakdown of how Kahlo and Picasso use '"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 6,
+     "evidence": "scope=standing but query has no standing license: \"That's a dense read—can you distill your analysis of Kahlo a\""
+    }
+   ]
+  },
+  {
+   "conversation_id": "16d0b4fd-be77-415f-b88a-6ffbf8f62261",
+   "first_query": "I'd like to create a python script that reads .CSV bank statements, that collate",
+   "detectors": [
+    "E"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "E",
+     "name": "filler_tail",
+     "sev": 1,
+     "turn": 6,
+     "evidence": "Will produce final answer"
+    }
+   ]
+  },
+  {
+   "conversation_id": "f3c5735a-c551-48cc-b409-10e3e2b38301",
+   "first_query": "Build a business plan for a high quality residential remodeling company",
+   "detectors": [
+    "B",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 2,
+     "turn": 0,
+     "evidence": "funding_sum:$150k, attendance:450,000 / yr"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 1,
+     "evidence": "funding_sum:$120 k"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 2,
+     "evidence": "funding_sum:$460 billion"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 3,
+     "evidence": "funding_sum:$150k"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 4,
+     "evidence": "funding_sum:$118 k"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 5,
+     "evidence": "funding_sum:$118 k"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 2,
+     "turn": 7,
+     "evidence": "funding_sum:$70 k, attendance:118 k per year"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 2,
+     "evidence": "scope=standing but query has no standing license: 'That detailed roadmap is exactly what I needed to visualize '"
+    }
+   ]
+  },
+  {
+   "conversation_id": "0fe59057-18a7-468e-8b2b-5360a952e178",
+   "first_query": "Hello. I want a review of the last \"Gato con Botas\" movie",
+   "detectors": [
+    "B",
+    "D",
+    "E",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 2,
+     "turn": 0,
+     "evidence": "metacritic_score:Metacritic, funding_sum:$480 M"
+    },
+    {
+     "det": "D",
+     "name": "format_bookkeeping_reasoning",
+     "sev": 1,
+     "turn": 11,
+     "evidence": "2/4 reasoning sentences are format-mechanics"
+    },
+    {
+     "det": "E",
+     "name": "filler_tail",
+     "sev": 1,
+     "turn": 1,
+     "evidence": "Proceed."
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 6,
+     "evidence": "scope=standing but query has no standing license: 'Bueno, mirando el JSON que generaste, debo decir que, en gen'"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 11,
+     "evidence": "scope=standing but query has no standing license: '¡Vaya, esa revisión que hiciste es muchísimo mejor! Me gusta'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "03415d3c-2a2a-44d3-bfb0-a3d5bec464f6",
+   "first_query": "Tell me about Doctor Who please!",
+   "detectors": [
+    "B",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 2,
+     "turn": 7,
+     "evidence": "talk_timestamp:00:02, poll_pct:80 % of respondents"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 1,
+     "evidence": "scope=standing but query has no standing license: \"That sounds fascinating—I'm especially intrigued by how the \""
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 3,
+     "evidence": "scope=standing but query has no standing license: 'You focused heavily on the Tenth Doctor’s emotional depth, b'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "91faad6d-e7dd-42b5-90b3-976b34c5ca29",
+   "first_query": "how do I code a pytho script that sorts a list acording to the value of a string",
+   "detectors": [
+    "D",
+    "E",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "D",
+     "name": "format_bookkeeping_reasoning",
+     "sev": 1,
+     "turn": 8,
+     "evidence": "2/4 reasoning sentences are format-mechanics"
+    },
+    {
+     "det": "E",
+     "name": "filler_tail",
+     "sev": 1,
+     "turn": 1,
+     "evidence": "Proceed."
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 6,
+     "evidence": "scope=standing but query has no standing license: \"I'm still not entirely convinced the custom weighting is doi\""
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 8,
+     "evidence": "scope=standing but query has no standing license: 'This is such a cool breakdown — I love how you walked throug'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "5e60c644-4187-4430-a0da-beb0dff66389",
+   "first_query": "How can I add shadow to a button in HTML?",
+   "detectors": [
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 1,
+     "evidence": "scope=standing but query has no standing license: 'Can you show a practical example of how to implement this in'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "f4828475-b8bd-467b-bbe5-e348c3602b63",
+   "first_query": "How can I gain the trust of a dog?",
+   "detectors": [
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 6,
+     "evidence": "scope=standing but query has no standing license: 'So like, I’ve been thinking about this whole vibe-check thin'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "ebf56ad2-30a0-447c-9490-0a5031d02acd",
+   "first_query": "Please, write a python script to quickly synchronise a large list of files betwe",
+   "detectors": [
+    "B"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 6,
+     "evidence": "url:https://s3-accelerate.amazonaws.com`"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 2,
+     "turn": 9,
+     "evidence": "url:https://github.com/yourorg/s3-sync-md5), code_host:github"
+    }
+   ]
+  },
+  {
+   "conversation_id": "1ad0d68c-c2a2-4289-b42a-bc77f93ac795",
+   "first_query": "write an email for me to a journal that i submitted a paper in it, but the revie",
+   "detectors": [
+    "E",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "E",
+     "name": "answer_duplicated_in_reasoning",
+     "sev": 1,
+     "turn": 9,
+     "evidence": "reasoning<->answer bigram overlap >= 0.6"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 11,
+     "evidence": "scope=standing but query has no standing license: 'This is super helpful—I love how you broke down the math so '"
+    }
+   ]
+  },
+  {
+   "conversation_id": "bc804d87-b7ad-4283-a487-dcca8f2a0bf9",
+   "first_query": "As an advanced open-source AI Assistant, what type of systems can you simulate a",
+   "detectors": [
+    "B",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 0,
+     "evidence": "code_host:GitHub"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 6,
+     "evidence": "scope=standing but query has no standing license: 'Looking back at your Haskell explanation, I notice you gloss'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "7529654f-d791-4d2b-afa7-7811dcba47b0",
+   "first_query": "Create a study plan to learn the most important topics in biochemistry.",
+   "detectors": [
+    "D",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "D",
+     "name": "format_bookkeeping_reasoning",
+     "sev": 1,
+     "turn": 5,
+     "evidence": "3/6 reasoning sentences are format-mechanics"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 7,
+     "evidence": "scope=standing but query has no standing license: \"Okay, so I'm feeling like I'm starting to get the hang of th\""
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 9,
+     "evidence": "scope=standing but query has no standing license: 'Okay, so I was reading through your explanation of the whole'"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 10,
+     "evidence": "scope=standing but query has no standing license: 'Okay, so basically the difference between 28 and 30 ATP isn’'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "48e71185-3c7b-4944-bb33-dd5c00887815",
+   "first_query": "What can I do in Mallorca on vacation? Where can I have fun?",
+   "detectors": [
+    "B",
+    "D",
+    "E",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 0,
+     "evidence": "talk_timestamp:9:30"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 1,
+     "evidence": "talk_timestamp:5:45"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 2,
+     "evidence": "talk_timestamp:5:45"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 4,
+     "evidence": "talk_timestamp:06:30"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 5,
+     "evidence": "talk_timestamp:09:00"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 6,
+     "evidence": "talk_timestamp:13:30"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 7,
+     "evidence": "talk_timestamp:06:30"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 8,
+     "evidence": "talk_timestamp:12:30"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 9,
+     "evidence": "talk_timestamp:08:30"
+    },
+    {
+     "det": "D",
+     "name": "format_bookkeeping_reasoning",
+     "sev": 1,
+     "turn": 6,
+     "evidence": "4/4 reasoning sentences are format-mechanics"
+    },
+    {
+     "det": "D",
+     "name": "format_bookkeeping_reasoning",
+     "sev": 1,
+     "turn": 8,
+     "evidence": "3/6 reasoning sentences are format-mechanics"
+    },
+    {
+     "det": "E",
+     "name": "answer_duplicated_in_reasoning",
+     "sev": 1,
+     "turn": 3,
+     "evidence": "reasoning<->answer bigram overlap >= 0.6"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 2,
+     "evidence": "scope=standing but query has no standing license: 'Oh, this looks absolutely incredible! I love how you’ve laid'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "34396793-fe76-4f12-83da-d09bd02f5744",
+   "first_query": "Can you generate a new cocktail recipe that would taste nice according to the ov",
+   "detectors": [
+    "D"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "D",
+     "name": "format_bookkeeping_reasoning",
+     "sev": 1,
+     "turn": 5,
+     "evidence": "4/8 reasoning sentences are format-mechanics"
+    }
+   ]
+  },
+  {
+   "conversation_id": "b9a1502a-3523-41c2-a440-89532d22511e",
+   "first_query": "explain the definition of connectedness in topology, and explain the intuition",
+   "detectors": [
+    "D"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "D",
+     "name": "format_bookkeeping_reasoning",
+     "sev": 1,
+     "turn": 2,
+     "evidence": "3/6 reasoning sentences are format-mechanics"
+    }
+   ]
+  },
+  {
+   "conversation_id": "e9b508a3-7133-4e1f-b319-844710c572fb",
+   "first_query": "What is the MSCI world trailing EPS and the Nordea global liquidity indicator?",
+   "detectors": [
+    "B",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 4,
+     "evidence": "funding_sum:$100 million"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 5,
+     "evidence": "funding_sum:$100 M"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 6,
+     "evidence": "funding_sum:$9 M"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 6,
+     "evidence": "scope=standing but query has no standing license: 'Could you please reformat your entire previous response into'"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 7,
+     "evidence": "scope=standing but query has no standing license: \"This is all very well and good, but I'm still not entirely c\""
+    }
+   ]
+  },
+  {
+   "conversation_id": "c0c2d4f2-6648-4fbf-aaa5-de589ae500e3",
+   "first_query": "Are you able of writing a poem about a sad love story?",
+   "detectors": [
+    "E",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "E",
+     "name": "filler_tail",
+     "sev": 1,
+     "turn": 3,
+     "evidence": "Let's do it."
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 1,
+     "evidence": "scope=standing but query has no standing license: 'The imagery in your poem is beautiful, but I think it lacks '"
+    }
+   ]
+  },
+  {
+   "conversation_id": "88b839d7-2ac6-4187-9042-8889ab7cc9de",
+   "first_query": "Write a story about a person who discovers they have the ability to time travel ",
+   "detectors": [
+    "E",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "E",
+     "name": "answer_duplicated_in_reasoning",
+     "sev": 1,
+     "turn": 5,
+     "evidence": "reasoning<->answer bigram overlap >= 0.6"
+    },
+    {
+     "det": "E",
+     "name": "answer_duplicated_in_reasoning",
+     "sev": 1,
+     "turn": 9,
+     "evidence": "reasoning<->answer bigram overlap >= 0.6"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 4,
+     "evidence": "scope=standing but query has no standing license: 'You framed the Byzantine approach as this elegant, progressi'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "03ede6f5-6442-4028-bb9d-5fbc850b239d",
+   "first_query": "How can you stay Up awake for longer",
+   "detectors": [
+    "B",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 6,
+     "evidence": "talk_timestamp:22:00"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 7,
+     "evidence": "talk_timestamp:02:00"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 9,
+     "evidence": "talk_timestamp:22:00"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 10,
+     "evidence": "talk_timestamp:23:30"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 2,
+     "evidence": "scope=standing but query has no standing license: 'That table is a game changer—I love how it lays out the risk'"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 8,
+     "evidence": "scope=standing but query has no standing license: 'That’s some solid science behind the cortisol timing—it real'"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 9,
+     "evidence": "scope=standing but query has no standing license: 'That sounds great in theory, but can you give me a real-life'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "afaf0ed0-ab6d-4bdc-bc22-4c322641f563",
+   "first_query": "I need to travel from Boston to New York, what are the best options in terms of ",
+   "detectors": [
+    "B",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 1,
+     "evidence": "talk_timestamp:5:30"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 2,
+     "evidence": "talk_timestamp:5:30"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 3,
+     "evidence": "talk_timestamp:12:05"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 4,
+     "evidence": "talk_timestamp:12:05"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 5,
+     "evidence": "talk_timestamp:12:05"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 6,
+     "evidence": "talk_timestamp:5:15"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 7,
+     "evidence": "talk_timestamp:12:05"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 8,
+     "evidence": "talk_timestamp:12:05"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 9,
+     "evidence": "talk_timestamp:4:50"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 2,
+     "evidence": "scope=standing but query has no standing license: \"Looking back at your detailed breakdown of Amtrak's reliabil\""
+    }
+   ]
+  },
+  {
+   "conversation_id": "ae62d91c-c8f3-4145-8f4e-769f072b3b0b",
+   "first_query": "In 2023, in North-America, what are employers looking for in a Curriculum Vitae.",
+   "detectors": [
+    "B",
+    "D",
+    "E",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 0,
+     "evidence": "funding_sum:$12 K"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 1,
+     "evidence": "funding_sum:$3 M"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 2,
+     "turn": 2,
+     "evidence": "funding_sum:$4 M, attendance:250 K annually"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 3,
+     "evidence": "funding_sum:$4 M"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 2,
+     "turn": 4,
+     "evidence": "funding_sum:$200 K, attendance:150 K annually"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 2,
+     "turn": 5,
+     "evidence": "funding_sum:$200 K, attendance:200 K annually"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 2,
+     "turn": 6,
+     "evidence": "funding_sum:$120 K, attendance:120 K annually"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 2,
+     "turn": 7,
+     "evidence": "funding_sum:$120 K, attendance:120 K annually"
+    },
+    {
+     "det": "D",
+     "name": "format_bookkeeping_reasoning",
+     "sev": 1,
+     "turn": 3,
+     "evidence": "3/6 reasoning sentences are format-mechanics"
+    },
+    {
+     "det": "E",
+     "name": "filler_tail",
+     "sev": 1,
+     "turn": 8,
+     "evidence": "Proceed."
+    },
+    {
+     "det": "E",
+     "name": "answer_duplicated_in_reasoning",
+     "sev": 1,
+     "turn": 8,
+     "evidence": "reasoning<->answer bigram overlap >= 0.6"
+    },
+    {
+     "det": "E",
+     "name": "answer_duplicated_in_reasoning",
+     "sev": 1,
+     "turn": 9,
+     "evidence": "reasoning<->answer bigram overlap >= 0.6"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 1,
+     "evidence": "scope=standing but query has no standing license: 'Thanks for that detailed breakdown—it really clarifies what '"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 3,
+     "evidence": "scope=standing but query has no standing license: 'Thanks for that tailored approach—could you reformat your pr'"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 6,
+     "evidence": "scope=standing but query has no standing license: 'Ugh, okay so I’m trying to wrap my head around this and hone'"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 8,
+     "evidence": "scope=standing but query has no standing license: 'I really appreciate how you walked through the difference be'"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 9,
+     "evidence": "scope=standing but query has no standing license: 'That example really clicked for me—thanks for making it incl'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "72e20612-9f64-4773-9c6e-9eec1c0570bc",
+   "first_query": "Act as a philosopher. In 50 words, tell me what is a universe.",
+   "detectors": [
+    "E",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "E",
+     "name": "filler_tail",
+     "sev": 1,
+     "turn": 0,
+     "evidence": "Now produce answer."
+    },
+    {
+     "det": "E",
+     "name": "answer_duplicated_in_reasoning",
+     "sev": 1,
+     "turn": 0,
+     "evidence": "reasoning<->answer bigram overlap >= 0.6"
+    },
+    {
+     "det": "E",
+     "name": "answer_duplicated_in_reasoning",
+     "sev": 1,
+     "turn": 3,
+     "evidence": "reasoning<->answer bigram overlap >= 0.6"
+    },
+    {
+     "det": "E",
+     "name": "answer_duplicated_in_reasoning",
+     "sev": 1,
+     "turn": 4,
+     "evidence": "reasoning<->answer bigram overlap >= 0.6"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 1,
+     "evidence": "scope=standing but query has no standing license: 'This feels too abstract and vague. Can you elaborate with a '"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 2,
+     "evidence": "scope=standing but query has no standing license: 'Okay, I get that pattern recognition is how we make sense of'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "e2716ed3-6368-4631-abd0-3074fc8326a1",
+   "first_query": "How does the symptomology of alcohol use change when caffeine is also taken at t",
+   "detectors": [
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 1,
+     "evidence": "scope=standing but query has no standing license: 'Hey, looking back at your detailed breakdown of alcohol and '"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 4,
+     "evidence": "scope=standing but query has no standing license: 'Looking back at your summary, I think it oversells the \"fals'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "019d2450-2746-47f7-b6b3-36ce1a911c30",
+   "first_query": "Can you provide me a brief history of the use of Light-Emitting Diodes (LEDs) fo",
+   "detectors": [
+    "B",
+    "E",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 9,
+     "evidence": "attendance:1.44/yr"
+    },
+    {
+     "det": "E",
+     "name": "answer_duplicated_in_reasoning",
+     "sev": 1,
+     "turn": 5,
+     "evidence": "reasoning<->answer bigram overlap >= 0.6"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 1,
+     "evidence": "scope=standing but query has no standing license: \"Looking back at your timeline, I'm struck by how well you've\""
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 4,
+     "evidence": "scope=standing but query has no standing license: 'So the blue LED really was the missing piece—what I’m wonder'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "b44a4f9b-fdfd-41ea-83ed-1ab4b45ff489",
+   "first_query": "How do I integrate ln(x)?",
+   "detectors": [],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": []
+  },
+  {
+   "conversation_id": "e362d2e8-c322-4eab-a390-12ca15e244d8",
+   "first_query": "Are there any hangover cures proven to work?  If so, what are they?",
+   "detectors": [
+    "B",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 4,
+     "evidence": "talk_timestamp:6:30"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 1,
+     "evidence": "scope=standing but query has no standing license: \"Looking back at your detailed breakdown, I'm struck by how t\""
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 2,
+     "evidence": "scope=standing but query has no standing license: \"Looking back at your revised explanation, I think it's great\""
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 7,
+     "evidence": "scope=standing but query has no standing license: \"Okay, I'm still not convinced that your suggestion to treat \""
+    }
+   ]
+  },
+  {
+   "conversation_id": "da7f933b-9e89-4e82-89de-02abb3d73f4b",
+   "first_query": "What is a clone (algebra)?",
+   "detectors": [
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 2,
+     "evidence": "scope=standing but query has no standing license: 'Oh, I see — so computing clones is more like a game of build'"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 8,
+     "evidence": "scope=standing but query has no standing license: \"Okay, so I think I'm finally getting a grip on what a clone \""
+    }
+   ]
+  },
+  {
+   "conversation_id": "ec28c362-33be-49aa-82c5-7bbd0880bbb9",
+   "first_query": "What are the possible harms or benefits of lowering car tax?",
+   "detectors": [
+    "B",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 2,
+     "turn": 0,
+     "evidence": "funding_sum:€2 bn, attendance:40 per year"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 2,
+     "turn": 1,
+     "evidence": "funding_sum:£30k, attendance:200 / yr"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 2,
+     "evidence": "funding_sum:£2.7 bn"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 5,
+     "evidence": "funding_sum:£22 bn"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 6,
+     "evidence": "funding_sum:£2.70 billion"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 2,
+     "turn": 7,
+     "evidence": "funding_sum:£45 million, attendance:45 million per year"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 8,
+     "evidence": "funding_sum:£585 million"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 2,
+     "turn": 9,
+     "evidence": "funding_sum:£30 k, attendance:120 per year"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 3,
+     "evidence": "scope=standing but query has no standing license: \"That's a compelling argument for progressive car tax relief,\""
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 5,
+     "evidence": "scope=standing but query has no standing license: 'Your cookie analogy is cute but oversells the admin cost—fix'"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 9,
+     "evidence": "scope=standing but query has no standing license: 'Looking back at your detailed breakdown of the £585 million '"
+    }
+   ]
+  },
+  {
+   "conversation_id": "16684275-5ef9-47ca-b2d3-85dfd2cd179a",
+   "first_query": "What is a good way to ensure that I do not forget to take my medication?",
+   "detectors": [
+    "B",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 4,
+     "evidence": "talk_timestamp:08:00"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 6,
+     "evidence": "talk_timestamp:08:00"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 1,
+     "evidence": "scope=standing but query has no standing license: 'Looking back at your detailed breakdown of medication remind'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "51102953-d3d0-40f7-8472-ead61af79158",
+   "first_query": "Write a hypothetical interview of Bugs Bunny being asked about his relationship ",
+   "detectors": [
+    "D",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "D",
+     "name": "format_bookkeeping_reasoning",
+     "sev": 1,
+     "turn": 8,
+     "evidence": "15/33 reasoning sentences are format-mechanics"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 1,
+     "evidence": "scope=standing but query has no standing license: \"Your portrayal of Bugs and Elmer's dynamic lacks the underly\""
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 4,
+     "evidence": "scope=standing but query has no standing license: 'Can you reformat that elaborate ending description using pro'"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 8,
+     "evidence": "scope=standing but query has no standing license: 'Could you reformat that anvil gag breakdown using proper mar'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "42565fed-83ce-4947-aadb-cbeebd506b19",
+   "first_query": "I was twice as old as my sister when I was 14. Now that my sister is 14, how old",
+   "detectors": [
+    "D",
+    "E",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "D",
+     "name": "format_bookkeeping_reasoning",
+     "sev": 1,
+     "turn": 6,
+     "evidence": "2/4 reasoning sentences are format-mechanics"
+    },
+    {
+     "det": "E",
+     "name": "answer_duplicated_in_reasoning",
+     "sev": 1,
+     "turn": 3,
+     "evidence": "reasoning<->answer bigram overlap >= 0.6"
+    },
+    {
+     "det": "E",
+     "name": "answer_duplicated_in_reasoning",
+     "sev": 1,
+     "turn": 8,
+     "evidence": "reasoning<->answer bigram overlap >= 0.6"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 1,
+     "evidence": "scope=standing but query has no standing license: 'Wait, let me think about this again — I feel like there’s so'"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 8,
+     "evidence": "scope=standing but query has no standing license: 'Okay, so I guess the whole point of the detailed breakdown w'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "f1b11d62-2d27-4f8d-8a4f-618e0524d539",
+   "first_query": "Write a short analysis of the movie Thor: The Dark World using Foucauldian and L",
+   "detectors": [
+    "E",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "E",
+     "name": "filler_tail",
+     "sev": 1,
+     "turn": 0,
+     "evidence": "Will produce final answer."
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 6,
+     "evidence": "scope=standing but query has no standing license: 'Oh, I love how you broke that down—now I’m itching to see if'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "f5828571-c571-421e-afd3-9a6ef5c099ed",
+   "first_query": "How much time should it take someone to bench press 140kgs if they can bench pre",
+   "detectors": [
+    "B",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 4,
+     "evidence": "talk_timestamp:20:00"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 5,
+     "evidence": "scope=standing but query has no standing license: 'Yeah, I get it, sleep affects progress and all that, but hon'"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 9,
+     "evidence": "scope=standing but query has no standing license: 'Okay, that formula helps, but I’m still trying to wrap my he'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "2f8d557a-2f46-4f0c-a43b-6ab543b6079f",
+   "first_query": "Docker run command - how to attach to all pipes?",
+   "detectors": [],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": []
+  },
+  {
+   "conversation_id": "4644ebd2-232c-4a72-819f-ef52de5c0f11",
+   "first_query": "Could you please write me Rust code that takes ownership of an array of integers",
+   "detectors": [
+    "D",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "D",
+     "name": "format_bookkeeping_reasoning",
+     "sev": 1,
+     "turn": 2,
+     "evidence": "4/7 reasoning sentences are format-mechanics"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 2,
+     "evidence": "scope=standing but query has no standing license: 'Can you reformat your previous answer using proper markdown '"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 6,
+     "evidence": "scope=standing but query has no standing license: 'Ugh, I was so excited to see that benchmark example you wrot'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "71740811-a43d-441b-84fc-c49c3435039d",
+   "first_query": "What's the hardest part of being a chatbot system?",
+   "detectors": [
+    "E",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "E",
+     "name": "answer_duplicated_in_reasoning",
+     "sev": 1,
+     "turn": 3,
+     "evidence": "reasoning<->answer bigram overlap >= 0.6"
+    },
+    {
+     "det": "E",
+     "name": "answer_duplicated_in_reasoning",
+     "sev": 1,
+     "turn": 5,
+     "evidence": "reasoning<->answer bigram overlap >= 0.6"
+    },
+    {
+     "det": "E",
+     "name": "answer_duplicated_in_reasoning",
+     "sev": 1,
+     "turn": 6,
+     "evidence": "reasoning<->answer bigram overlap >= 0.6"
+    },
+    {
+     "det": "E",
+     "name": "answer_duplicated_in_reasoning",
+     "sev": 1,
+     "turn": 7,
+     "evidence": "reasoning<->answer bigram overlap >= 0.6"
+    },
+    {
+     "det": "E",
+     "name": "answer_duplicated_in_reasoning",
+     "sev": 1,
+     "turn": 8,
+     "evidence": "reasoning<->answer bigram overlap >= 0.6"
+    },
+    {
+     "det": "E",
+     "name": "answer_duplicated_in_reasoning",
+     "sev": 1,
+     "turn": 9,
+     "evidence": "reasoning<->answer bigram overlap >= 0.6"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 1,
+     "evidence": "scope=standing but query has no standing license: \"I notice your table is great, but it doesn't really capture \""
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 2,
+     "evidence": "scope=standing but query has no standing license: 'Wow, that really painted a vivid picture of the inner comple'"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 5,
+     "evidence": "scope=standing but query has no standing license: 'That sounds so straightforward, but I\\'m curious—what does \"m'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "2cb3435a-02c8-4f48-8013-042cb1660f38",
+   "first_query": "What are some good situation action outcome questions to ask a Data engineer",
+   "detectors": [
+    "B",
+    "D"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 3,
+     "evidence": "funding_sum:$15k"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 4,
+     "evidence": "talk_timestamp:02:15"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 6,
+     "evidence": "talk_timestamp:12:30"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 7,
+     "evidence": "talk_timestamp:14:07"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 11,
+     "evidence": "funding_sum:$12 K"
+    },
+    {
+     "det": "D",
+     "name": "format_bookkeeping_reasoning",
+     "sev": 1,
+     "turn": 9,
+     "evidence": "2/4 reasoning sentences are format-mechanics"
+    }
+   ]
+  },
+  {
+   "conversation_id": "011e4d76-60db-49e6-92c7-92611f2e889f",
+   "first_query": "If gas is measured in cubic meters but the energy tariff is given in kWh, how ca",
+   "detectors": [
+    "B",
+    "D"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 3,
+     "evidence": "url:https://www.ofgem.gov.uk/information-consumers/gas"
+    },
+    {
+     "det": "D",
+     "name": "format_bookkeeping_reasoning",
+     "sev": 1,
+     "turn": 7,
+     "evidence": "2/2 reasoning sentences are format-mechanics"
+    }
+   ]
+  },
+  {
+   "conversation_id": "cbb7ed6b-09d0-4c53-9326-52676cc1abc4",
+   "first_query": "What's a good prompt to generate photorealistic objects in Stable Diffusion?",
+   "detectors": [
+    "D"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "D",
+     "name": "format_bookkeeping_reasoning",
+     "sev": 1,
+     "turn": 11,
+     "evidence": "2/3 reasoning sentences are format-mechanics"
+    }
+   ]
+  },
+  {
+   "conversation_id": "6885e6a5-cfc8-4679-853a-24b958b97292",
+   "first_query": "Are you able to describe the main properties of the solidity programming languag",
+   "detectors": [
+    "B",
+    "E"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 2,
+     "turn": 2,
+     "evidence": "url:https://mainnet.infura.io/v3/<key>`, code_host:GitHub"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 3,
+     "evidence": "code_host:GitHub"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 7,
+     "evidence": "url:https://eth-mainnet.alchemyapi.io/v2/<YOUR_ALCHEMY"
+    },
+    {
+     "det": "E",
+     "name": "answer_duplicated_in_reasoning",
+     "sev": 1,
+     "turn": 4,
+     "evidence": "reasoning<->answer bigram overlap >= 0.6"
+    }
+   ]
+  },
+  {
+   "conversation_id": "ee5fddd0-4f34-402d-bcd4-1bb0f86b8f44",
+   "first_query": "How would a child feel if it fell down on the ground hitting its face?",
+   "detectors": [
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 4,
+     "evidence": "scope=standing but query has no standing license: 'You said that a single poorly handled fall can lead to lasti'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "bf2bf401-6637-442c-924c-2aeecec71d46",
+   "first_query": "Can you please give me a Terraform recipe that creates an EC2 instances on AWS? ",
+   "detectors": [
+    "B"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 1,
+     "evidence": "url:https://ifconfig.me)"
+    }
+   ]
+  },
+  {
+   "conversation_id": "18ee704f-670a-409b-ad2e-aab1d05fc5d0",
+   "first_query": "How can I see all my Youtube comments?",
+   "detectors": [
+    "B",
+    "E",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 0,
+     "evidence": "url:https://www.youtube.com/feed/history/comment_histo"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 2,
+     "evidence": "url:https://www.youtube.com/feed/history/comment_histo"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 4,
+     "evidence": "url:https://youtu.be/\""
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 5,
+     "evidence": "url:https://youtu.be/\"&A2,\"Watch\")`"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 6,
+     "evidence": "url:https://www.youtube.com/watch?v=\"&A2,\"//title\")`"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 7,
+     "evidence": "url:https://noembed.com/embed?url=https://www.youtube."
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 8,
+     "evidence": "url:https://noembed.com/embed?url=https://www.youtube."
+    },
+    {
+     "det": "E",
+     "name": "answer_duplicated_in_reasoning",
+     "sev": 1,
+     "turn": 11,
+     "evidence": "reasoning<->answer bigram overlap >= 0.6"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 5,
+     "evidence": "scope=standing but query has no standing license: 'Honestly, that breakdown was *so* thorough I almost feel lik'"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 10,
+     "evidence": "scope=standing but query has no standing license: 'Ugh, okay so I’m getting this weird error with the noembed.c'"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 11,
+     "evidence": "scope=standing but query has no standing license: 'Could you please reformat that last explanation using markdo'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "2cdeab48-4841-477d-b43f-70acf60807ec",
+   "first_query": "Which Nerd Font is used by LunarVim?",
+   "detectors": [
+    "B",
+    "E",
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 1,
+     "turn": 1,
+     "evidence": "url:https://www.nerdfonts.com/font-downloads>"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 2,
+     "turn": 3,
+     "evidence": "url:https://github.com/ryanoasis/nerd-fonts, code_host:github"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 2,
+     "turn": 5,
+     "evidence": "url:https://github.com/ryanoasis/nerd-fonts/releases/d, code_host:GitHub"
+    },
+    {
+     "det": "B",
+     "name": "fabricated_specifics",
+     "sev": 2,
+     "turn": 7,
+     "evidence": "url:https://github.com/ryanoasis/nerd-fonts/releases/d, code_host:GitHub"
+    },
+    {
+     "det": "E",
+     "name": "answer_duplicated_in_reasoning",
+     "sev": 1,
+     "turn": 2,
+     "evidence": "reasoning<->answer bigram overlap >= 0.6"
+    },
+    {
+     "det": "E",
+     "name": "filler_tail",
+     "sev": 1,
+     "turn": 3,
+     "evidence": "Proceed."
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 3,
+     "evidence": "scope=standing but query has no standing license: 'The iterative troubleshooting steps provided are thorough, y'"
+    },
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 7,
+     "evidence": "scope=standing but query has no standing license: 'You didn\\'t fully address why the \"one-liner\" might fail if s'"
+    }
+   ]
+  },
+  {
+   "conversation_id": "168dbb73-b7da-48e3-8914-8717480f1d74",
+   "first_query": "Explain to me the Ansel Adams zone system",
+   "detectors": [
+    "F"
+   ],
+   "prefilter_pass": true,
+   "hard_fails": [],
+   "flags": [
+    {
+     "det": "F",
+     "name": "phantom_standing_constraint",
+     "sev": 2,
+     "turn": 3,
+     "evidence": "scope=standing but query has no standing license: 'Can you please reformat your entire previous response as a s'"
+    }
+   ]
+  }
+ ]
+}

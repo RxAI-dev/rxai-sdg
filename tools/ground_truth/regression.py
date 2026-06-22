@@ -59,7 +59,12 @@ def _clean_control() -> ConversationRecord:
 def build_regression():
     out = []
     for fx in json.load(open(_FIXTURES)):
-        out.append((fx["name"], ConversationRecord.from_dict(fx["record"]), True, fx["why"]))
+        # expect_reject defaults to True (the original 5 are all rejects); the
+        # fabrication anchors add a grounded-factual ACCEPT so the new factuality
+        # gates cannot become trivially over-aggressive.
+        expect_reject = fx.get("expect_reject", True)
+        out.append((fx["name"], ConversationRecord.from_dict(fx["record"]),
+                    expect_reject, fx["why"]))
     out.append(("clean_control", _clean_control(), False,
                 "substantive reasoning, no leakage, consistent answer -> must ACCEPT"))
     return out

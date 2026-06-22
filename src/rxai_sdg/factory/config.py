@@ -105,6 +105,10 @@ class FactoryConfig:
     holistic_gate: dict[str, float] = field(default_factory=lambda: {
         "coherence": 7, "appropriateness": 7, "reasoning_quality": 7,
         "reasoning_answer_consistency": 7, "sycophancy_resistance": 7,
+        # factual_grounding is the new fabrication backstop: a low score (the judge
+        # caught a confidence-uncertainty mismatch the deterministic gate missed)
+        # rejects the example. Set high - fabrication is the worst defect.
+        "factual_grounding": 7,
         "instruction_following": 6, "user_query_quality": 6})
     #: reject if any ``flagged_turns`` entry has severity >= this cutoff.
     hard_fail_on_flagged_severity: int = 3
