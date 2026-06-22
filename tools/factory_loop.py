@@ -97,6 +97,7 @@ def build_factory(args):
         concurrency=args.concurrency,
         max_tokens=args.max_tokens,
         temperature=args.temperature,
+        reasoning_source=_env("RXAI_REASONING_SOURCE", default=args.reasoning_source),
         regeneration_limit=3,
         max_responder_calls_per_turn=6,   # room to resample a sporadically-leaky turn
         min_recall_distance=args.min_recall_distance,
@@ -225,6 +226,10 @@ def main(argv=None) -> int:
     ap.add_argument("--max-turns", type=int, default=9)
     ap.add_argument("--max-tokens", type=int, default=8000)
     ap.add_argument("--temperature", type=float, default=0.7)
+    ap.add_argument("--reasoning-source", default="auto",
+                    choices=["auto", "field", "inline"],
+                    help="where to read the teacher CoT: auto|field|inline "
+                         "(auto handles both a reasoning field and inline <think>)")
     ap.add_argument("--frequency-penalty", type=float, default=0.0,
                     help="responder decoding frequency_penalty (breaks degenerate loops)")
     ap.add_argument("--request-timeout", type=float, default=240)

@@ -408,16 +408,36 @@ def has_cot_leak(answer: str) -> bool:
     return bool(_COT_LEAK_RE.search(answer or ""))
 
 
-def _segment_response(reasoning_field: Optional[str], content: str) -> ParsedResponse:
-    """Segment a raw response, preferring a separate ``reasoning_content`` field.
+def _segment_response(reasoning_field: Optional[str], content: str,
+                      source: str = "auto") -> ParsedResponse:
+    """Segment a raw response into reasoning + answer.
 
-    Reasoning models on OpenAI-compatible endpoints (e.g. Qwen3.5) return the
-    chain of thought in ``message.reasoning_content`` rather than inline. When that
-    field is populated we use it directly and strip any ``<think>`` block/tag from
-    the content to form the answer; otherwise we fall back to inline ``<think>``
-    parsing (:func:`parse_response`).
+    Reasoning models expose their chain of thought in one of two ways and the
+    factory must work with EITHER (it only requires that the teacher be a genuine
+    reasoning model): a dedicated ``message.reasoning_content`` field (gpt-oss,
+    Qwen3.5) or an inline ``<think>...</think>`` block in the content (Qwen3-32B).
+    ``source`` selects where to read it:
+
+    * ``"auto"`` (default): use the dedicated field when it is populated, else
+      fall back to inline ``<think>`` parsing. Works for both kinds with no config.
+    * ``"field"``: only ever use the dedicated field (an empty field yields an
+      empty reasoning -> counted as ``reasoning_missing``).
+    * ``"inline"``: only ever parse the inline ``<think>`` block, ignoring any field.
+
+    Whichever source is used, a ``<think>`` block/tag is always stripped out of the
+    answer so the chain of thought never leaks into the training target.
     """
-    if reasoning_field is not None and reasoning_field.strip().lower() not in _EMPTY_REASONING:
+    has_field = (reasoning_field is not None
+                 and reasoning_field.strip().lower() not in _EMPTY_REASONING)
+    if source == "inline":
+        return parse_response(content)
+    if source == "field":
+        reasoning = reasoning_field.strip() if has_field else ""
+        answer = _strip_think_tags(_THINK_BLOCK_RE.sub("", content or ""))
+        return ParsedResponse(reasoning=reasoning, answer=answer,
+                              well_formed=bool(reasoning))
+    # auto
+    if has_field:
         reasoning = reasoning_field.strip()
         answer = _strip_think_tags(_THINK_BLOCK_RE.sub("", content or ""))
         return ParsedResponse(reasoning=reasoning, answer=answer, well_formed=True)
@@ -427,7 +447,7 @@ def _segment_response(reasoning_field: Optional[str], content: str) -> ParsedRes
 class Responder:
     def __init__(self, client: LLMClient, capture_logits: bool = False,
                  max_tokens: int = 4096, temperature: float = 0.7,
-                 reasoning_mode: bool = True):
+                 reasoning_mode: bool = True, reasoning_source: str = "auto"):
         self.client = client
         self.capture_logits = capture_logits
         self.max_tokens = max_tokens
@@ -435,6 +455,13 @@ class Responder:
         #: the responder model reasons by default, so a reasoning segment is
         #: expected on every turn; an empty one is counted as ``reasoning_missing``.
         self.reasoning_mode = reasoning_mode
+        #: where to read the chain of thought from: "auto" (dedicated field else
+        #: inline <think>), "field" (dedicated reasoning_content only), or "inline"
+        #: (<think> block only). Lets the factory use any reasoning model regardless
+        #: of how its endpoint surfaces the CoT.
+        if reasoning_source not in ("auto", "field", "inline"):
+            raise ValueError(f"reasoning_source must be auto/field/inline, got {reasoning_source!r}")
+        self.reasoning_source = reasoning_source
 
     def generate(
         self,
@@ -468,7 +495,8 @@ class Responder:
             capture_logits=self.capture_logits,
             messages=history,
         )
-        parsed = _segment_response(getattr(resp, "reasoning", None), resp.text)
+        parsed = _segment_response(getattr(resp, "reasoning", None), resp.text,
+                                   source=self.reasoning_source)
         # Sanitization pass (safety net for failure modes A/C): strip the leading
         # "Thinking Process:" scaffold and any glued trailing artifact. The primary
         # fix is the harness-free prompt above; this only removes mechanical noise.

@@ -124,6 +124,11 @@ class FactoryConfig:
     # -- responder generation params ------------------------------------------
     max_tokens: int = 4096
     temperature: float = 0.7
+    #: where to read the teacher's chain of thought from. "auto" handles both a
+    #: dedicated reasoning_content field (gpt-oss, Qwen3.5) and an inline <think>
+    #: block (Qwen3-32B) transparently; "field"/"inline" force one source. This is
+    #: what lets the factory run on ANY genuine reasoning model.
+    reasoning_source: str = "auto"
 
     # -- reproducibility ------------------------------------------------------
     seed: Optional[int] = None
