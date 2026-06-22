@@ -13,9 +13,34 @@ provided:
 
 from __future__ import annotations
 
+import random
 import threading
+import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional, Protocol, Sequence, runtime_checkable
+
+
+# Transient endpoint failures (5xx, rate limits, timeouts, dropped connections) are
+# retried with backoff so flakiness under concurrency does not surface as a fake
+# "empty/malformed" response that corrupts the dataset. A genuinely empty
+# completion is NOT an error here - only raised exceptions are retried.
+_TRANSIENT_STATUS = {408, 409, 429, 500, 502, 503, 504}
+_TRANSIENT_NAMES = {
+    "InternalServerError", "APITimeoutError", "APIConnectionError",
+    "RateLimitError", "APIError", "Timeout", "ConnectionError",
+}
+
+
+def _is_transient(exc: Exception) -> bool:
+    code = getattr(exc, "status_code", None) or getattr(exc, "code", None)
+    if isinstance(code, int) and code in _TRANSIENT_STATUS:
+        return True
+    if type(exc).__name__ in _TRANSIENT_NAMES:
+        return True
+    s = str(exc).lower()
+    return ("timed out" in s or "timeout" in s or "connection" in s
+            or "unexpected error" in s or "temporarily" in s
+            or any(str(c) in s for c in (500, 502, 503, 504, 429)))
 
 
 @dataclass
@@ -80,7 +105,12 @@ class OpenAILLMClient:
         timeout: float = 120,
         frequency_penalty: float = 0.0,
         presence_penalty: float = 0.0,
+        max_retries: int = 4,
     ):
+        #: transient-error retries (5xx/429/timeout) with exponential backoff. Big
+        #: models (e.g. Qwen3-32B) 500 sporadically under concurrency; without this
+        #: every such blip became a fake "malformed/reasoning_missing" turn.
+        self.max_retries = max_retries
         # Imported lazily to keep the factory package import-light.
         from ..base import BaseDatasetGenerator
 
@@ -168,25 +198,35 @@ class OpenAILLMClient:
         # in the Responder when the field is absent.
         from ..base import default_additional_config
 
-        try:
-            completion = self._backend.client.chat.completions.create(
-                model=self.model_name,
-                messages=(
-                    [{"role": "system", "content": system_prompt}]
-                    + prior
-                    + [{"role": "user", "content": prompt}]
-                ),
-                stream=False,
-                max_tokens=max_tokens,
-                temperature=temperature,
-                top_p=kwargs.get("top_p", self.default_top_p),
-                frequency_penalty=kwargs.get("frequency_penalty", self.frequency_penalty),
-                presence_penalty=kwargs.get("presence_penalty", self.presence_penalty),
-                timeout=kwargs.get("timeout", self.timeout),
-            )
-        except Exception as exc:  # pragma: no cover - network dependent
-            print("API Error", exc)
-            return LLMResponse(text="", reasoning=None)
+        request_messages = (
+            [{"role": "system", "content": system_prompt}]
+            + prior
+            + [{"role": "user", "content": prompt}]
+        )
+        completion = None
+        for attempt in range(self.max_retries + 1):
+            try:
+                completion = self._backend.client.chat.completions.create(
+                    model=self.model_name,
+                    messages=request_messages,
+                    stream=False,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                    top_p=kwargs.get("top_p", self.default_top_p),
+                    frequency_penalty=kwargs.get("frequency_penalty", self.frequency_penalty),
+                    presence_penalty=kwargs.get("presence_penalty", self.presence_penalty),
+                    timeout=kwargs.get("timeout", self.timeout),
+                )
+                break
+            except Exception as exc:  # pragma: no cover - network dependent
+                if attempt < self.max_retries and _is_transient(exc):
+                    # 1s, 2s, 4s, 8s ... (capped) + jitter, so a brief endpoint
+                    # blip under concurrency is retried instead of poisoning the
+                    # turn with an empty (=> "malformed") response.
+                    time.sleep(min(2.0 ** attempt, 16.0) + random.uniform(0, 0.5))
+                    continue
+                print("API Error", exc)
+                return LLMResponse(text="", reasoning=None)
 
         self._record_usage(completion)
         message = completion.choices[0].message

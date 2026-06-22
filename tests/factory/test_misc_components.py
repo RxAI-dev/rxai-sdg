@@ -2,12 +2,27 @@
 
 import random
 
-from rxai_sdg.factory.clients import MockLLMClient
+from rxai_sdg.factory.clients import MockLLMClient, _is_transient
 from rxai_sdg.factory.holistic import HolisticJudge
 from rxai_sdg.factory.prompts import get_prompt_pack
 from rxai_sdg.factory.quality import check_quality, QualityConfig
 from rxai_sdg.factory.responder import Responder, split_reasoning_answer
 from rxai_sdg.factory.schemas import Segment, Turn
+
+
+def test_is_transient_retries_endpoint_blips_only():
+    class E(Exception):
+        def __init__(self, m, code=None):
+            super().__init__(m)
+            self.status_code = code
+    # transient endpoint failures -> retry
+    assert _is_transient(E("Unexpected error", 500))
+    assert _is_transient(Exception("Error code: 500 - {'message': 'Unexpected error'}"))
+    assert _is_transient(Exception("Request timed out."))
+    assert _is_transient(E("rate limited", 429))
+    # genuine client/logic errors -> do NOT retry
+    assert not _is_transient(E("bad request", 400))
+    assert not _is_transient(ValueError("parse failure"))
 
 
 def test_split_reasoning_answer():
