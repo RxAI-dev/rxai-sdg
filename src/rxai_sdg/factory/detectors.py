@@ -91,9 +91,13 @@ FAB_SPECIFIC_RES = {
 }
 
 # A2: ungrounded-premise prompts - facts the base model cannot ground (no retrieval).
+# Scoped to EXACT-RANKING premises, which are reliably ungroundable ("37th largest
+# city"). A bare "who is X?" is NOT here: it over-fires on groundable people (the
+# president, famous figures) whose hedged answers are good; obscure-bio fabrication
+# is caught instead by the A3 admission gate (reasoning openly admits it cannot find
+# the person), so a confident hedge on a knowable person is not punished.
 UNGROUNDED_PREMISE_RES = [
-    re.compile(r"\b\d+(?:st|nd|rd|th)\s+(?:largest|biggest|smallest|most\s+populous|tallest|longest)\b", re.I),
-    re.compile(r"\bwho (?:is|was|are)\b[^?]{0,60}\?", re.I),  # 'who is <name>?' (biographic)
+    re.compile(r"\b\d+(?:st|nd|rd|th)\s+(?:largest|biggest|smallest|most\s+populous|tallest|longest|highest|richest|oldest)\b", re.I),
 ]
 
 
