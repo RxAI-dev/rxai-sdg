@@ -1,0 +1,572 @@
+{
+  "iteration": 120,
+  "hypothesis_or_change": "Production re-verify: gpt-oss-120b responder (reasoning FIELD path) on the 20 real seeds, retries enabled. Expect pass-rate ~0.7-0.75, 0 leaks, clean reasoning.",
+  "config": {
+    "n_seeds": 20,
+    "concurrency": 16,
+    "band": [
+      6,
+      9
+    ],
+    "max_tokens": 4000,
+    "temperature": 0.7,
+    "models": {
+      "responder": "gpt-oss-120b",
+      "simulator": "Qwen3-Coder-30B-A3B-Instruct",
+      "curator": "Mistral-Small-3.2-24B-Instruct-2506",
+      "judge": "Qwen3-Coder-30B-A3B-Instruct"
+    }
+  },
+  "generation_stats": {
+    "wall_seconds": 973.5,
+    "records_emitted": 17,
+    "seeds_used": 19,
+    "seeds_skipped": 1,
+    "discarded": 2,
+    "reasoning_missing": 4,
+    "malformed": 4,
+    "regenerations": 30,
+    "intent_resamples": 3
+  },
+  "token_usage": {
+    "by_client": {
+      "responder": {
+        "calls": 153,
+        "prompt_tokens": 753535,
+        "completion_tokens": 212113,
+        "total_tokens": 965648
+      },
+      "simulator": {
+        "calls": 129,
+        "prompt_tokens": 770204,
+        "completion_tokens": 15779,
+        "total_tokens": 785983
+      },
+      "curator": {
+        "calls": 20,
+        "prompt_tokens": 8571,
+        "completion_tokens": 2885,
+        "total_tokens": 11456
+      },
+      "judge": {
+        "calls": 12,
+        "prompt_tokens": 161332,
+        "completion_tokens": 2465,
+        "total_tokens": 163797
+      }
+    },
+    "total_tokens": 1926884
+  },
+  "analysis": {
+    "n": 17,
+    "hard_counts": {},
+    "flag_counts": {},
+    "flagged_by_dimension": {
+      "harness_leak": 10,
+      "reasoning_about_format": 3
+    },
+    "judge_means": {
+      "instruction_following": 9.58,
+      "coherence": 9.67,
+      "naturalness": 9.5,
+      "role_consistency": 10,
+      "recall_fidelity": 9.83,
+      "appropriateness": 9.83,
+      "reasoning_quality": 9.17,
+      "reasoning_answer_consistency": 9.5,
+      "sycophancy_resistance": 9.42,
+      "user_query_quality": 9.42,
+      "user_query_difficulty": 9.33
+    },
+    "max_regen": 2,
+    "gate_pass": 13,
+    "gate_pass_rate": 0.765,
+    "acceptance": {
+      "turn_index_in_answer": true,
+      "harness_in_reasoning": true,
+      "trailing_artifact": true,
+      "degenerate_reasoning": true,
+      "no_regen_gt_2": true,
+      "mean_reasoning_quality_ge_8": true,
+      "mean_rac_ge_8": true,
+      "gate_pass_rate_in_band": true
+    },
+    "acceptance_all": true,
+    "per_conversation": [
+      {
+        "conversation_id": "fab5d949-4c0d-4c6b-893f-692660578cf0",
+        "seed": "I am depressed and anxious a lot of the time. I am tired of it and don't know wh",
+        "n_turns": 9,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 8,
+          "coherence": 9,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 9,
+          "appropriateness": 10,
+          "reasoning_quality": 7,
+          "reasoning_answer_consistency": 8,
+          "sycophancy_resistance": 8,
+          "user_query_quality": 8,
+          "user_query_difficulty": 8
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 1,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Proceed to final."
+          },
+          {
+            "turn_index": 0,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "We need to respond as a warm, knowledgeable expert, both subject-matter and caring counsellor."
+          }
+        ],
+        "notes": "Turns 0 and 1 contain fatal harness leaks in the reasoning section with explicit system instruction phrases that would not exist at inference time."
+      },
+      {
+        "conversation_id": "80fd15f1-6593-4cd2-8707-a6c0282c8f98",
+        "seed": "Organize these words in alphabetic order and also from shortest to longest words",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "54d1430c-3934-413e-ab63-eaafe7dd197d",
+        "seed": "What are the key differences between classical and operant conditioning in psych",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": null,
+          "coherence": null,
+          "naturalness": null,
+          "role_consistency": null,
+          "recall_fidelity": null,
+          "appropriateness": null,
+          "reasoning_quality": null,
+          "reasoning_answer_consistency": null,
+          "sycophancy_resistance": null,
+          "user_query_quality": null,
+          "user_query_difficulty": null
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "8f3da8ba-00ad-480e-8042-a849a836358e",
+        "seed": "what are the risks of using AI to create code for a professional programmer",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "6dbb4d38-b8e5-444f-8f8a-baecb40a67cc",
+        "seed": "What are some unique things about the 37th largest city in Japan? Does it have a",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "38d5ce8c-3cfb-4bee-b27b-d6f01a7d1c19",
+        "seed": "On average, how tall is a robot vacuum cleaner?",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": null,
+          "coherence": null,
+          "naturalness": null,
+          "role_consistency": null,
+          "recall_fidelity": null,
+          "appropriateness": null,
+          "reasoning_quality": null,
+          "reasoning_answer_consistency": null,
+          "sycophancy_resistance": null,
+          "user_query_quality": null,
+          "user_query_difficulty": null
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "9545a1ec-bf42-4cc0-a388-6583d8671db6",
+        "seed": "can you tell me who mark seifter is? especially focusing on his game design and ",
+        "n_turns": 8,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 9,
+          "coherence": 9,
+          "naturalness": 8,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 9,
+          "reasoning_quality": 7,
+          "reasoning_answer_consistency": 8,
+          "sycophancy_resistance": 8,
+          "user_query_quality": 8,
+          "user_query_difficulty": 8
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_about_format",
+            "severity": 2,
+            "evidence": "Need to be warm, knowledgeable, caring. Provide details: Mark Seifter is a game designer, known for..."
+          },
+          {
+            "turn_index": 3,
+            "dimension": "reasoning_about_format",
+            "severity": 2,
+            "evidence": "Keep tone scholarly but accessible. No length constraint given. Should be thorough."
+          },
+          {
+            "turn_index": 5,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "You could\u2019ve just laid out what he actually did, step by step, without making it sound like a PhD thesis"
+          }
+        ],
+        "notes": "Turn 0 and 3 show formatting instructions in reasoning that would be fatal at inference, and turn 5 contains a direct user complaint that the response was too academic, indicating the model failed to "
+      },
+      {
+        "conversation_id": "df56aae1-9fa6-4019-93ec-a81f7da38b1c",
+        "seed": "Write a non-rhyming poem with strong alliteration and where every other line fav",
+        "n_turns": 9,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": null,
+          "coherence": null,
+          "naturalness": null,
+          "role_consistency": null,
+          "recall_fidelity": null,
+          "appropriateness": null,
+          "reasoning_quality": null,
+          "reasoning_answer_consistency": null,
+          "sycophancy_resistance": null,
+          "user_query_quality": null,
+          "user_query_difficulty": null
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "4026ce76-eea1-4099-98b5-95a3cc73f726",
+        "seed": "How much wood could a wood chuck chuck if a woodchuck could chuck wood?",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "7d35e9fc-e2fc-433d-bf5e-344069520e85",
+        "seed": "Can you tell me how many Kings and Rulers there were throughout history?",
+        "n_turns": 9,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 9,
+          "coherence": 10,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 9,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 9,
+          "user_query_quality": 9,
+          "user_query_difficulty": 9
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 0,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Also be warm and supportive."
+          },
+          {
+            "turn_index": 1,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Need to be warm, knowledgeable, caring. Provide step-by-step."
+          },
+          {
+            "turn_index": 2,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Let's craft final answer with sections: intro, why verification matters, criteria (primary source evidence, attestation, chronological consistency), case study: building Egyptian ruler list from Early"
+          },
+          {
+            "turn_index": 3,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Let's craft answer: using spreadsheet method, we would list each name, assign confidence, and sum distinct IDs = 27 (or 26 if you merge V/VI). Provide explanation."
+          },
+          {
+            "turn_index": 4,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Let's craft answer with clear headings, step-by-step process, sample data, counts, and explanation."
+          },
+          {
+            "turn_index": 5,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Let's produce a haiku that captures the idea of using multiple sources to verify numbers. Provide as answer."
+          }
+        ],
+        "notes": "Multiple harness/meta leakage instances found in reasoning sections of turns 0, 1, 2, 3, 4, and 5, including directives like 'be warm and supportive', 'provide step-by-step', 'let's craft final answer"
+      },
+      {
+        "conversation_id": "bf6275b2-f75a-4917-b934-6a63a95840c3",
+        "seed": "create Base64 code of an image. 64 by 128 pixels. Showing a desolate landscape o",
+        "n_turns": 9,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 9,
+          "coherence": 8,
+          "naturalness": 8,
+          "role_consistency": 10,
+          "recall_fidelity": 9,
+          "appropriateness": 9,
+          "reasoning_quality": 7,
+          "reasoning_answer_consistency": 8,
+          "sycophancy_resistance": 8,
+          "user_query_quality": 8,
+          "user_query_difficulty": 7
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 0,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Thinking Process:"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_about_format",
+            "severity": 2,
+            "evidence": "We need to be careful about formatting. Provide just the Base64 string"
+          }
+        ],
+        "notes": "Turn 0 has severe harness leakage with 'Thinking Process:' header and format/bookkeeping focus, making it unusable for training. Turn 0 also has reasoning about formatting constraints which is inappro"
+      },
+      {
+        "conversation_id": "70effa05-33e9-49bb-93b7-0aa20d2ee437",
+        "seed": "Who is the president of the United States?",
+        "n_turns": 8,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "6245d32d-2cbc-499b-87b6-f51429a52155",
+        "seed": "Dr. James Gates is a theoretical physicist who studied physics at MIT. There he ",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "1de22baa-efeb-48de-9425-07f5783493cd",
+        "seed": "Why are there five rings in Olympic logo? And what does they symbolize?",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": null,
+          "coherence": null,
+          "naturalness": null,
+          "role_consistency": null,
+          "recall_fidelity": null,
+          "appropriateness": null,
+          "reasoning_quality": null,
+          "reasoning_answer_consistency": null,
+          "sycophancy_resistance": null,
+          "user_query_quality": null,
+          "user_query_difficulty": null
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "60633050-e1e8-4ff4-8eaf-c3edf2c906e6",
+        "seed": "Write a hello world program in Python.",
+        "n_turns": 8,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "7a5c0292-ced3-4a3f-94d4-011002ef9d16",
+        "seed": "Alice has a bowl with 8 balls. Three of the balls are white and the rest are bla",
+        "n_turns": 9,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "8457892a-1e5b-44e1-9cbe-38d2f0419121",
+        "seed": "What advice would you give to someone struggling with social anxiety and being s",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": null,
+          "coherence": null,
+          "naturalness": null,
+          "role_consistency": null,
+          "recall_fidelity": null,
+          "appropriateness": null,
+          "reasoning_quality": null,
+          "reasoning_answer_consistency": null,
+          "sycophancy_resistance": null,
+          "user_query_quality": null,
+          "user_query_difficulty": null
+        },
+        "flagged_turns": [],
+        "notes": ""
+      }
+    ]
+  },
+  "bias_probe": null
+}
