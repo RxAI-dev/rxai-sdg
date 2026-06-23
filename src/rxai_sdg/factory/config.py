@@ -116,9 +116,11 @@ class FactoryConfig:
     #: REASONING judge model (e.g. Qwen3.5-397B-A17B, which is materially stronger at
     #: spotting fabricated citations/figures than the 30B coder judge) does not spend
     #: its budget "thinking" and truncate the rubric JSON to an unparseable -> None
-    #: score (a None score silently weakens the gate). A non-reasoning judge stops at
-    #: its natural EOS well before this cap, so the high value is harmless for it.
-    holistic_judge_max_tokens: int = 12000
+    #: score (a None score silently weakens the gate, i.e. effectively skips the guard
+    #: on that example). A non-reasoning judge stops at its natural EOS well before this
+    #: cap, so the high value is harmless for it. Set to 16000: at 12000 the 397B judge
+    #: still truncated ~2/27 very long (code-heavy) transcripts to None.
+    holistic_judge_max_tokens: int = 16000
     #: deterministic pre-filter: flag a turn whose ``regenerations`` exceeds this.
     prefilter_regen_threshold: int = 2
     #: legacy two-field gate thresholds (kept for back-compat of existing JSON/YAML
