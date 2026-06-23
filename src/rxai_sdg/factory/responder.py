@@ -390,6 +390,58 @@ def _strip_filler_tail(text: str) -> str:
     return out if out else t  # never empty the whole reasoning
 
 
+# (D1/D2) PURE delivery-planning sentences: tone / format / output-form planning that
+# carry ZERO cognition about the problem ("Should be warm, knowledgeable.", "No special
+# formatting constraints.", "Provide bullet points.", "Must be concise."). The gpt-oss
+# teacher emits these pervasively and they are un-promptable; they are the dominant
+# reasoning-hygiene defect (the reasoning narrates the RESPONSE instead of thinking
+# about the problem). Stripping them is mechanical clean-up like the trailing-filler
+# strip - it removes contentless meta, never substance. A substance guard (digits,
+# operators, causal/recall markers) ensures a sentence with any real content is kept,
+# and the whole reasoning is never gutted below a floor. Task-restatement openers
+# ("We need to X", "The user wants Y") are deliberately NOT stripped - they may carry
+# the task's substance and are milder.
+_TONE_ADJ = (r"(?:warm|caring|knowledgeable|expert|friendly|professional|empathetic|"
+             r"supportive|compassionate|gentle|reassuring|formal|casual|conversational|"
+             r"concise|clear|brief|encouraging|polished|thorough|helpful|enthusiastic|"
+             r"accurate|precise|factual)")
+_PURE_DELIVERY_RE = re.compile(
+    r"^(?:"
+    r"(?:keep|make|use|set)?\s*(?:the\s+)?tone\s*[:\-]?\s*" + _TONE_ADJ +
+    r"(?:[,\s/]+(?:and\s+)?" + _TONE_ADJ + r")*"
+    r"|(?:should|must|will|need to|i'?ll|let'?s|keep it)\s+(?:be\s+|keep\s+it\s+|stay\s+)?"
+    r"(?:kept\s+)?" + _TONE_ADJ + r"(?:[,\s/]+(?:and\s+)?" + _TONE_ADJ + r")*"
+    r"|no\s+(?:special\s+)?(?:formatting|format|constraints?)"
+    r"(?:\s+(?:constraints?|requested|needed|given|required|specified))?"
+    r"|(?:provide|use|give|present|include|add|format with|format as)\s+(?:(?:a|the|some)\s+)?"
+    r"(?:bullet\s*points?|bulleted\s+list|(?:a\s+)?list|markdown(?:\s+\w+)*|headings?|numbered\s+list)"
+    r"(?:\s+\w+){0,3}"
+    r"|(?:must|should)\s+be\s+concise"
+    r"|keep\s+(?:it|the\s+(?:answer|response|tone))\s+" + _TONE_ADJ +
+    r"(?:[,\s/]+(?:and\s+)?" + _TONE_ADJ + r")*"
+    r"|ensure\s+(?:accuracy|clarity|accurate|clear|valid|it'?s?\s+(?:accurate|clear|valid))"
+    r")\s*\.?\s*$", re.IGNORECASE)
+_DELIVERY_SUBSTANCE_RE = re.compile(
+    r"\d|[=+\-*/×÷]|\b(because|since|so that|therefore|thus|recall|earlier|prior|means|"
+    r"implies|equals|user (?:said|asked|mentioned|wants|set|gave|reiterat\w+))\b", re.IGNORECASE)
+_SENT_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+
+
+def _strip_delivery_planning(text: str) -> str:
+    """Remove pure tone/format/output-form planning sentences (no cognition). Keeps any
+    sentence with real content (substance guard) and never guts the reasoning."""
+    if not text or not text.strip():
+        return text
+    sents = _SENT_SPLIT_RE.split(text.strip())
+    if len(sents) < 2:
+        return text  # a single sentence: leave it (avoid emptying short reasoning)
+    kept = [s for s in sents
+            if not (_PURE_DELIVERY_RE.match(s.strip())
+                    and not _DELIVERY_SUBSTANCE_RE.search(s))]
+    new = " ".join(kept).strip()
+    return new if len(new) >= 15 else text   # never gut below the floor
+
+
 # "standing instruction" is reserved schema vocabulary in this system (it named
 # the old raw-spec note). A native-reasoning model occasionally uses it as plain
 # English when an active standing constraint exists. That is not a schema leak,
@@ -410,17 +462,19 @@ def sanitize_reasoning(text: Optional[str]) -> Optional[str]:
     """THIN, mechanical clean-up of a generated reasoning segment (safety net only).
 
     Strips the glued trailing decoding artifact (mode C), a trailing filler signpost
-    ("Proceed.", "Will produce final answer.") and normalizes the reserved "standing
-    instruction" token. It deliberately does NOT scrub harness leakage, turn-index
-    references, or restart spirals - those are real defects the deterministic
-    pre-filter must HARD-FAIL (an earlier scrubbing version hid them from the
-    pre-filter and left broken artifacts). The real fix is in generation.
+    ("Proceed.", "Will produce final answer."), pure tone/format/output-form planning
+    sentences (the D1/D2 reasoning-hygiene defect: contentless narration of the
+    RESPONSE), and normalizes the reserved "standing instruction" token. It deliberately
+    does NOT scrub harness leakage, turn-index references, or restart spirals - those
+    are real defects the deterministic pre-filter must HARD-FAIL (an earlier scrubbing
+    version hid them from the pre-filter and left broken artifacts).
     """
     if not text:
         return text
     text = _normalize_reasoning(text) or ""
     text = _strip_trailing_artifact(text)
     text = _strip_filler_tail(text)
+    text = _strip_delivery_planning(text)
     return text.strip()
 
 

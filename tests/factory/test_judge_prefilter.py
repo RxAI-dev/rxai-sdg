@@ -182,6 +182,24 @@ def test_sanitize_answer_strips_artifact_only():
     assert sanitize_generated_text("see main.py") == "see main.py"
 
 
+def test_sanitize_strips_pure_delivery_planning():
+    # pure tone/format/output-form planning (D1/D2) is contentless -> stripped,
+    # while task-restatement and any substantive sentence is kept.
+    out = sanitize_reasoning(
+        "We need to answer the question. Should be warm, knowledgeable. "
+        "Provide bullet points. Casa has 4 letters, Fire has 4.")
+    assert "Should be warm" not in out and "Provide bullet points" not in out
+    assert "Casa has 4 letters" in out and "We need to answer the question." in out
+    # a sentence carrying real content must NEVER be stripped (substance guard)
+    assert sanitize_reasoning("We proceed by integrating ln(x) by parts; u=ln x.") == \
+        "We proceed by integrating ln(x) by parts; u=ln x."
+    # never gut the reasoning: a lone delivery sentence is left intact (floor)
+    assert sanitize_reasoning("Should be warm and caring.") == "Should be warm and caring."
+    # recall content is substance, not delivery
+    keep = sanitize_reasoning("The user mentioned Burlington earlier. Keep tone warm.")
+    assert "Burlington" in keep and "Keep tone warm" not in keep
+
+
 # --------------------------------------------------------------- pre-filter
 def test_prefilter_hard_fails_turn_index_in_answer():
     turns = [_turn(0, "q", "clean reasoning about the topic",

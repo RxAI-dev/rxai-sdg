@@ -29,6 +29,9 @@ from typing import Optional
 
 from .config import FactoryConfig
 from .cross_turn import run_cross_turn_checks, cross_turn_pass_rate
+from .exec_gate import (
+    check_code_arithmetic, check_inline_arithmetic, check_json_keys,
+)
 from .holistic import (
     HolisticJudge, RUBRIC_AXES, deterministic_prefilter, _is_degenerate_reasoning,
     _RESTART_HARD_FAIL,
@@ -84,6 +87,44 @@ _SPEC_LEAK_RE = re.compile(
 
 def has_spec_leak(text: str) -> bool:
     return bool(_SPEC_LEAK_RE.search(text or ""))
+
+
+def _numeric_defect(turn) -> Optional[str]:
+    """A PROVABLE numeric/encoding contradiction in this turn (the exec-gate's
+    confident hard checks: code comment-vs-computed, inline prose arithmetic, and
+    confusable JSON keys). Used to REGENERATE the turn at the source rather than emit
+    a defect and drop the whole conversation at the gate. Excludes the conversation-
+    level / human-review checks (haiku, buffering runtime claims)."""
+    ti = getattr(turn, "turn_index", 0)
+    for seg in ("answer", "reasoning"):
+        text = getattr(turn, seg, "") or ""
+        if not text:
+            continue
+        for check in (check_code_arithmetic, check_inline_arithmetic, check_json_keys):
+            flags = check(text, ti, seg)
+            if flags:
+                return f"{flags[0].kind}: {flags[0].evidence}"
+    return None
+
+
+# Fabricated FIRST-PERSON / lived experience: an assistant has no senses, home, or
+# life history, so these are hallucinated ("a friend of mine", "in my experience",
+# "when I tested it", "I once visited", "in my apartment"). Scoped to unambiguous
+# lived-experience tells so ordinary "I recommend / I think / I've outlined" is NOT
+# flagged. A match -> regenerate the turn (the prompt forbids it but gpt-oss leaks it).
+_FABRICATED_EXPERIENCE_RE = re.compile(
+    r"\b(?:a (?:friend|colleague|coworker|neighbou?r|relative|buddy) of mine"
+    r"|a friend'?s (?:apartment|home|house|place|car|kitchen)"
+    r"|in my (?:own )?experience\b"
+    r"|in my (?:apartment|home|house|kitchen|garage|office|car|neighbou?rhood)\b"
+    r"|when I (?:tested|tried|used|visited|measured|built|ran|installed|bought)\b"
+    r"|I once (?:saw|tried|tested|used|visited|built|ran|bought|installed|measured)\b"
+    r"|I (?:have |'?ve )?personally (?:saw|seen|tried|tested|use|used|own|owned|visited|measured|installed)\b"
+    r"|I remember (?:when|seeing|trying|using|visiting)\b)", re.IGNORECASE)
+
+
+def has_fabricated_experience(answer: str) -> bool:
+    return bool(_FABRICATED_EXPERIENCE_RE.search(answer or ""))
 
 
 # Mutually-exclusive constraint groups: at most one member of a group can hold
@@ -346,6 +387,9 @@ class ConversationLoop:
             rdef = _reasoning_defect(out.turn.reasoning or "") if ok else None
             if ok and rdef:
                 ok, detail = False, f"coherence: {rdef}"
+            ndef = _numeric_defect(out.turn) if ok else None
+            if ok and ndef:
+                ok, detail = False, f"coherence: {ndef}"
             if ok:
                 out.turn.verification = VerifyResult(True, "first answer ok", regenerations)
                 return out.turn
@@ -465,6 +509,8 @@ class ConversationLoop:
             return False, "coherence: memory disclaimer present"
         if has_cot_leak(answer):
             return False, "coherence: chain-of-thought leaked into answer"
+        if has_fabricated_experience(answer):
+            return False, "coherence: fabricated first-person/lived experience"
         return True, "ok"
 
     def _verify_turn(
@@ -509,6 +555,13 @@ class ConversationLoop:
         rdef = _reasoning_defect(turn.reasoning or "")
         if rdef:
             return False, f"coherence: {rdef}"
+
+        # a PROVABLE numeric/encoding contradiction (exec gate: code comment-vs-computed,
+        # inline arithmetic, confusable JSON keys) -> regenerate at the source instead of
+        # emitting it and dropping the whole conversation downstream.
+        ndef = _numeric_defect(turn)
+        if ndef:
+            return False, f"coherence: {ndef}"
 
         # this turn's own constraint (the recall/transform "reference prior content"
         # check: for recall the value-presence checker enforces it directly)
