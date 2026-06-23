@@ -113,11 +113,17 @@ def build_lexical(ctx: BuildContext) -> BuildResult:
     # cumulative scopes we therefore draw only compose-friendly sub-types that a
     # teacher can keep satisfying turn after turn (matches the spec's own
     # examples: reformat x standing, lexical x cumulative).
+    #
+    # max_words_per_sentence is deliberately NOT compose-friendly: as a standing
+    # rule it forces the teacher to count words in every sentence of every turn,
+    # which floods the reasoning with word-counting bookkeeping (the dominant
+    # reasoning-hygiene reject). It stays available as a single (current-turn)
+    # rewrite so the constraint is still represented, just never persistent.
     compose_friendly: list[Callable[[BuildContext], tuple[str, dict]]] = [
-        _lex_forbidden, _lex_no_pronouns, _lex_max_words,
+        _lex_forbidden, _lex_no_pronouns,
     ]
     single_rewrite: list[Callable[[BuildContext], tuple[str, dict]]] = [
-        _lex_first_letter, _lex_alphabetical,
+        _lex_first_letter, _lex_alphabetical, _lex_max_words,
     ]
     if ctx.policy in ("standing", "cumulative"):
         choices = compose_friendly
@@ -157,11 +163,17 @@ def build_restyle(ctx: BuildContext) -> BuildResult:
     return BuildResult(_make_spec(ctx, "style", {"style": style}, "llm_judge"))
 
 
+#: A word-budget compression ("at most N words") makes the teacher count words in
+#: its reasoning every turn - the dominant reasoning-hygiene (D2) reject when the
+#: budget is a STANDING rule (it previously fired on every standing/cumulative
+#: compress). Keep the constraint in the mix (real users do ask for a word limit)
+#: but as a clear MINORITY so it no longer dominates a conversation; the rest of
+#: the time use a bullet-count budget, which needs far less per-turn counting.
+_LENGTH_TOKENS_PROB = 0.3
+
+
 def build_compress(ctx: BuildContext) -> BuildResult:
-    # A fixed bullet count as a standing/cumulative rule is rigid; persist only
-    # the loose word-budget form across turns.
-    use_length = ctx.policy in ("standing", "cumulative") or ctx.rng.random() < 0.5
-    if use_length:
+    if ctx.rng.random() < _LENGTH_TOKENS_PROB:
         n = ctx.rng.choice([30, 50, 75])
         spec = _make_spec(ctx, "length_tokens", {"max_words": n}, "hybrid")
     else:
