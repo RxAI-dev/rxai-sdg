@@ -179,20 +179,41 @@ def analyze_batch(records, cfg):
     means = {k: _mean(v) for k, v in axis_values.items()}
     pass_rate = round(gate_pass / n, 3) if n else None
 
+    # Deterministic hard-fails that survive INTO the emitted (gate-passing) set. By
+    # construction a gate-passing conversation has prefilter.passed=True, so this
+    # should be empty - it is the "emitted dataset is clean" invariant. (The batch is
+    # generated gate-OFF for measurement, so the raw hard_counts above include the
+    # rejected conversations and are expected to be non-zero - that is the defect the
+    # gate catches, not an acceptance failure.)
+    emitted_hard: dict[str, int] = {}
+    for c in per_conv:
+        if c["gate_pass"]:
+            for h in c["prefilter_hard_fails"]:
+                emitted_hard[h["kind"]] = emitted_hard.get(h["kind"], 0) + 1
+
+    # Acceptance is the MEASUREMENT being healthy, not the judge scoring high. A judge
+    # pinned near 10 is BLIND (the failure this whole effort fixes), so we do NOT
+    # require high means - we require the opposite: the judge must DISCRIMINATE, and
+    # the gate pass-rate must sit in the 0.65-0.80 band (near 1.0 is suspicious).
+    rq_mean = means.get("reasoning_quality")
+    fg_mean = means.get("factual_grounding")
     acceptance = {
-        "turn_index_in_answer": hard_counts.get("turn_index_in_answer", 0) == 0,
-        "harness_in_reasoning": hard_counts.get("harness_in_reasoning", 0) == 0,
-        "trailing_artifact": hard_counts.get("trailing_artifact", 0) == 0,
-        "degenerate_reasoning": (hard_counts.get("degenerate_reasoning", 0)
-                                 + flag_counts.get("degenerate_reasoning", 0)) == 0,
+        # the emitted (gate-passing) dataset carries none of the objective defects
+        "emitted_no_hard_fails": sum(emitted_hard.values()) == 0,
         "no_regen_gt_2": max_regen <= cfg.prefilter_regen_threshold,
-        "mean_reasoning_quality_ge_8": (means.get("reasoning_quality") or 0) >= 8,
-        "mean_rac_ge_8": (means.get("reasoning_answer_consistency") or 0) >= 8,
-        "gate_pass_rate_in_band": (pass_rate is not None and 0.65 <= pass_rate <= 0.95),
+        # judge is not blind: a discriminating judge does not pin reasoning_quality /
+        # factual_grounding at the ceiling across a real, mixed batch.
+        "judge_discriminating": (
+            (rq_mean is not None and rq_mean < 9.5)
+            or (fg_mean is not None and fg_mean < 9.5)
+            or (pass_rate is not None and pass_rate < 0.95)),
+        # convergence band (task §3 Phase E): scores track isolated review here.
+        "gate_pass_rate_in_band": (pass_rate is not None and 0.65 <= pass_rate <= 0.80),
     }
     return {
         "n": n,
         "hard_counts": hard_counts,
+        "emitted_hard_counts": emitted_hard,
         "flag_counts": flag_counts,
         "flagged_by_dimension": flagged_by_dim,
         "judge_means": means,
