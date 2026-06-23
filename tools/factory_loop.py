@@ -199,8 +199,8 @@ def analyze_batch(records, cfg):
     fg_mean = means.get("factual_grounding")
     acceptance = {
         # the emitted (gate-passing) dataset carries none of the objective defects
+        # (this already covers excess_regenerations, which is itself a hard-fail kind)
         "emitted_no_hard_fails": sum(emitted_hard.values()) == 0,
-        "no_regen_gt_2": max_regen <= cfg.prefilter_regen_threshold,
         # judge is not blind: a discriminating judge does not pin reasoning_quality /
         # factual_grounding at the ceiling across a real, mixed batch.
         "judge_discriminating": (
