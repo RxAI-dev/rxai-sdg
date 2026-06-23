@@ -34,6 +34,7 @@ from .detectors import (
     detect_confidence_mismatch, detect_code_mismatch, detect_fabricated_citation,
     detect_constraint_corruption,
 )
+from .exec_gate import run_exec_gate
 from .responder import (
     HARNESS_REASONING_RES,
     count_restart_markers,
@@ -334,6 +335,19 @@ def deterministic_prefilter(turns: list[Turn], regen_threshold: int = 2) -> Pref
         if f.severity >= 3:  # asserted output is provably wrong
             hard.append({"turn_index": f.turn_index, "kind": "code_" + f.name,
                          "evidence": f.evidence})
+
+    # Programmatic execution & arithmetic gate (D5/D4-numeric): runs fenced code and
+    # compares comment-literals + computed values, verifies inline prose arithmetic,
+    # checks non-ASCII JSON keys and 5-7-5 haiku syllables. A confident contradiction
+    # hard-fails; an undecidable runtime-behaviour claim (the stdout buffering demo)
+    # is FLAGGED FOR HUMAN, never silently accepted, so it also blocks the gate. The
+    # LLM judge cannot execute code or do arithmetic, so this MUST precede it.
+    gate = run_exec_gate(turns)
+    for f in gate.hard_fails:
+        hard.append({"turn_index": f.turn_index, "kind": f.kind, "evidence": f.evidence})
+    for f in gate.human_flags:
+        hard.append({"turn_index": f.turn_index, "kind": f.kind,
+                     "evidence": "FLAG_FOR_HUMAN: " + f.evidence})
 
     return PrefilterResult(passed=(len(hard) == 0), hard_fails=hard, flags=soft)
 
