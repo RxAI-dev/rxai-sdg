@@ -32,6 +32,7 @@ from typing import Optional
 from .clients import LLMClient
 from .detectors import (
     detect_confidence_mismatch, detect_code_mismatch, detect_fabricated_citation,
+    detect_constraint_corruption,
 )
 from .responder import (
     HARNESS_REASONING_RES,
@@ -145,8 +146,20 @@ _JUDGE_SYSTEM = (
     "a research-level topic the model is clearly RECONSTRUCTING not recalling (a specific "
     "generator matrix, exact per-edge/coordinate values, exact parameters) - especially "
     "when the reasoning gropes for it ('let me try', 'example', repeated 'Wait/Actually/"
-    "No', competing candidate values, question marks). A clearly-labelled rough order-of-"
-    "magnitude estimate is NOT fabrication; an invented SPECIFIC dressed as verified IS.\n\n"
+    "No', competing candidate values, question marks).\n"
+    "  CALIBRATION - do NOT over-penalise. The test for fabrication is BOTH (i) the claim "
+    "is presented as a precise, verified fact AND (ii) it is genuinely unknowable without "
+    "a lookup (a niche citation, an obscure exact ranking, an invented matrix/parameter, a "
+    "named study+figure). 'Specific' alone is not fabrication. The following are GOOD honest "
+    "answers and must score factual_grounding 8-10, NOT be flagged: a well-hedged approximate "
+    "figure or typical range for everyday things ('robot vacuums are about 7-10 cm tall', "
+    "'roughly 20-30 years per reign'); widely-known common-knowledge facts (the Olympic "
+    "rings were designed around 1913 and debuted in 1920; water boils at 100 C); round "
+    "numbers and ranges clearly marked approximate with 'about/roughly/typically/~/most ... "
+    "are'; standard textbook results, famous works, and basic dates a well-read person knows. "
+    "Reserve the low score and the severity-3 flag for an INVENTED specific dressed as "
+    "verified - when in genuine doubt between 'honest common-knowledge approximation' and "
+    "'fabricated precise specific', do NOT flag.\n\n"
     "IMPORTANT - the USER turns are ALSO machine-generated (by a separate simulator "
     "model), so do NOT assume they are good. Grade them on two more axes:\n"
     "- user_query_quality: are the user messages well-formed, coherent, on-topic and "
@@ -301,6 +314,12 @@ def deterministic_prefilter(turns: list[Turn], regen_threshold: int = 2) -> Pref
     # judge is empirically blind to it (scores factual_grounding 10), so it must
     # hard-fail deterministically like the other factuality gates.
     for f in detect_fabricated_citation(turns):
+        hard.append({"turn_index": f.turn_index, "kind": f.name,
+                     "evidence": f.evidence})
+    # Lexical constraint corrupting a LaTeX/code block (target letter spliced into
+    # every formula line). Garbled training data; the constraint verifier may still
+    # report "satisfied", so this must hard-fail deterministically.
+    for f in detect_constraint_corruption(turns):
         hard.append({"turn_index": f.turn_index, "kind": f.name,
                      "evidence": f.evidence})
     for f in detect_code_mismatch(turns):

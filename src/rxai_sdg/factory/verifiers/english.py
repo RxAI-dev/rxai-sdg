@@ -26,10 +26,45 @@ LANGUAGE_SPECIFIC_TYPES = [
 
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
 
+# Structured spans that are NOT prose: a lexical sentence-start / word-count rule
+# applies to the PROSE only, never to code, LaTeX/math or table syntax. Stripping
+# them here means (a) a clean answer that keeps its math/code intact still PASSES the
+# constraint, and (b) the model is not pushed to corrupt a LaTeX matrix by prefixing
+# every line with the target letter (the "S\;G=\begin{pmatrix} S\;1&1..." defect).
+_STRUCTURED_SPANS = [
+    re.compile(r"```.*?```", re.S),                 # fenced code blocks
+    re.compile(r"~~~.*?~~~", re.S),                  # fenced code blocks (tildes)
+    re.compile(r"\\\[.*?\\\]", re.S),               # LaTeX display math \[ ... \]
+    re.compile(r"\$\$.*?\$\$", re.S),               # $$ ... $$
+    re.compile(r"\\begin\{.*?\}.*?\\end\{.*?\}", re.S),  # LaTeX environments
+    re.compile(r"\\\(.*?\\\)", re.S),               # inline math \( ... \)
+    re.compile(r"`[^`\n]+`"),                        # inline code spans
+    re.compile(r"(?m)^[ \t]*\|.*\|[ \t]*$"),        # markdown table rows
+]
 
-def split_sentences(text: str) -> list[str]:
-    """Split ``text`` into sentences (simple English heuristic)."""
-    cleaned = " ".join(text.replace("\n", " ").split())
+
+def _strip_structured(text: str) -> str:
+    """Remove code / LaTeX-math / table spans, leaving prose for lexical checks."""
+    out = text
+    for rx in _STRUCTURED_SPANS:
+        out = rx.sub(" ", out)
+    return out
+
+
+def split_sentences(text: str, prose_only: bool = False) -> list[str]:
+    """Split ``text`` into sentences (simple English heuristic).
+
+    With ``prose_only=True`` code/LaTeX/table spans are stripped first, so a
+    sentence-start / word-count constraint is checked against prose only (and a
+    clean answer keeps its math/code intact). Falls back to the full text if
+    stripping leaves nothing (a pure-code answer), so behaviour is unchanged there.
+    """
+    src = text
+    if prose_only:
+        stripped = _strip_structured(text)
+        if stripped.strip():
+            src = stripped
+    cleaned = " ".join(src.replace("\n", " ").split())
     if not cleaned:
         return []
     parts = _SENTENCE_SPLIT_RE.split(cleaned)
@@ -52,7 +87,7 @@ def first_letter(answer: str, params: dict, conversation: Any) -> tuple[bool, st
     letter = str(params.get("letter", "")).lower()
     if not letter:
         return False, "no target letter in params"
-    sentences = split_sentences(answer)
+    sentences = split_sentences(answer, prose_only=True)
     if not sentences:
         return False, "no sentences found"
     offenders = [
@@ -71,7 +106,7 @@ def max_words_per_sentence(answer: str, params: dict, conversation: Any) -> tupl
     max_words = params.get("max_words")
     if max_words is None:
         return False, "no max_words in params"
-    sentences = split_sentences(answer)
+    sentences = split_sentences(answer, prose_only=True)
     if not sentences:
         return False, "no sentences found"
     for s in sentences:
@@ -112,7 +147,7 @@ def alphabetical_sentence_starts(answer: str, params: dict, conversation: Any) -
     increasing sequence rather than merely non-decreasing.
     """
     strict = bool(params.get("strict", False))
-    sentences = split_sentences(answer)
+    sentences = split_sentences(answer, prose_only=True)
     if len(sentences) < 2:
         return False, "need at least two sentences"
     letters = [_first_alpha(s).lower() for s in sentences]

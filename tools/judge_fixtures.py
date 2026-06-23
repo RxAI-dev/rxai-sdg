@@ -207,6 +207,25 @@ BAD8 = _rec("bad8_fabrication_thrash", [
 ])
 
 # ---------------------------------------------------------------------------
+# BAD 9 - (K) lexical constraint corrupting a LaTeX block: a first-letter-'S' rule
+# applied to a math answer prefixes the target letter onto every formula line,
+# garbling the matrix. The constraint verifier may report "satisfied", so the
+# deterministic pre-filter must hard-fail it. Distilled from a real generated reject
+# (Gates/Adinkra D4-code derivation).
+# ---------------------------------------------------------------------------
+BAD9 = _rec("bad9_constraint_corruption", [
+    _t(0,
+       "Show the generator matrix of the even-weight code, with every sentence "
+       "starting with S.",
+       "The even-weight code has length four. I'll write the explanation in prose "
+       "starting each sentence with S and keep the matrix itself clean and valid.",
+       "S The even-weight D4 code has length four and dimension three. "
+       "S\\;G=\\begin{pmatrix} S\\;1&1&0&0\\\\ S\\;1&0&1&0\\\\ S\\;1&0&0&1\\\\ "
+       "S\\;0&1&1&0\\\\ S\\;0&1&0&1 \\end{pmatrix}. "
+       "S So every codeword has even weight."),
+])
+
+# ---------------------------------------------------------------------------
 # CLEAN - a good conversation (gate must NOT reject everything)
 # ---------------------------------------------------------------------------
 CLEAN = _rec("clean_good", [
@@ -276,6 +295,11 @@ def build_fixtures() -> list[Fixture]:
                 prefilter_kinds={"restart_spiral"},
                 judge_low_axes=(),  # objective: restart spiral caught deterministically
                 covers="J (confident technical fabrication via reasoning thrash spiral)"),
+        Fixture("bad9_constraint_corruption", BAD9,
+                gate_should_pass=False, prefilter_hard_fail=True,
+                prefilter_kinds={"constraint_corruption"},
+                judge_low_axes=(),  # objective: caught deterministically by the pre-filter
+                covers="K (lexical constraint corrupting a LaTeX/code block)"),
         Fixture("clean_good", CLEAN,
                 gate_should_pass=True, prefilter_hard_fail=False,
                 judge_low_axes=(),

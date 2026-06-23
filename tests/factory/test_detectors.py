@@ -10,7 +10,7 @@ from rxai_sdg.factory.detectors import (
     detect_confidence_mismatch, detect_fabricated_specifics, detect_code_mismatch,
     detect_format_bookkeeping, detect_reasoning_artifacts, reasoning_specifics,
     admission_markers, uncertainty_markers, detect_fabricated_citation,
-    fabricated_citations,
+    fabricated_citations, detect_constraint_corruption,
 )
 
 
@@ -68,6 +68,24 @@ def test_Acite_does_not_fire_on_hedged_or_common_knowledge():
     # A clearly-labelled rough estimate (no named source) must not fire.
     assert not fabricated_citations(
         "As a rough order-of-magnitude guess, there were perhaps tens of thousands.")
+
+
+# --------------------------------------------------------------- G (constraint corruption)
+def test_G_constraint_corruption_latex_rejects():
+    # first-letter-'S' spliced into every formula line garbles the matrix.
+    corrupt = ("S The code has length four. S\\;G=\\begin{pmatrix} S\\;1&1&0&0\\\\ "
+               "S\\;1&0&1&0\\\\ S\\;1&0&0&1\\\\ S\\;0&1&1&0 \\end{pmatrix}. S Done.")
+    flags = detect_constraint_corruption([_turn(0, "q", "clean reasoning", corrupt)])
+    assert flags and flags[0].severity == 3 and flags[0].name == "constraint_corruption"
+
+
+def test_G_does_not_fire_on_clean_dense_latex():
+    # Legitimate dense LaTeX uses \; and \, after symbols, but never one specific
+    # letter glued repeatedly.
+    clean = ("The garden algebra \\{Q_I,Q_J\\}=2\\delta_{IJ}\\,\\partial_t requires "
+             "each \\(\\Gamma_I\\) to link bosons \\(\\phi_a\\;\\) to fermions. "
+             "\\[ G=\\begin{pmatrix} 1&1&0&0\\\\ 1&0&1&0 \\end{pmatrix} \\]")
+    assert not detect_constraint_corruption([_turn(0, "q", "r", clean)])
 
 
 def test_A_refusal_to_fabricate_is_not_flagged():

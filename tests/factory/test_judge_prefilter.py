@@ -241,6 +241,15 @@ def test_prefilter_hard_fails_fabricated_citation():
     assert "fabricated_citation" in {h["kind"] for h in res.hard_fails}
 
 
+def test_prefilter_hard_fails_constraint_corruption():
+    corrupt = ("S The code has length four. S\\;G=\\begin{pmatrix} S\\;1&1&0&0\\\\ "
+               "S\\;1&0&1&0\\\\ S\\;1&0&0&1\\\\ S\\;0&1&1&0 \\end{pmatrix}. S Done.")
+    turns = [_turn(0, "make every sentence start with S", "clean reasoning", corrupt)]
+    res = deterministic_prefilter(turns)
+    assert res.passed is False
+    assert "constraint_corruption" in {h["kind"] for h in res.hard_fails}
+
+
 def test_prefilter_hard_fails_target_answer_leak():
     turns = [_turn(0, "q",
                    "Final Output Generation: (This matches the provided good response.)",

@@ -272,6 +272,53 @@ def detect_fabricated_citation(turns: list[dict]) -> list[Flag]:
     return flags
 
 
+# ----------------------------------------------------------------------- G-corrupt
+# A lexical sentence-start / first-letter constraint applied DESTRUCTIVELY to
+# structured content: the model prefixes the target letter onto every line of a
+# LaTeX matrix or code block ("S\;G=\begin{pmatrix} S\;1&1&0&0 ..."), corrupting the
+# math/code. The signature is the SAME single letter glued to a math token (\; \, \[
+# \begin) many times - legitimate dense LaTeX uses these too, but never one specific
+# letter glued repeatedly. Also catches a fenced code block whose lines are all
+# prefixed with the same single letter + space.
+_CORRUPT_GLUE_RE = re.compile(r"\b([A-Za-z])\\[;,](?=[A-Za-z0-9\\])")
+_CORRUPT_DELIM_RE = re.compile(r"\b([A-Za-z])\s{0,2}\\(?:\[|begin\b)")
+_FENCE_RE = re.compile(r"```[^\n]*\n(.*?)```", re.S)
+
+
+def _constraint_corruption(answer: str, glue_threshold: int = 5) -> Optional[str]:
+    from collections import Counter
+    c: Counter = Counter()
+    for m in _CORRUPT_GLUE_RE.finditer(answer or ""):
+        c[m.group(1)] += 1
+    for m in _CORRUPT_DELIM_RE.finditer(answer or ""):
+        c[m.group(1)] += 1
+    if c:
+        letter, n = c.most_common(1)[0]
+        if n >= glue_threshold:
+            return f"letter {letter!r} glued into LaTeX/math {n} times"
+    for block in _FENCE_RE.findall(answer or ""):
+        lines = [ln for ln in block.split("\n") if ln.strip()]
+        if len(lines) >= 4:
+            prefixes = {ln.lstrip()[:2] for ln in lines}
+            if len(prefixes) == 1:
+                p = next(iter(prefixes))
+                if len(p) == 2 and p[0].isalpha() and p[1] == " ":
+                    return f"every code line prefixed with {p[0]!r}"
+    return None
+
+
+def detect_constraint_corruption(turns: list[dict]) -> list[Flag]:
+    """G (hard reject). A lexical constraint mechanically corrupting a LaTeX/code
+    block (the target letter spliced into every formula/code line). The output is
+    garbled training data even though the constraint verifier may report 'satisfied'."""
+    flags: list[Flag] = []
+    for t in turns:
+        ev = _constraint_corruption(_seg(t, "answer"))
+        if ev:
+            flags.append(Flag("G", "constraint_corruption", 3, _turn_index(t), ev))
+    return flags
+
+
 # --------------------------------------------------------------------------- B
 def detect_fabricated_specifics(turns: list[dict]) -> list[Flag]:
     """B. Any fabricated checkable specific in an answer (severity scales with how
@@ -451,6 +498,7 @@ def run_all(record: dict, run_code: bool = True) -> list[Flag]:
     flags: list[Flag] = []
     flags += detect_confidence_mismatch(turns, fq)
     flags += detect_fabricated_citation(turns)
+    flags += detect_constraint_corruption(turns)
     flags += detect_fabricated_specifics(turns)
     if run_code:
         flags += detect_code_mismatch(turns)
