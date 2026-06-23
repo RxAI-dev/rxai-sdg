@@ -312,7 +312,10 @@ def has_numbered_flow_list(reasoning: str) -> bool:
 
 # (D) restart-spiral signal: the model loops self-correction ("Wait, ...",
 # "Okay, ...", "Hold on, ...", "Actually, ...") many times in one reasoning block.
-_RESTART_RE = re.compile(r"(?im)(?:^|\n|\.)\s*(?:wait|hold on|actually|okay,? so|let me reconsider|on second thought)\b")
+# The anchor must include "?" and "!" - a self-correction routinely follows a
+# rhetorical question ("...need 8 bits? Wait, no...") and anchoring only on "."
+# missed those, letting a thrashing technical reconstruction score as clean.
+_RESTART_RE = re.compile(r"(?im)(?:^|\n|[.?!])\s*(?:wait|hold on|actually|okay,? so|let me reconsider|on second thought)\b")
 
 
 def count_restart_markers(reasoning: str) -> int:

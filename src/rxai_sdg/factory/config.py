@@ -112,6 +112,13 @@ class FactoryConfig:
         "instruction_following": 6, "user_query_quality": 6})
     #: reject if any ``flagged_turns`` entry has severity >= this cutoff.
     hard_fail_on_flagged_severity: int = 3
+    #: completion-token cap for the holistic judge call. Generous by default so a
+    #: REASONING judge model (e.g. Qwen3.5-397B-A17B, which is materially stronger at
+    #: spotting fabricated citations/figures than the 30B coder judge) does not spend
+    #: its budget "thinking" and truncate the rubric JSON to an unparseable -> None
+    #: score (a None score silently weakens the gate). A non-reasoning judge stops at
+    #: its natural EOS well before this cap, so the high value is harmless for it.
+    holistic_judge_max_tokens: int = 12000
     #: deterministic pre-filter: flag a turn whose ``regenerations`` exceeds this.
     prefilter_regen_threshold: int = 2
     #: legacy two-field gate thresholds (kept for back-compat of existing JSON/YAML

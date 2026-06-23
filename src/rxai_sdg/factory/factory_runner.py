@@ -70,7 +70,9 @@ class DataFactory:
         # whenever a (non-Qwen) judge client is supplied.
         self.holistic = None
         if config.holistic_judge_enabled and holistic_client is not None:
-            self.holistic = HolisticJudge(holistic_client, rng=self.rng)
+            self.holistic = HolisticJudge(
+                holistic_client, rng=self.rng,
+                max_tokens=config.holistic_judge_max_tokens)
         # LLM seed curator (fix A) when a curator client is supplied and enabled;
         # otherwise a transparent heuristic fallback is used.
         cur_client = curator_client if config.seed_curator_enabled else None

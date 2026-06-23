@@ -84,11 +84,16 @@ def build_factory(args):
     curator = OpenAILLMClient(
         model_name=_env("RXAI_CURATOR_MODEL", default="Mistral-Small-3.2-24B-Instruct-2506"),
         api_url=base, api_key=key, timeout=t, max_retries=rt)
-    # FROZEN judge model = Qwen3-Coder-30B (the task's specified judge): the most
-    # discriminating of the candidates (Mistral scored only 9-10 and never let the
-    # gate reject clean-ish data -> pass-rate pinned at 1.0). The judge<->simulator
-    # self-eval concern was checked empirically (iter1 bias probe: Qwen 9.89 vs
-    # Mistral 10 on user_query_quality - NOT inflated, slightly stricter).
+    # Judge model. Default Qwen3-Coder-30B (fast, the task's specified judge). NOTE
+    # (validated empirically this iteration): the 30B judge is BLIND to confident
+    # fabrication - it scores fabricated citations and made-up technical constructs
+    # factual_grounding 10. The deterministic detectors (fabricated_citation,
+    # restart_spiral, confidence_mismatch) are the robust gate for that class. For a
+    # materially STRONGER semantic judge, set RXAI_JUDGE_MODEL=Qwen3.5-397B-A17B: it
+    # scores those same fabrications factual_grounding 1-2 with a severity-3 flag,
+    # while keeping genuinely-good conversations high. It is a reasoning model, so it
+    # needs the generous judge token budget (config.holistic_judge_max_tokens=12000)
+    # or it truncates the rubric JSON to None.
     judge = OpenAILLMClient(
         model_name=_env("RXAI_JUDGE_MODEL", default="Qwen3-Coder-30B-A3B-Instruct"),
         api_url=base, api_key=key, timeout=t, max_retries=rt)

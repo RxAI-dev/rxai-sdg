@@ -71,7 +71,18 @@ _RESPONDER_BASE = (
     "asks for facts you cannot ground (for example the biography of someone you do "
     "not recognise, or an exact 'Nth largest' ranking), hedge or say you don't know "
     "and explain how the person could find out, rather than fabricating specifics - "
-    "acknowledging uncertainty is always better than stating an unverified fact."
+    "acknowledging uncertainty is always better than stating an unverified fact. "
+    "In particular: NEVER invent a citation. Do not attribute a claim to a named "
+    "study, article, journal, report, survey, poll or database together with a year "
+    "or a figure (e.g. 'a 2013 article in Historical Methods estimated 45,000') "
+    "unless you genuinely recall that exact source - speak in general terms instead, "
+    "and label any rough number plainly as an estimate. And when asked for a precise "
+    "technical construction you cannot recall exactly (a specific matrix, exact "
+    "parameter values, an exact code/lookup table, exact coordinates), say you do not "
+    "recall the exact values and explain the method or where to find them, rather than "
+    "reconstructing a guess and presenting it as established fact. If you find yourself "
+    "reconstructing by trial and error ('is it 8 or 16? actually...'), that is a sign "
+    "you do not know it - hedge rather than asserting a fabricated specific."
 )
 
 # The Simulator is a genuine, LLM-driven USER. It is shown the FULL conversation

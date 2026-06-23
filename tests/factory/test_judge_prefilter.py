@@ -221,6 +221,26 @@ def test_prefilter_hard_fails_restart_spiral_and_numbered_flow():
     assert "numbered_flow_in_reasoning" in {h["kind"] for h in deterministic_prefilter(turns2).hard_fails}
 
 
+def test_prefilter_hard_fails_question_anchored_restart_spiral():
+    # The restart-anchor fix: self-corrections that follow a "?" (a thrashing
+    # technical reconstruction) must be counted, not just those after a ".".
+    spiral = ("We need the matrix. Wait, 8 bits? Actually 16? No. Wait, the cube? "
+              "Actually the 4-cube. Wait, let me reconsider. Actually rows. Wait, "
+              "no, try again.")
+    turns = [_turn(0, "q", spiral, "rows are 11110000, 11001100.")]
+    assert "restart_spiral" in {h["kind"] for h in deterministic_prefilter(turns).hard_fails}
+
+
+def test_prefilter_hard_fails_fabricated_citation():
+    turns = [_turn(0, "how many monarchs in history?",
+                   "Genuinely unknowable; I'll give an honest order of magnitude.",
+                   "A 2013 article in *Historical Methods* estimated about 45,000 "
+                   "sovereigns across the last 5,000 years.")]
+    res = deterministic_prefilter(turns)
+    assert res.passed is False
+    assert "fabricated_citation" in {h["kind"] for h in res.hard_fails}
+
+
 def test_prefilter_hard_fails_target_answer_leak():
     turns = [_turn(0, "q",
                    "Final Output Generation: (This matches the provided good response.)",

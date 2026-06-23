@@ -30,7 +30,9 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from .clients import LLMClient
-from .detectors import detect_confidence_mismatch, detect_code_mismatch
+from .detectors import (
+    detect_confidence_mismatch, detect_code_mismatch, detect_fabricated_citation,
+)
 from .responder import (
     HARNESS_REASONING_RES,
     count_restart_markers,
@@ -132,7 +134,19 @@ _JUDGE_SYSTEM = (
     "poll numbers, attendance or funding figures - as if verified. A confident answer "
     "built on an ungroundable premise (the biography of an obscure person, an exact "
     "city/population ranking) is fabrication: score 1-2. This is the worst defect - a "
-    "single confidence-uncertainty mismatch makes the whole example unusable.\n\n"
+    "single confidence-uncertainty mismatch makes the whole example unusable. AND - "
+    "crucially - you do NOT need the reasoning to admit doubt: judge fabrication FROM "
+    "THE ANSWER ALONE, because with no retrieval the model cannot know any specific it "
+    "did not already memorise. Even in fluent, confident prose these are fabrication "
+    "(score 1-3, add a severity-3 factual_grounding flag): a named study/article/report "
+    "credited with a figure ('a 2013 article in Historical Methods estimated ~45,000', "
+    "'according to a 2019 survey, 62%'); an invented-sounding named database/tool/org "
+    "presented as real and usable; a precise technical construction asserted as fact in "
+    "a research-level topic the model is clearly RECONSTRUCTING not recalling (a specific "
+    "generator matrix, exact per-edge/coordinate values, exact parameters) - especially "
+    "when the reasoning gropes for it ('let me try', 'example', repeated 'Wait/Actually/"
+    "No', competing candidate values, question marks). A clearly-labelled rough order-of-"
+    "magnitude estimate is NOT fabrication; an invented SPECIFIC dressed as verified IS.\n\n"
     "IMPORTANT - the USER turns are ALSO machine-generated (by a separate simulator "
     "model), so do NOT assume they are good. Grade them on two more axes:\n"
     "- user_query_quality: are the user messages well-formed, coherent, on-topic and "
@@ -282,6 +296,13 @@ def deterministic_prefilter(turns: list[Turn], regen_threshold: int = 2) -> Pref
     for f in detect_confidence_mismatch(turns, first_q):
         hard.append({"turn_index": f.turn_index, "kind": f.name,
                      "evidence": f.evidence})
+    # Fabricated scholarly citation (a named study/report attributed a concrete
+    # figure, or a dated venue). With no retrieval this is invented, and the LLM
+    # judge is empirically blind to it (scores factual_grounding 10), so it must
+    # hard-fail deterministically like the other factuality gates.
+    for f in detect_fabricated_citation(turns):
+        hard.append({"turn_index": f.turn_index, "kind": f.name,
+                     "evidence": f.evidence})
     for f in detect_code_mismatch(turns):
         if f.severity >= 3:  # asserted output is provably wrong
             hard.append({"turn_index": f.turn_index, "kind": "code_" + f.name,
@@ -300,8 +321,13 @@ class HolisticJudge:
     rng: Optional[random.Random] = None
     sample_rate: float = 1.0
     gate_on_programmatic: bool = False
-    #: headroom for the rubric JSON; the verbose judge appends free-text ramble
-    #: after the object, so give the object itself room to close.
+    #: headroom for the rubric JSON. A verbose judge appends free-text ramble after
+    #: the object, and a REASONING judge (e.g. Qwen3.5-397B-A17B - materially better
+    #: at spotting fabricated citations/figures than the 30B coder judge) spends
+    #: tokens thinking BEFORE the JSON; too small a cap truncates the object to an
+    #: unparseable -> None score, which silently weakens the gate. The factory passes
+    #: ``config.holistic_judge_max_tokens`` (default 12000); 3000 here is only the
+    #: bare-constructor default for a non-reasoning judge.
     max_tokens: int = 3000
 
     def __post_init__(self) -> None:

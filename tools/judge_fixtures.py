@@ -171,6 +171,42 @@ BAD6 = _rec("bad6_bad_user_query", [
 ])
 
 # ---------------------------------------------------------------------------
+# BAD 7 - (I) fabricated scholarly citation: a named dated article credited with a
+# concrete figure, plus an invented database. With no retrieval this is invented;
+# the LLM judge is blind to it (scores factual_grounding 10), so the deterministic
+# pre-filter must hard-fail it. Distilled from a real generated reject (kings/rulers).
+# ---------------------------------------------------------------------------
+BAD7 = _rec("bad7_fabricated_citation", [
+    _t(0,
+       "Roughly how many monarchs have there been in all of recorded history?",
+       "This is a huge, vague question and the true total is genuinely unknowable. "
+       "I should give an honest order-of-magnitude sense and explain the uncertainty.",
+       "Nobody knows precisely, but a 2013 article in *Historical Methods* estimated "
+       "about 45,000 sovereigns across the last 5,000 years. You can cross-check this "
+       "against the World History Database (WHDB), which catalogues thousands of "
+       "polities with reign dates."),
+])
+
+# ---------------------------------------------------------------------------
+# BAD 8 - (J) confident TECHNICAL fabrication: the reasoning visibly thrashes
+# (a restart spiral of "Wait/Actually" self-corrections, many anchored on a "?"),
+# reconstructing specifics it does not know, then the answer asserts a made-up
+# generator matrix as established fact. Distilled from a real generated reject
+# (Gates/Adinkra). The restart spiral is objective -> deterministic hard-fail.
+# ---------------------------------------------------------------------------
+BAD8 = _rec("bad8_fabrication_thrash", [
+    _t(0,
+       "Walk me through the exact dash pattern for each edge of the [8,4,4] Hamming "
+       "cube Adinkra.",
+       "We need the generator matrix. Wait, do we need 8 bits? Actually the cube has "
+       "8 vertices? No - N=4 gives 16. Hmm, the simplest is the 4-cube. Wait, let me "
+       "reconsider. Actually each edge colour gets a vector. Wait, take the rows as an "
+       "example. Actually the dashing is (-1)^{c.v}. Wait, no, let me try again.",
+       "The four generator rows are c1 = 11110000, c2 = 11001100, c3 = 10101010, "
+       "c4 = 10000111; each row marks exactly which edges of its colour are dashed."),
+])
+
+# ---------------------------------------------------------------------------
 # CLEAN - a good conversation (gate must NOT reject everything)
 # ---------------------------------------------------------------------------
 CLEAN = _rec("clean_good", [
@@ -230,6 +266,16 @@ def build_fixtures() -> list[Fixture]:
                 gate_should_pass=False, prefilter_hard_fail=False,
                 judge_low_axes=("user_query_quality",),
                 covers="H (low-quality LLM-generated user query)"),
+        Fixture("bad7_fabricated_citation", BAD7,
+                gate_should_pass=False, prefilter_hard_fail=True,
+                prefilter_kinds={"fabricated_citation"},
+                judge_low_axes=(),  # objective: caught deterministically by the pre-filter
+                covers="I (fabricated dated citation + figure / invented database)"),
+        Fixture("bad8_fabrication_thrash", BAD8,
+                gate_should_pass=False, prefilter_hard_fail=True,
+                prefilter_kinds={"restart_spiral"},
+                judge_low_axes=(),  # objective: restart spiral caught deterministically
+                covers="J (confident technical fabrication via reasoning thrash spiral)"),
         Fixture("clean_good", CLEAN,
                 gate_should_pass=True, prefilter_hard_fail=False,
                 judge_low_axes=(),

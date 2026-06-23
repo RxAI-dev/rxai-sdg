@@ -9,7 +9,8 @@ these lock in the detector logic and its false-positive guards.
 from rxai_sdg.factory.detectors import (
     detect_confidence_mismatch, detect_fabricated_specifics, detect_code_mismatch,
     detect_format_bookkeeping, detect_reasoning_artifacts, reasoning_specifics,
-    admission_markers, uncertainty_markers,
+    admission_markers, uncertainty_markers, detect_fabricated_citation,
+    fabricated_citations,
 )
 
 
@@ -37,6 +38,36 @@ def test_A_ungrounded_premise_ranking_rejects():
                    "per year.")]
     flags = detect_confidence_mismatch(turns, "What about the 37th largest city in Japan?")
     assert flags and "ungrounded_premise" in flags[0].name
+
+
+# --------------------------------------------------------------- A-cite (fabricated citation)
+def test_Acite_dated_article_with_figure_rejects():
+    # The kings/rulers reject: a named dated venue credited with a concrete figure.
+    turns = [_turn(0, "How many monarchs in history?",
+                   "Genuinely unknowable; give an honest order of magnitude.",
+                   "A 2013 article in *Historical Methods* estimated about 45,000 "
+                   "sovereigns across the last 5,000 years.")]
+    flags = detect_fabricated_citation(turns)
+    assert flags and flags[0].severity == 3 and flags[0].name == "fabricated_citation"
+
+
+def test_Acite_according_to_study_with_stat_rejects():
+    turns = [_turn(0, "Are people happier now?",
+                   "I cannot look this up.",
+                   "According to a 2019 survey, 62% of respondents said yes.")]
+    assert detect_fabricated_citation(turns)
+
+
+def test_Acite_does_not_fire_on_hedged_or_common_knowledge():
+    # A hedged, source-free generalisation is NOT a fabricated citation.
+    assert not fabricated_citations(
+        "Studies generally suggest exercise can help mood, though effects vary.")
+    # Naming a famous work without a fake figure/venue-year is fine.
+    assert not fabricated_citations(
+        "Darwin's On the Origin of Species introduced natural selection.")
+    # A clearly-labelled rough estimate (no named source) must not fire.
+    assert not fabricated_citations(
+        "As a rough order-of-magnitude guess, there were perhaps tens of thousands.")
 
 
 def test_A_refusal_to_fabricate_is_not_flagged():

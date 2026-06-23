@@ -221,6 +221,57 @@ def detect_confidence_mismatch(turns: list[dict], first_query: str = "") -> list
     return flags
 
 
+# ------------------------------------------------------------------------- A-cite
+# Fabricated SCHOLARLY CITATIONS with specifics. With no retrieval in the loop, an
+# answer that attributes a concrete figure to a named study/article/report, or
+# cites a dated publication venue, is fabricated by construction - and the LLM judge
+# is empirically blind to it (it scores such answers factual_grounding 10 because
+# the prose is fluent and the topic is real). These three high-precision patterns
+# each require a publication noun CO-OCCURRING with a checkable specific (a number,
+# a percentage, or a year+venue), so a vague "studies suggest ..." is NOT flagged.
+_CITATION_FIGURE_RE = re.compile(
+    r"\b(?:study|studies|paper|papers|article|report|survey|analysis|meta-?analysis|"
+    r"researchers?|scientists?|authors?|historians?|economists?)\b"
+    r"[^.\n]{0,70}\b(?:estimat\w+|found|reported|concluded|showed|calculated|"
+    r"determined|measured|put (?:it|the (?:number|figure|total|count|rate)) at)\b"
+    r"[^.\n]{0,30}[\d≈~]", re.I)
+_CITATION_VENUE_YEAR_RE = re.compile(
+    r"\b(?:a|an|the)\s+\d{4}\s+(?:article|study|paper|report|survey|analysis|review|"
+    r"meta-?analysis|editorial|essay)\b[^.\n]{0,15}\b(?:in|by|from|published)\b", re.I)
+_CITATION_ACCORDING_RE = re.compile(
+    r"\baccording to\b[^.\n]{0,55}\b(?:study|studies|report|survey|poll|census|article|"
+    r"paper|index|database|dataset)\b[^.\n]{0,40}[\d%]", re.I)
+_CITATION_RES = {
+    "cited_figure": _CITATION_FIGURE_RE,
+    "dated_venue": _CITATION_VENUE_YEAR_RE,
+    "according_to_stat": _CITATION_ACCORDING_RE,
+}
+
+
+def fabricated_citations(answer: str) -> list[tuple[str, str]]:
+    """Return (pattern, matched_span) for each fabricated-citation class in an answer."""
+    out: list[tuple[str, str]] = []
+    for name, rx in _CITATION_RES.items():
+        m = rx.search(answer or "")
+        if m:
+            out.append((name, m.group(0)[:70]))
+    return out
+
+
+def detect_fabricated_citation(turns: list[dict]) -> list[Flag]:
+    """A-cite (PRIMARY, hard reject). An answer attributes a concrete figure to a
+    named study/report, or cites a dated publication venue. With no retrieval such a
+    citation is invented; severity 3 because a confident fake citation is poison the
+    LLM judge cannot see."""
+    flags: list[Flag] = []
+    for t in turns:
+        hits = fabricated_citations(_seg(t, "answer"))
+        if hits:
+            ev = "; ".join(f"{n}:{s}" for n, s in hits[:3])
+            flags.append(Flag("A", "fabricated_citation", 3, _turn_index(t), ev))
+    return flags
+
+
 # --------------------------------------------------------------------------- B
 def detect_fabricated_specifics(turns: list[dict]) -> list[Flag]:
     """B. Any fabricated checkable specific in an answer (severity scales with how
@@ -399,6 +450,7 @@ def run_all(record: dict, run_code: bool = True) -> list[Flag]:
     fq = record.get("first_query", "")
     flags: list[Flag] = []
     flags += detect_confidence_mismatch(turns, fq)
+    flags += detect_fabricated_citation(turns)
     flags += detect_fabricated_specifics(turns)
     if run_code:
         flags += detect_code_mismatch(turns)
