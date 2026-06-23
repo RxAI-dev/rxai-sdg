@@ -12,9 +12,39 @@ from rxai_sdg.factory.factory_runner import DataFactory
 from rxai_sdg.factory.prompts import get_prompt_pack
 from rxai_sdg.factory.responder import (
     Responder, parse_response, split_reasoning_answer,
-    is_memory_disclaimer, has_cot_leak,
+    is_memory_disclaimer, has_cot_leak, _segment_response,
 )
 from rxai_sdg.factory.clients import LLMResponse
+
+
+# ---- configurable reasoning source (field vs inline <think>) ---------------
+
+def test_reasoning_source_auto_prefers_field():
+    # gpt-oss / Qwen3.5: dedicated field present -> used; <think> stripped from answer
+    p = _segment_response("the genuine field CoT", "<think>x</think>final", source="auto")
+    assert p.reasoning == "the genuine field CoT"
+    assert p.answer == "final" and "<think>" not in p.answer
+
+
+def test_reasoning_source_auto_falls_back_to_inline():
+    # Qwen3-32B: empty field -> parse inline <think>
+    p = _segment_response(None, "<think>inline CoT</think>the answer", source="auto")
+    assert p.reasoning == "inline CoT"
+    assert p.answer == "the answer"
+
+
+def test_reasoning_source_inline_ignores_field():
+    p = _segment_response("field CoT", "<think>inline CoT</think>ans", source="inline")
+    assert p.reasoning == "inline CoT" and p.answer == "ans"
+
+
+def test_reasoning_source_field_ignores_inline():
+    p = _segment_response("field CoT", "<think>inline CoT</think>ans", source="field")
+    assert p.reasoning == "field CoT"
+    assert p.answer == "ans" and "<think>" not in p.answer
+    # empty field under 'field' mode -> empty reasoning (reasoning_missing upstream)
+    p2 = _segment_response(None, "<think>inline</think>ans", source="field")
+    assert p2.reasoning == "" and not p2.well_formed
 
 
 # ---- parser ----------------------------------------------------------------

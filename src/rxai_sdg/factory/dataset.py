@@ -29,13 +29,35 @@ from typing import Any, Iterable, Optional
 
 from .schemas import ConversationRecord
 
+
+def _ensure_utf8_card(raw: bytes) -> Optional[bytes]:
+    """Return UTF-8-clean bytes for a dataset card, or ``None`` if already valid.
+
+    An existing dataset card (``README.md``) that contains a non-UTF-8 byte (e.g.
+    a stray cp1252 ``0x85``) makes ``datasets.push_to_hub`` crash with
+    ``UnicodeDecodeError`` while it reads the card to merge split/config metadata
+    on append. We re-decode leniently (preserving all valid UTF-8 content, the
+    YAML config block included) and strip any leading BOM / replacement / control
+    junk so the YAML frontmatter still parses, then re-encode as clean UTF-8.
+    """
+    try:
+        raw.decode("utf-8")
+        return None  # already valid -> no repair needed
+    except UnicodeDecodeError:
+        pass
+    text = raw.decode("utf-8", errors="replace")
+    text = text.lstrip("\ufeff\ufffd\x85\x00\r\n\t ")
+    return text.encode("utf-8")
+
+
 #: native (non-JSON) columns
 SCALAR_COLUMNS = [
     "conversation_id", "dataset", "first_query", "category", "domain", "lang",
     "is_haystack", "mode", "length",
 ]
 #: columns stored as JSON strings for a stable, append-safe schema
-JSON_COLUMNS = ["turns", "fact_ledger", "cross_turn_checks", "holistic_score"]
+JSON_COLUMNS = ["turns", "fact_ledger", "cross_turn_checks", "holistic_score",
+                "factory_models"]
 
 
 def record_to_row(record: ConversationRecord) -> dict[str, Any]:
@@ -158,12 +180,45 @@ class FactoryDatasetPostprocessor:
             raise ValueError("dataset_id is required to push to the Hub")
 
         ds = self.build(append=append)
+        # Repair the remote dataset card BEFORE pushing: push_to_hub reads the
+        # existing README.md as strict UTF-8 to merge split/config metadata, and a
+        # non-UTF-8 byte in it (e.g. a stray cp1252 0x85) otherwise crashes the
+        # append with UnicodeDecodeError before any data is written.
+        self._repair_remote_dataset_card()
         kwargs: dict[str, Any] = {"repo_id": self.dataset_id, "split": self.split,
                                   "token": self.token}
         if self.config_name is not None:
             kwargs["config_name"] = self.config_name
         ds.push_to_hub(**kwargs)
         return ds
+
+    def _repair_remote_dataset_card(self) -> bool:
+        """Rewrite the remote ``README.md`` as clean UTF-8 if it is not already.
+
+        Returns ``True`` if a repair was uploaded. No-ops (returns ``False``) when
+        the repo/card does not exist yet or the card is already valid UTF-8. Best
+        effort: any error here is swallowed so a transient Hub issue does not mask
+        the real push error.
+        """
+        try:
+            from huggingface_hub import HfApi, hf_hub_download
+        except Exception:
+            return False
+        try:
+            path = hf_hub_download(self.dataset_id, "README.md",
+                                   repo_type="dataset", token=self.token)
+            with open(path, "rb") as fh:
+                raw = fh.read()
+            fixed = _ensure_utf8_card(raw)
+            if fixed is None:
+                return False  # already valid (or no bytes) -> nothing to do
+            HfApi(token=self.token).upload_file(
+                path_or_fileobj=fixed, path_in_repo="README.md",
+                repo_id=self.dataset_id, repo_type="dataset", token=self.token,
+                commit_message="Normalise dataset card encoding to UTF-8")
+            return True
+        except Exception:
+            return False
 
     def save_to_disk(self, path: str):
         ds = self.to_dataset()

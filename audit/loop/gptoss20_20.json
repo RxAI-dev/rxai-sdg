@@ -1,0 +1,95 @@
+{
+  "iteration": 20,
+  "hypothesis_or_change": "gpt-oss-20b (smaller) on the same 20 real seeds for comparison vs 120b: pass-rate, reasoning quality, leak rate.",
+  "config": {
+    "n_seeds": 20,
+    "concurrency": 16,
+    "band": [
+      6,
+      9
+    ],
+    "max_tokens": 4000,
+    "temperature": 0.7,
+    "models": {
+      "responder": "gpt-oss-20b",
+      "simulator": "Qwen3-Coder-30B-A3B-Instruct",
+      "curator": "Mistral-Small-3.2-24B-Instruct-2506",
+      "judge": "Qwen3-Coder-30B-A3B-Instruct"
+    }
+  },
+  "generation_stats": {
+    "wall_seconds": 130.0,
+    "records_emitted": 0,
+    "seeds_used": 19,
+    "seeds_skipped": 1,
+    "discarded": 19,
+    "reasoning_missing": 76,
+    "malformed": 76,
+    "regenerations": 76,
+    "intent_resamples": 0
+  },
+  "token_usage": {
+    "by_client": {
+      "responder": {
+        "calls": 0,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0
+      },
+      "simulator": {
+        "calls": 0,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0
+      },
+      "curator": {
+        "calls": 20,
+        "prompt_tokens": 8571,
+        "completion_tokens": 2940,
+        "total_tokens": 11511
+      },
+      "judge": {
+        "calls": 0,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0
+      }
+    },
+    "total_tokens": 11511
+  },
+  "analysis": {
+    "n": 0,
+    "hard_counts": {},
+    "flag_counts": {},
+    "flagged_by_dimension": {},
+    "judge_means": {
+      "instruction_following": null,
+      "coherence": null,
+      "naturalness": null,
+      "role_consistency": null,
+      "recall_fidelity": null,
+      "appropriateness": null,
+      "reasoning_quality": null,
+      "reasoning_answer_consistency": null,
+      "sycophancy_resistance": null,
+      "user_query_quality": null,
+      "user_query_difficulty": null
+    },
+    "max_regen": 0,
+    "gate_pass": 0,
+    "gate_pass_rate": null,
+    "acceptance": {
+      "turn_index_in_answer": true,
+      "harness_in_reasoning": true,
+      "trailing_artifact": true,
+      "degenerate_reasoning": true,
+      "no_regen_gt_2": true,
+      "mean_reasoning_quality_ge_8": false,
+      "mean_rac_ge_8": false,
+      "gate_pass_rate_in_band": false
+    },
+    "acceptance_all": false,
+    "per_conversation": []
+  },
+  "bias_probe": null
+}

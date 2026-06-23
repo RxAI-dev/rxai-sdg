@@ -31,12 +31,36 @@ from .config import FactoryConfig
 from .cross_turn import run_cross_turn_checks, cross_turn_pass_rate
 from .holistic import (
     HolisticJudge, RUBRIC_AXES, deterministic_prefilter, _is_degenerate_reasoning,
+    _RESTART_HARD_FAIL,
 )
+
+
+def _reasoning_defect(reasoning: str) -> Optional[str]:
+    """Return a reason string if ``reasoning`` has an OBJECTIVE defect (the same
+    set the deterministic pre-filter hard-fails). Used by the loop to REGENERATE
+    the turn at the source, so a sporadically-leaky turn is resampled rather than
+    dropping the whole conversation at the gate."""
+    r = reasoning or ""
+    leak = has_harness_leak(r)
+    if leak:
+        return f"harness leak in reasoning ({leak!r})"
+    if has_turn_index_leak(r):
+        return "turn-index reference in reasoning"
+    if has_numbered_flow_list(r):
+        return "numbered conversation-flow recap in reasoning"
+    if _is_degenerate_reasoning(r):
+        return "degenerate reasoning loop"
+    if count_restart_markers(r) >= _RESTART_HARD_FAIL:
+        return "restart spiral in reasoning"
+    return None
 from .ledger import FactLedger, NeedlePlanner
 from .planner import CompositionRatios, plan_conversation
 from .prompts import PromptPack
 from .quality import QualityConfig, check_quality
-from .responder import Responder, has_cot_leak, is_memory_disclaimer
+from .responder import (
+    Responder, count_restart_markers, has_cot_leak, has_harness_leak,
+    has_numbered_flow_list, has_turn_index_leak, is_memory_disclaimer,
+)
 from .sampler import IntentPolicySampler
 from .schemas import ConstraintSpec, ConversationRecord, Seed, Turn, VerifyResult
 from .seed_curator import SeedDirective
@@ -319,8 +343,9 @@ class ConversationLoop:
             ok, detail = self._answer_acceptable(out.turn.answer or "")
             if ok and has_spec_leak(out.turn.reasoning or ""):
                 ok, detail = False, "coherence: spec internals in reasoning"
-            if ok and _is_degenerate_reasoning(out.turn.reasoning or ""):
-                ok, detail = False, "coherence: degenerate reasoning loop"
+            rdef = _reasoning_defect(out.turn.reasoning or "") if ok else None
+            if ok and rdef:
+                ok, detail = False, f"coherence: {rdef}"
             if ok:
                 out.turn.verification = VerifyResult(True, "first answer ok", regenerations)
                 return out.turn
@@ -476,12 +501,14 @@ class ConversationLoop:
         if has_spec_leak(turn.reasoning or ""):
             return False, "coherence: spec internals in reasoning"
 
-        # a degenerate-loop reasoning block (the model repeating a phrase dozens of
-        # times, e.g. on an open-ended creative/emotional turn) is a failed
-        # generation - regenerate it at the source (fix D), rather than relying only
-        # on the decoding frequency_penalty to suppress it.
-        if _is_degenerate_reasoning(turn.reasoning or ""):
-            return False, "coherence: degenerate reasoning loop"
+        # any OBJECTIVE reasoning defect (harness/meta leak, turn-index, numbered
+        # conversation recap, degenerate loop, restart spiral) is a failed
+        # generation -> regenerate at the source, so a sporadically-leaky turn (e.g.
+        # gpt-oss referencing "safe completion" on a crisis turn) is resampled rather
+        # than dropping the whole conversation at the gate.
+        rdef = _reasoning_defect(turn.reasoning or "")
+        if rdef:
+            return False, f"coherence: {rdef}"
 
         # this turn's own constraint (the recall/transform "reference prior content"
         # check: for recall the value-presence checker enforces it directly)
@@ -511,9 +538,13 @@ class ConversationLoop:
         if not active:
             return ""
         bullets = [f"- {render_constraint_nl(cs)}" for cs in active]
-        # Phrased to be unambiguously persistent so the model does not deliberate
-        # about whether the rule is "standing" (which leaks reserved vocabulary into
-        # its reasoning); see also _normalize_reasoning in responder.py.
-        return ("The user earlier asked you to keep doing the following in every "
-                "reply from now on. Continue to honor each of these while you also "
-                "answer the new question:\n" + "\n".join(bullets))
+        # First-person, natural USER voice. The earlier phrasing ("The user earlier
+        # asked you to keep doing the following in every reply from now on. Continue
+        # to honor each of these...") was third-person harness meta: the model read
+        # it as a system instruction and leaked that into its reasoning ("I must
+        # treat this as an active system instruction/constraint"). Phrasing it as the
+        # user's own casual reminder makes the model simply satisfy it - the rule is
+        # re-injected every turn it is active, so the model only needs to apply it
+        # now, never to reason about its persistence.
+        return ("Quick reminder from me - please keep doing what I asked you "
+                "earlier as you answer this too:\n" + "\n".join(bullets))

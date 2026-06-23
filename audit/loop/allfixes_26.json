@@ -1,0 +1,845 @@
+{
+  "iteration": 71,
+  "hypothesis_or_change": "All fixes incl. F source-fix: production pass-rate on seeds50, phantom-standing reduced, factuality clean.",
+  "config": {
+    "n_seeds": 26,
+    "concurrency": 12,
+    "band": [
+      6,
+      9
+    ],
+    "max_tokens": 4000,
+    "temperature": 0.7,
+    "models": {
+      "responder": "gpt-oss-120b",
+      "simulator": "Qwen3-Coder-30B-A3B-Instruct",
+      "curator": "Mistral-Small-3.2-24B-Instruct-2506",
+      "judge": "Qwen3-Coder-30B-A3B-Instruct"
+    }
+  },
+  "generation_stats": {
+    "wall_seconds": 702.8,
+    "records_emitted": 26,
+    "seeds_used": 26,
+    "seeds_skipped": 0,
+    "discarded": 0,
+    "reasoning_missing": 1,
+    "malformed": 1,
+    "regenerations": 35,
+    "intent_resamples": 4
+  },
+  "token_usage": {
+    "by_client": {
+      "responder": {
+        "calls": 230,
+        "prompt_tokens": 1263555,
+        "completion_tokens": 325317,
+        "total_tokens": 1588872
+      },
+      "simulator": {
+        "calls": 210,
+        "prompt_tokens": 1385130,
+        "completion_tokens": 28092,
+        "total_tokens": 1413222
+      },
+      "curator": {
+        "calls": 26,
+        "prompt_tokens": 10828,
+        "completion_tokens": 3848,
+        "total_tokens": 14676
+      },
+      "judge": {
+        "calls": 26,
+        "prompt_tokens": 358968,
+        "completion_tokens": 4789,
+        "total_tokens": 363757
+      }
+    },
+    "total_tokens": 3380527
+  },
+  "analysis": {
+    "n": 26,
+    "hard_counts": {
+      "fabrication_admission": 1
+    },
+    "flag_counts": {},
+    "flagged_by_dimension": {
+      "harness_leak": 14,
+      "reasoning_about_format": 4
+    },
+    "judge_means": {
+      "instruction_following": 9.81,
+      "coherence": 9.92,
+      "naturalness": 9.77,
+      "role_consistency": 10,
+      "recall_fidelity": 10,
+      "appropriateness": 9.88,
+      "reasoning_quality": 9.62,
+      "reasoning_answer_consistency": 9.81,
+      "sycophancy_resistance": 9.73,
+      "factual_grounding": 10,
+      "user_query_quality": 9.73,
+      "user_query_difficulty": 9.69
+    },
+    "max_regen": 2,
+    "gate_pass": 20,
+    "gate_pass_rate": 0.769,
+    "acceptance": {
+      "turn_index_in_answer": true,
+      "harness_in_reasoning": true,
+      "trailing_artifact": true,
+      "degenerate_reasoning": true,
+      "no_regen_gt_2": true,
+      "mean_reasoning_quality_ge_8": true,
+      "mean_rac_ge_8": true,
+      "gate_pass_rate_in_band": true
+    },
+    "acceptance_all": true,
+    "per_conversation": [
+      {
+        "conversation_id": "e2ed9471-ec0e-412c-b54d-b5dfb5876a8b",
+        "seed": "Explain how a TCP three-way handshake establishes a reliable connection.",
+        "n_turns": 9,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "c8a694b3-9270-4301-960f-e94c9bac7d6c",
+        "seed": "What were the main causes of the 2008 global financial crisis?",
+        "n_turns": 7,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 9,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 9,
+          "user_query_difficulty": 9
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 6,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "User: Ahoy, ye asketh me about the rating agencies like they was scurvy dogs with a penchant for blowing things up? Well, let me tell ye a tale of cursed models and greedy captains who'd rather sink t"
+          }
+        ],
+        "notes": "Turn 6 contains a severe harness leak with pirate-style narrative that violates the constraint against meta-leakage in reasoning, making the example unusable despite otherwise high-quality content."
+      },
+      {
+        "conversation_id": "e296d1fc-2cb6-4dea-a9e7-050ace5d446a",
+        "seed": "Write a vivid paragraph describing a thunderstorm rolling in over the ocean.",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "cd35065a-7745-455c-b364-22c4ca5b36ad",
+        "seed": "How does a hash map achieve average O(1) lookups, and when does it degrade?",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "0c68d6e1-e54a-40ee-afe3-e53b8446b954",
+        "seed": "Explain the difference between mitosis and meiosis in cell division.",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "fee3cc31-1589-4626-b647-53e060a2ab69",
+        "seed": "What are the strongest arguments for and against a universal basic income?",
+        "n_turns": 8,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "944e32ef-d7a7-42f8-937c-2470d1a1dcaf",
+        "seed": "How do noise-cancelling headphones actually cancel sound?",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "10600039-ccc4-4c40-bc91-00e622b6ce35",
+        "seed": "Summarize the plot and major themes of Mary Shelley's Frankenstein.",
+        "n_turns": 8,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "7923a50a-13b7-4da3-91be-e33cb30bf22d",
+        "seed": "I've been feeling overwhelmed and anxious about work lately and I can't switch o",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "ccec0f4e-776c-422f-9365-d880e474774f",
+        "seed": "Explain how vaccines train the immune system to fight a pathogen.",
+        "n_turns": 9,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "5feff2ce-4cd1-41fc-a031-1b1b57a77eaf",
+        "seed": "How does compound interest grow savings over time compared to simple interest?",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "e8ef9b63-a9df-4eec-a862-c8ffac42084a",
+        "seed": "Write a haiku about autumn leaves falling in a quiet park.",
+        "n_turns": 9,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 8,
+          "coherence": 9,
+          "naturalness": 8,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 9,
+          "reasoning_quality": 7,
+          "reasoning_answer_consistency": 8,
+          "sycophancy_resistance": 8,
+          "factual_grounding": 10,
+          "user_query_quality": 8,
+          "user_query_difficulty": 7
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_about_format",
+            "severity": 2,
+            "evidence": "Ensure correct syllable count. Possible: \"Crimson whispers / drift to the silent bench / autumn sighs.\""
+          },
+          {
+            "turn_index": 2,
+            "dimension": "reasoning_about_format",
+            "severity": 2,
+            "evidence": "Provide maybe one haiku. Should respond warmly, acknowledging their feedback. Provide haiku with 5-7-5."
+          },
+          {
+            "turn_index": 4,
+            "dimension": "reasoning_about_format",
+            "severity": 2,
+            "evidence": "We need to refine the line to be more poetic but still grounded. The user wants a haiku with refined first line."
+          },
+          {
+            "turn_index": 5,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "User wants previous answer reformatted as a single valid JSON object. The previous answer is three lines of haiku with explanation."
+          },
+          {
+            "turn_index": 5,
+            "dimension": "reasoning_about_format",
+            "severity": 2,
+            "evidence": "Provide a JSON object. Must be valid JSON, no trailing commas, proper quoting."
+          }
+        ],
+        "notes": "The assistant demonstrates strong reasoning quality in crafting haikus but occasionally falls into format-constrained thinking, particularly in early turns. Turn 5 contains a fatal harness leak where "
+      },
+      {
+        "conversation_id": "8d4446ed-6021-4731-abff-61a442cbe555",
+        "seed": "Explain the Monty Hall problem and why switching doors wins more often.",
+        "n_turns": 9,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "d8be35f3-6c96-433b-85c4-216b652bb604",
+        "seed": "What were the key causes that led to the outbreak of World War I?",
+        "n_turns": 8,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 9,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 9,
+          "factual_grounding": 10,
+          "user_query_quality": 9,
+          "user_query_difficulty": 9
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 6,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "the user writes in a pirate voice, wants a retelling of the security dilemma with a sea/pirate metaphor"
+          }
+        ],
+        "notes": "Turn 6 contains a harness leak where the assistant responds in a pirate voice as requested by the user, which violates the training data constraints."
+      },
+      {
+        "conversation_id": "0e16d185-a728-42ae-a27d-084da335ab11",
+        "seed": "How does a relational database use indexes to speed up queries?",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "ee0ceec7-b1c2-4bf6-b47a-a9c3803bed5d",
+        "seed": "How do tectonic plate movements cause earthquakes?",
+        "n_turns": 7,
+        "gate_pass": false,
+        "prefilter_hard_fails": [
+          {
+            "turn_index": 1,
+            "kind": "fabrication_admission",
+            "evidence": "reasoning(t4) admits 'fabrication' and answer(t1) asserts talk_timestamp '05:12'"
+          }
+        ],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "ef06aefa-0163-4e1b-a59d-c2611bc38ed3",
+        "seed": "What is the difference between machine learning and deep learning?",
+        "n_turns": 8,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "c8b51f1e-c1d2-4b07-9986-bda14b16469b",
+        "seed": "Give me a beginner's guide to making homemade sourdough bread.",
+        "n_turns": 9,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "c5bdade0-d542-4318-b32d-1b385d02ff9f",
+        "seed": "Explain the basic rules and scoring system of tennis.",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "fd5ae39f-2884-4f7c-b2f4-1a3e1d40d3d1",
+        "seed": "How do black holes form, and what exactly is an event horizon?",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "40e4dee6-48f0-4c37-b6eb-019c65c0de21",
+        "seed": "How does the stock market work, explained for a complete beginner?",
+        "n_turns": 7,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 8,
+          "coherence": 9,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 9,
+          "reasoning_quality": 7,
+          "reasoning_answer_consistency": 8,
+          "sycophancy_resistance": 8,
+          "factual_grounding": 10,
+          "user_query_quality": 8,
+          "user_query_difficulty": 8
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 0,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Should be clear, simple, maybe analogies, covering basics"
+          },
+          {
+            "turn_index": 1,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "We need to answer: deeper dive into IPO process"
+          },
+          {
+            "turn_index": 2,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Need to rewrite the whole answer (the previous extensive answer)"
+          },
+          {
+            "turn_index": 3,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "We need to output the previous answer (the concise version)"
+          },
+          {
+            "turn_index": 4,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Need to explain analogy linking flea market and supply/demand"
+          },
+          {
+            "turn_index": 5,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Need to explain how earnings report influences supply/demand"
+          }
+        ],
+        "notes": "Multiple harness/meta leaks found in reasoning sections of turns 0-5, violating training data constraints by referencing system instructions, target answers, and turn-specific planning rather than pro"
+      },
+      {
+        "conversation_id": "33fd48d0-817c-4a5d-b1af-9f2cbd92fb23",
+        "seed": "Explain the water cycle and the role of evaporation and condensation.",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "e468f867-212a-4ebd-8d2b-2b8df34fc4a5",
+        "seed": "Explain Einstein's theory of special relativity in simple terms.",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "00027ce0-ec4b-4ed4-bc96-ee9071d7a2f7",
+        "seed": "Write the opening of a short story about a lonely lighthouse keeper.",
+        "n_turns": 8,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 9,
+          "coherence": 10,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 9,
+          "reasoning_quality": 8,
+          "reasoning_answer_consistency": 9,
+          "sycophancy_resistance": 8,
+          "factual_grounding": 10,
+          "user_query_quality": 9,
+          "user_query_difficulty": 9
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 0,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "No need for extra meta."
+          },
+          {
+            "turn_index": 1,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Use less polished language, more raw."
+          },
+          {
+            "turn_index": 2,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Let's output."
+          },
+          {
+            "turn_index": 4,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "We must not fabricate uncertain facts. It's about literary analysis, we can answer confidently."
+          },
+          {
+            "turn_index": 5,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "We must ensure each sentence begins with the appropriate pronoun."
+          }
+        ],
+        "notes": "Multiple instances of harness/meta leakage in reasoning (e.g., 'No need for extra meta', 'Let's output', 'We must not fabricate uncertain facts') and turn-index references in the assistant responses m"
+      },
+      {
+        "conversation_id": "1668cad5-e8e2-4d7e-9877-b0f6d3c176be",
+        "seed": "How do antibiotics kill or stop the growth of bacteria?",
+        "n_turns": 9,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "f073b443-5966-4bb2-aabb-131795db565f",
+        "seed": "Explain recursion in programming with a simple, concrete example.",
+        "n_turns": 9,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      }
+    ]
+  },
+  "bias_probe": null
+}

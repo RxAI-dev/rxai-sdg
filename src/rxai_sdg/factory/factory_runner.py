@@ -64,7 +64,8 @@ class DataFactory:
             self.taxonomy, config.intent_weights, config.policy_weights, rng=self.rng)
         self.responder = Responder(
             responder_client, capture_logits=config.capture_logits,
-            max_tokens=config.max_tokens, temperature=config.temperature)
+            max_tokens=config.max_tokens, temperature=config.temperature,
+            reasoning_source=config.reasoning_source)
         # The holistic judge runs always-on per whole conversation (fix G); enabled
         # whenever a (non-Qwen) judge client is supplied.
         self.holistic = None
@@ -82,6 +83,14 @@ class DataFactory:
         self._stats_lock = threading.Lock()
         #: records collected by the most recent ``generate`` call
         self.records: list[ConversationRecord] = []
+        #: the models behind each role, stamped onto every emitted example so the
+        #: provenance travels with the data (model_name per client, or None).
+        self.factory_models = {
+            "responder": getattr(responder_client, "model_name", None),
+            "simulator": getattr(simulator_client, "model_name", None),
+            "curator": getattr(curator_client, "model_name", None),
+            "judge": getattr(holistic_client, "model_name", None),
+        }
 
     # ------------------------------------------------------------------ public
     def generate(
@@ -132,6 +141,11 @@ class DataFactory:
                         print(f'Processed {self.stats.conversations_built + self.stats.conversations_discarded} / {len(curated)}')
 
         out = [results[i] for i in sorted(results)]
+        # Stamp run-level metadata onto every emitted example: the manually
+        # controlled dataset name and the per-role model provenance.
+        for rec in out:
+            rec.source_seed.dataset = self.config.dataset_name
+            rec.factory_models = dict(self.factory_models)
         self.stats.records_emitted = len(out)
         self.records = out
         return out

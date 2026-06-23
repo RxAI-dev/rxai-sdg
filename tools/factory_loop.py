@@ -68,17 +68,22 @@ def build_factory(args):
     base = _env("RXAI_GEN_API_URL", "OVH_BASE_URL")
     key = _env("RXAI_GEN_API_KEY", "OVH_API_KEY")
     t = args.request_timeout
+    # The Responder/Teacher MUST be a REASONING model with CLEAN genuine CoT (see
+    # prompts.py): gpt-oss-120b (default). The Qwen family bakes in meta-reasoning
+    # poison; instruct models only fake <think> (and do so unreliably). The genuine
+    # reasoning is captured from the ``reasoning`` field.
+    rt = args.max_retries
     responder = OpenAILLMClient(
-        model_name=_env("RXAI_RESPONDER_MODEL", default="Qwen3.5-397B-A17B"),
+        model_name=_env("RXAI_RESPONDER_MODEL", default="gpt-oss-120b"),
         api_url=base, api_key=key, reasoning_field_name="reasoning",
         log_first_raw=args.log_raw, timeout=t,
-        frequency_penalty=args.frequency_penalty)
+        frequency_penalty=args.frequency_penalty, max_retries=rt)
     simulator = OpenAILLMClient(
         model_name=_env("RXAI_SIMULATOR_MODEL", default="Qwen3-Coder-30B-A3B-Instruct"),
-        api_url=base, api_key=key, timeout=t)
+        api_url=base, api_key=key, timeout=t, max_retries=rt)
     curator = OpenAILLMClient(
         model_name=_env("RXAI_CURATOR_MODEL", default="Mistral-Small-3.2-24B-Instruct-2506"),
-        api_url=base, api_key=key, timeout=t)
+        api_url=base, api_key=key, timeout=t, max_retries=rt)
     # FROZEN judge model = Qwen3-Coder-30B (the task's specified judge): the most
     # discriminating of the candidates (Mistral scored only 9-10 and never let the
     # gate reject clean-ish data -> pass-rate pinned at 1.0). The judge<->simulator
@@ -86,15 +91,17 @@ def build_factory(args):
     # Mistral 10 on user_query_quality - NOT inflated, slightly stricter).
     judge = OpenAILLMClient(
         model_name=_env("RXAI_JUDGE_MODEL", default="Qwen3-Coder-30B-A3B-Instruct"),
-        api_url=base, api_key=key, timeout=t)
+        api_url=base, api_key=key, timeout=t, max_retries=rt)
 
     cfg = FactoryConfig(
         seed=args.seed,
         concurrency=args.concurrency,
         max_tokens=args.max_tokens,
         temperature=args.temperature,
-        regeneration_limit=2,
-        max_responder_calls_per_turn=4,
+        reasoning_source=_env("RXAI_REASONING_SOURCE", default=args.reasoning_source),
+        dataset_name=_env("RXAI_DATASET_NAME", default=args.dataset_name),
+        regeneration_limit=3,
+        max_responder_calls_per_turn=6,   # room to resample a sporadically-leaky turn
         min_recall_distance=args.min_recall_distance,
         memory_ratio=args.memory_ratio,
         transform_ratio=args.transform_ratio,
@@ -221,6 +228,17 @@ def main(argv=None) -> int:
     ap.add_argument("--max-turns", type=int, default=9)
     ap.add_argument("--max-tokens", type=int, default=8000)
     ap.add_argument("--temperature", type=float, default=0.7)
+    ap.add_argument("--reasoning-source", default="auto",
+                    choices=["auto", "field", "inline"],
+                    help="where to read the teacher CoT: auto|field|inline "
+                         "(auto handles both a reasoning field and inline <think>)")
+    ap.add_argument("--max-retries", type=int,
+                    default=int(os.environ.get("RXAI_MAX_RETRIES", "4")),
+                    help="per-call transient-error retries (5xx/429/timeout) with "
+                         "backoff; raise it to ride out a flaky endpoint window")
+    ap.add_argument("--dataset-name", default="seeds",
+                    help="value stamped onto every emitted example's "
+                         "source_seed.dataset (also via RXAI_DATASET_NAME)")
     ap.add_argument("--frequency-penalty", type=float, default=0.0,
                     help="responder decoding frequency_penalty (breaks degenerate loops)")
     ap.add_argument("--request-timeout", type=float, default=240)

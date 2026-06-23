@@ -105,6 +105,10 @@ class FactoryConfig:
     holistic_gate: dict[str, float] = field(default_factory=lambda: {
         "coherence": 7, "appropriateness": 7, "reasoning_quality": 7,
         "reasoning_answer_consistency": 7, "sycophancy_resistance": 7,
+        # factual_grounding is the new fabrication backstop: a low score (the judge
+        # caught a confidence-uncertainty mismatch the deterministic gate missed)
+        # rejects the example. Set high - fabrication is the worst defect.
+        "factual_grounding": 7,
         "instruction_following": 6, "user_query_quality": 6})
     #: reject if any ``flagged_turns`` entry has severity >= this cutoff.
     hard_fail_on_flagged_severity: int = 3
@@ -124,9 +128,19 @@ class FactoryConfig:
     # -- responder generation params ------------------------------------------
     max_tokens: int = 4096
     temperature: float = 0.7
+    #: where to read the teacher's chain of thought from. "auto" handles both a
+    #: dedicated reasoning_content field (gpt-oss, Qwen3.5) and an inline <think>
+    #: block (Qwen3-32B) transparently; "field"/"inline" force one source. This is
+    #: what lets the factory run on ANY genuine reasoning model.
+    reasoning_source: str = "auto"
 
     # -- reproducibility ------------------------------------------------------
     seed: Optional[int] = None
+
+    # -- emitted-example metadata ---------------------------------------------
+    #: stamped onto every emitted example's ``source_seed.dataset`` for the whole
+    #: iteration (controlled manually per run). Defaults to "seeds".
+    dataset_name: str = "seeds"
 
     # ------------------------------------------------------------------ build
     def build_taxonomy(self) -> Taxonomy:

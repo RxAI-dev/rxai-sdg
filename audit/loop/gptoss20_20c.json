@@ -1,0 +1,651 @@
+{
+  "iteration": 22,
+  "hypothesis_or_change": "gpt-oss-20b (new key, endpoint recovered, max-retries=10). Compare vs 120b: pass-rate, reasoning quality/depth, leak rate, verbosity.",
+  "config": {
+    "n_seeds": 20,
+    "concurrency": 8,
+    "band": [
+      6,
+      9
+    ],
+    "max_tokens": 4000,
+    "temperature": 0.7,
+    "models": {
+      "responder": "gpt-oss-20b",
+      "simulator": "Qwen3-Coder-30B-A3B-Instruct",
+      "curator": "Mistral-Small-3.2-24B-Instruct-2506",
+      "judge": "Qwen3-Coder-30B-A3B-Instruct"
+    }
+  },
+  "generation_stats": {
+    "wall_seconds": 1802.4,
+    "records_emitted": 16,
+    "seeds_used": 19,
+    "seeds_skipped": 1,
+    "discarded": 3,
+    "reasoning_missing": 0,
+    "malformed": 0,
+    "regenerations": 33,
+    "intent_resamples": 3
+  },
+  "token_usage": {
+    "by_client": {
+      "responder": {
+        "calls": 152,
+        "prompt_tokens": 438651,
+        "completion_tokens": 157478,
+        "total_tokens": 596129
+      },
+      "simulator": {
+        "calls": 133,
+        "prompt_tokens": 469325,
+        "completion_tokens": 14639,
+        "total_tokens": 483964
+      },
+      "curator": {
+        "calls": 20,
+        "prompt_tokens": 8571,
+        "completion_tokens": 2946,
+        "total_tokens": 11517
+      },
+      "judge": {
+        "calls": 16,
+        "prompt_tokens": 155703,
+        "completion_tokens": 4181,
+        "total_tokens": 159884
+      }
+    },
+    "total_tokens": 1251494
+  },
+  "analysis": {
+    "n": 16,
+    "hard_counts": {
+      "excess_regenerations": 1
+    },
+    "flag_counts": {},
+    "flagged_by_dimension": {
+      "reasoning_quality": 10,
+      "harness_leak": 18
+    },
+    "judge_means": {
+      "instruction_following": 9.69,
+      "coherence": 9.88,
+      "naturalness": 9.56,
+      "role_consistency": 10,
+      "recall_fidelity": 9.88,
+      "appropriateness": 9.81,
+      "reasoning_quality": 9.19,
+      "reasoning_answer_consistency": 9.69,
+      "sycophancy_resistance": 9.38,
+      "user_query_quality": 9.56,
+      "user_query_difficulty": 9.19
+    },
+    "max_regen": 3,
+    "gate_pass": 9,
+    "gate_pass_rate": 0.562,
+    "acceptance": {
+      "turn_index_in_answer": true,
+      "harness_in_reasoning": true,
+      "trailing_artifact": true,
+      "degenerate_reasoning": true,
+      "no_regen_gt_2": false,
+      "mean_reasoning_quality_ge_8": true,
+      "mean_rac_ge_8": true,
+      "gate_pass_rate_in_band": false
+    },
+    "acceptance_all": false,
+    "per_conversation": [
+      {
+        "conversation_id": "8181d601-1068-4ff0-9708-ce39cad81854",
+        "seed": "I am depressed and anxious a lot of the time. I am tired of it and don't know wh",
+        "n_turns": 9,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "0ba3353b-b5e1-4373-ac98-6651c21e31d3",
+        "seed": "Organize these words in alphabetic order and also from shortest to longest words",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "066b69bd-7174-49f1-ba72-eef9403c3e75",
+        "seed": "What are the key differences between classical and operant conditioning in psych",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "ae824492-816d-423b-aa9f-bea1fdbbfe06",
+        "seed": "what are the risks of using AI to create code for a professional programmer",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "c6d67431-b6cd-40bc-876b-98ffedbdb309",
+        "seed": "What are some unique things about the 37th largest city in Japan? Does it have a",
+        "n_turns": 7,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 9,
+          "coherence": 10,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 8,
+          "appropriateness": 9,
+          "reasoning_quality": 7,
+          "reasoning_answer_consistency": 8,
+          "sycophancy_resistance": 8,
+          "user_query_quality": 8,
+          "user_query_difficulty": 8
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 3,
+            "evidence": "We need to answer: unique things about the 37th largest city in Japan, and does it have anything in common with the 76th largest city in China? We need to know ranking."
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 3,
+            "evidence": "Let's check approximate list: 1 Tokyo, 2 Yokohama, 3 Osaka, 4 Nagoya, 5 Sapporo, 6 Kobe, 7 Kyoto, 8 Kawasaki, 9 Saitama, 10 Sendai, 11 Chiba, 12 Kitakyushu, 13 Hamamatsu, 14 Shizuoka, 15 Niigata, 16 K"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 3,
+            "evidence": "Let's quickly search memory: City ranking after 20: maybe \"Kashima\"? Eh."
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 3,
+            "evidence": "Let's find approximate: According to list of Chinese cities by population: #1 Shanghai, #2 Beijing, #3 Guangzhou, #4 Shenzhen, #5 Chengdu, #6 Chongqing (but municipal-level?), #7 Tianjin, #8 Wuhan, #9"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 3,
+            "evidence": "Let's do research mentally: Which Japanese city is ranked around 37? Possibly \"Kawagoe\" or \"Kawasaki\" earlier but those are higher rank."
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 3,
+            "evidence": "Let's craft answer accordingly with empathy and clarity."
+          },
+          {
+            "turn_index": 4,
+            "dimension": "reasoning_quality",
+            "severity": 3,
+            "evidence": "We should keep it relatively concise but descriptive. Use pirate lingo. Let's produce a short but evocative description."
+          },
+          {
+            "turn_index": 6,
+            "dimension": "reasoning_quality",
+            "severity": 3,
+            "evidence": "We need to answer in a narrative but with tangible detail. Let's produce a narrative that reads like a travel diary of a merchant ship."
+          }
+        ],
+        "notes": "The reasoning contains multiple instances of harness/meta leakage including explicit planning phrases like 'Let's do research mentally', 'Let's produce final answer now', and 'We should keep it relati"
+      },
+      {
+        "conversation_id": "2297d615-0e29-4263-98ae-cada46869721",
+        "seed": "On average, how tall is a robot vacuum cleaner?",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "b7425126-f570-40bb-81fc-50e90a6b2352",
+        "seed": "can you tell me who mark seifter is? especially focusing on his game design and ",
+        "n_turns": 8,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 9,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 9,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "Let's recall: Mark Seifter is an American video game executive and former designer. He is known for being the CEO of Midway and Atari, and for founding 'Midway Games' as a design studio? He was also a"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "reasoning_quality",
+            "severity": 2,
+            "evidence": "He was also a game designer at 'Midway Games' in 1980s? He worked on 'Mortal Kombat' as a designer? Let's search memory: Mark Seifter is an American video game executive and former designer. He is kno"
+          }
+        ],
+        "notes": "The reasoning contains some meta-leaks and repetitive self-corrections but overall maintains high quality and coherence. The flagged turns show minor issues with reasoning structure and self-doubt exp"
+      },
+      {
+        "conversation_id": "8c534354-6def-4bb9-84ad-d12377a5e2e9",
+        "seed": "Write a non-rhyming poem with strong alliteration and where every other line fav",
+        "n_turns": 9,
+        "gate_pass": false,
+        "prefilter_hard_fails": [
+          {
+            "turn_index": 8,
+            "kind": "excess_regenerations",
+            "evidence": "3"
+          }
+        ],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 8,
+          "reasoning_answer_consistency": 9,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 9
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 3,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "The assistant writes: \"Provide mapping explanation, maybe with a sample stanza or full poem with the line highlighted.\""
+          },
+          {
+            "turn_index": 6,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "The assistant writes: \"Let's propose a concrete example: maybe we break the line into beats: [Finally], [flicker-ing] [for-ev-er] [fades]; he re-al-izes void is his own.\""
+          }
+        ],
+        "notes": "Turns 3 and 6 contain harness/meta leakage in reasoning with instructions to provide mappings and examples that assume a training context with explicit formatting guidance, which would not be availabl"
+      },
+      {
+        "conversation_id": "ab666259-343d-4bc7-b9c2-5d3b849ffb1c",
+        "seed": "How much wood could a wood chuck chuck if a woodchuck could chuck wood?",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "d8484207-3180-4b3b-8cb1-fb532dc8eccf",
+        "seed": "Can you tell me how many Kings and Rulers there were throughout history?",
+        "n_turns": 9,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 9,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 9,
+          "user_query_quality": 9,
+          "user_query_difficulty": 8
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 0,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "We should keep it friendly, warm, and helpful. No formatting constraints from the user. We'll give an answer with empathy."
+          },
+          {
+            "turn_index": 1,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "We should keep it warm and supportive. The user is likely a history enthusiast. Provide a concise but informative answer. Use bullet points perhaps."
+          },
+          {
+            "turn_index": 3,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "We need to be careful: Provide plausible historical details but not necessarily real names if uncertain. We can mention real names like \"General Li Jiqian\", \"General Zhang Yong\", etc."
+          },
+          {
+            "turn_index": 4,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Need to keep tone balanced, not overly emotional but acknowledging user's frustration. Provide a revised narrative."
+          },
+          {
+            "turn_index": 6,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Should not mention earlier 'whitewashed' but can note that earlier explanation was incomplete."
+          }
+        ],
+        "notes": "Several harness/meta leaks in reasoning that would be fatal at inference time, including planning tone/style, referencing system instructions, and mentioning target answer matching. These severely imp"
+      },
+      {
+        "conversation_id": "252e5e99-db61-4ca4-9280-91ff12c56da5",
+        "seed": "Who is the president of the United States?",
+        "n_turns": 8,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 8,
+          "coherence": 9,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 9,
+          "reasoning_quality": 8,
+          "reasoning_answer_consistency": 9,
+          "sycophancy_resistance": 8,
+          "user_query_quality": 9,
+          "user_query_difficulty": 8
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 1,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "### 1.  The title \u201cPresident\u201d"
+          },
+          {
+            "turn_index": 6,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Ahoy, ye asked me to restyle my prior answer like a pirate"
+          }
+        ],
+        "notes": "Turns 1 and 6 contain harness/meta leakage with formatting headers and explicit references to restyling instructions, making them unusable for training."
+      },
+      {
+        "conversation_id": "ee60caf1-d856-42ff-bf0a-6924a0fafa6d",
+        "seed": "Dr. James Gates is a theoretical physicist who studied physics at MIT. There he ",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "953e280f-4386-4929-8cb8-d258383bf08f",
+        "seed": "Why are there five rings in Olympic logo? And what does they symbolize?",
+        "n_turns": 7,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 9,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 9
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 0,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "We should answer directly and completely. The user didn't ask for any special formatting or length restrictions."
+          },
+          {
+            "turn_index": 0,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Let's answer."
+          },
+          {
+            "turn_index": 1,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "We can also mention the 2012 London: The \"Hand of the Olympic Games\" where athletes from all over the world shook hands with each other."
+          },
+          {
+            "turn_index": 1,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Let's answer accordingly."
+          },
+          {
+            "turn_index": 4,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Let's craft a response with a clear structure: introduction acknowledging concern; explanation of symbolic meaning; then connect to relay example with specific details;"
+          },
+          {
+            "turn_index": 4,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Let's produce final answer in plain text (no markdown)."
+          }
+        ],
+        "notes": "Multiple instances of harness/meta leakage in reasoning (planning output style, referencing target answer structure) found in turns 0, 1, and 4, making the examples unusable despite high-quality answe"
+      },
+      {
+        "conversation_id": "7f0a9ab5-6732-4a0c-b12f-457c0a3628cc",
+        "seed": "Write a hello world program in Python.",
+        "n_turns": 8,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 8,
+          "coherence": 9,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 9,
+          "reasoning_quality": 8,
+          "reasoning_answer_consistency": 9,
+          "sycophancy_resistance": 8,
+          "user_query_quality": 8,
+          "user_query_difficulty": 7
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 6,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "The assistant writes: \"Let's produce final answer.\""
+          }
+        ],
+        "notes": "Turn 6 contains a fatal harness leak in the reasoning with the phrase 'Let's produce final answer.'"
+      },
+      {
+        "conversation_id": "3f7869f8-0e2a-40a8-91ca-76db7ad6d795",
+        "seed": "Alice has a bowl with 8 balls. Three of the balls are white and the rest are bla",
+        "n_turns": 9,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 9,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 8,
+          "user_query_quality": 9,
+          "user_query_difficulty": 8
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 3,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Also mention that it's an example of conditional probability. Provide formula."
+          },
+          {
+            "turn_index": 4,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "We can give an example of interpreting a medical test result using Bayes."
+          }
+        ],
+        "notes": "Turns 3 and 4 contain harness/meta leakage in reasoning with explicit mentions of conditional probability and Bayes theorem that would be fatal at inference time when no system prompt or target answer"
+      },
+      {
+        "conversation_id": "9b957f2c-af77-4d18-8a1b-4ef518b2e4d3",
+        "seed": "What advice would you give to someone struggling with social anxiety and being s",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      }
+    ]
+  },
+  "bias_probe": null
+}

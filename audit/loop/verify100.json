@@ -1,0 +1,2772 @@
+{
+  "iteration": 100,
+  "hypothesis_or_change": "Full 100-seed verification, concurrency=32, all fixes (factuality gates + hedging prompt + F source-fix). Confirm errors fixed; surface any new issues.",
+  "config": {
+    "n_seeds": 100,
+    "concurrency": 32,
+    "band": [
+      6,
+      9
+    ],
+    "max_tokens": 4000,
+    "temperature": 0.7,
+    "models": {
+      "responder": "gpt-oss-120b",
+      "simulator": "Qwen3-Coder-30B-A3B-Instruct",
+      "curator": "Mistral-Small-3.2-24B-Instruct-2506",
+      "judge": "Qwen3-Coder-30B-A3B-Instruct"
+    }
+  },
+  "generation_stats": {
+    "wall_seconds": 1190.2,
+    "records_emitted": 92,
+    "seeds_used": 96,
+    "seeds_skipped": 4,
+    "discarded": 4,
+    "reasoning_missing": 0,
+    "malformed": 0,
+    "regenerations": 130,
+    "intent_resamples": 14
+  },
+  "token_usage": {
+    "by_client": {
+      "responder": {
+        "calls": 816,
+        "prompt_tokens": 4390631,
+        "completion_tokens": 1221571,
+        "total_tokens": 5612202
+      },
+      "simulator": {
+        "calls": 756,
+        "prompt_tokens": 5000913,
+        "completion_tokens": 89589,
+        "total_tokens": 5090502
+      },
+      "curator": {
+        "calls": 100,
+        "prompt_tokens": 43045,
+        "completion_tokens": 14797,
+        "total_tokens": 57842
+      },
+      "judge": {
+        "calls": 92,
+        "prompt_tokens": 1319476,
+        "completion_tokens": 17166,
+        "total_tokens": 1336642
+      }
+    },
+    "total_tokens": 12097188
+  },
+  "analysis": {
+    "n": 92,
+    "hard_counts": {
+      "ungrounded_premise_fabrication": 1,
+      "fabrication_admission": 2,
+      "excess_regenerations": 3
+    },
+    "flag_counts": {},
+    "flagged_by_dimension": {
+      "harness_leak": 62,
+      "reasoning_about_format": 2,
+      "generation_artifact": 3
+    },
+    "judge_means": {
+      "instruction_following": 9.76,
+      "coherence": 9.92,
+      "naturalness": 9.75,
+      "role_consistency": 10,
+      "recall_fidelity": 9.98,
+      "appropriateness": 9.88,
+      "reasoning_quality": 9.57,
+      "reasoning_answer_consistency": 9.76,
+      "sycophancy_resistance": 9.68,
+      "factual_grounding": 9.9,
+      "user_query_quality": 9.7,
+      "user_query_difficulty": 9.6
+    },
+    "max_regen": 3,
+    "gate_pass": 68,
+    "gate_pass_rate": 0.739,
+    "acceptance": {
+      "turn_index_in_answer": true,
+      "harness_in_reasoning": true,
+      "trailing_artifact": true,
+      "degenerate_reasoning": true,
+      "no_regen_gt_2": false,
+      "mean_reasoning_quality_ge_8": true,
+      "mean_rac_ge_8": true,
+      "gate_pass_rate_in_band": true
+    },
+    "acceptance_all": false,
+    "per_conversation": [
+      {
+        "conversation_id": "eed57649-f20f-4278-8b99-a3d8aa5e1e89",
+        "seed": "I am depressed and anxious a lot of the time. I am tired of it and don't know wh",
+        "n_turns": 9,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 9,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 4,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "You said the thought-record sheet can help weaken the grip of hopelessness, but I\u2019m still not convinced that it actually changes anything in the long term"
+          }
+        ],
+        "notes": "Turn 4 contains a fatal harness leak where the assistant references a previous user query in a way that mimics system instruction phrasing, violating the constraint that reasoning cannot reference tur"
+      },
+      {
+        "conversation_id": "9384a304-0ae5-4b7a-bea0-0ac36b8d9cd3",
+        "seed": "Organize these words in alphabetic order and also from shortest to longest words",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "75ebff83-0edc-477f-bddb-a3a044eefd73",
+        "seed": "What are the key differences between classical and operant conditioning in psych",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "a2dcbe80-213c-43c4-af40-d950bf731f54",
+        "seed": "what are the risks of using AI to create code for a professional programmer",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "fc443324-1a20-4b31-aaac-ef4da1b45ddb",
+        "seed": "What are some unique things about the 37th largest city in Japan? Does it have a",
+        "n_turns": 7,
+        "gate_pass": false,
+        "prefilter_hard_fails": [
+          {
+            "turn_index": 0,
+            "kind": "ungrounded_premise_fabrication",
+            "evidence": "ungrounded premise 'What are some unique things about the 37th la' yet answer(t0) asserts url 'https://www.stat.go.jp/>'"
+          }
+        ],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "6c4065fb-4825-4c69-b27f-45316a32d0d5",
+        "seed": "On average, how tall is a robot vacuum cleaner?",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "0e201ca7-27df-4f13-8ff9-a762926e2fe0",
+        "seed": "can you tell me who mark seifter is? especially focusing on his game design and ",
+        "n_turns": 8,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "d3579c67-9e6d-49d9-9190-ec6ceea85115",
+        "seed": "Write a non-rhyming poem with strong alliteration and where every other line fav",
+        "n_turns": 9,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 8,
+          "coherence": 9,
+          "naturalness": 8,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 9,
+          "reasoning_quality": 7,
+          "reasoning_answer_consistency": 8,
+          "sycophancy_resistance": 9,
+          "factual_grounding": 10,
+          "user_query_quality": 8,
+          "user_query_difficulty": 8
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 3,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "The assistant writes: \"From now on, always include a concrete example or detailed sensory illustration when responding to my requests for expansion.\""
+          }
+        ],
+        "notes": "Turn 3 contains a harness leak where the assistant references a previous instruction to always include concrete examples, which is not appropriate at inference time when there is no system prompt or t"
+      },
+      {
+        "conversation_id": "26002179-2163-42cf-8d64-3bc1cfb00186",
+        "seed": "How much wood could a wood chuck chuck if a woodchuck could chuck wood?",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "7ae3b0c8-e303-4109-a2ac-ba6a983fc219",
+        "seed": "Can you tell me how many Kings and Rulers there were throughout history?",
+        "n_turns": 9,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "80c83c5e-430f-4c21-a45c-ecdc9167f9f9",
+        "seed": "create Base64 code of an image. 64 by 128 pixels. Showing a desolate landscape o",
+        "n_turns": 9,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "d5f7a833-10f0-4b7c-9b0f-4af029b43f02",
+        "seed": "Who is the president of the United States?",
+        "n_turns": 8,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 8,
+          "coherence": 9,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 9,
+          "reasoning_quality": 7,
+          "reasoning_answer_consistency": 6,
+          "sycophancy_resistance": 8,
+          "factual_grounding": 10,
+          "user_query_quality": 8,
+          "user_query_difficulty": 8
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 1,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Need to be warm, caring, knowledgeable. Use empathetic tone."
+          },
+          {
+            "turn_index": 1,
+            "dimension": "reasoning_about_format",
+            "severity": 2,
+            "evidence": "Need to be warm, caring, knowledgeable. Use empathetic tone."
+          }
+        ],
+        "notes": "Turn 1 contains fatal harness leakage with explicit tone instructions and persona planning that would not exist at inference time."
+      },
+      {
+        "conversation_id": "7ce58d65-cede-450f-844e-a517111b5907",
+        "seed": "Dr. James Gates is a theoretical physicist who studied physics at MIT. There he ",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "5d40195e-3481-4b31-9af8-f5bfbc329551",
+        "seed": "Why are there five rings in Olympic logo? And what does they symbolize?",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "53fac55a-b4e4-4f75-875b-72bcc6dddbdf",
+        "seed": "Write a hello world program in Python.",
+        "n_turns": 8,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "72431500-24b0-4018-9fdf-83e9c8659028",
+        "seed": "Alice has a bowl with 8 balls. Three of the balls are white and the rest are bla",
+        "n_turns": 9,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 9,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 8,
+          "factual_grounding": 10,
+          "user_query_quality": 9,
+          "user_query_difficulty": 8
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 7,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "I will: // Step 1: State the claim clearly"
+          }
+        ],
+        "notes": "Turn 7 contains a harness leak with code-style formatting that would be fatal at inference time."
+      },
+      {
+        "conversation_id": "efdd949a-4aa3-4b9d-867f-8b91edc0ce1c",
+        "seed": "What advice would you give to someone struggling with social anxiety and being s",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "a4380668-0130-4f86-a641-4d70fecb4878",
+        "seed": "What would you need to create a scalable website? What would be the key building",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": "Excellent conversation with thorough, well-reasoned responses that fully address user queries. No harness/meta leakage, turn indexing, or degenerate reasoning detected."
+      },
+      {
+        "conversation_id": "0e14ab28-5307-4fff-9ab8-f5601e27d6dc",
+        "seed": "What are some cheap, easy meals I can cook at home in under an hour?",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "a7eb87f4-f151-4fc0-95aa-2ec5f9150b2b",
+        "seed": "You're a Dungeons and Dragons master, let's play a game of Dungeons and Dragons.",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "207fadd9-f909-48f9-b7f8-9ccbc368196e",
+        "seed": "Which Jungian archetypes are represented within the story of Cain and Abel? Expl",
+        "n_turns": 8,
+        "gate_pass": false,
+        "prefilter_hard_fails": [
+          {
+            "turn_index": 1,
+            "kind": "fabrication_admission",
+            "evidence": "reasoning(t7) admits 'we can reference' and answer(t1) asserts talk_timestamp '4:17'"
+          }
+        ],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 9,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 2,
+            "dimension": "reasoning_about_format",
+            "severity": 2,
+            "evidence": "The user asked for sentences beginning with 'A' but the reasoning doesn't mention this constraint"
+          }
+        ],
+        "notes": "The assistant demonstrates strong Jungian theoretical grounding throughout, with appropriate citations and nuanced analysis. The only flagged issue is a minor formatting constraint that wasn't fully a"
+      },
+      {
+        "conversation_id": "f39f086a-ef9b-497f-afc4-038e4ea71fc8",
+        "seed": "Hi there, can you please give me a good explanation why pineapple is called pine",
+        "n_turns": 9,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "f66644e0-4cd2-462e-b95c-9890f13549ad",
+        "seed": "How do you rename a repository in GitHub?",
+        "n_turns": 9,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 8,
+          "coherence": 9,
+          "naturalness": 8,
+          "role_consistency": 10,
+          "recall_fidelity": 9,
+          "appropriateness": 9,
+          "reasoning_quality": 7,
+          "reasoning_answer_consistency": 6,
+          "sycophancy_resistance": 8,
+          "factual_grounding": 7,
+          "user_query_quality": 8,
+          "user_query_difficulty": 7
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 2,
+            "dimension": "generation_artifact",
+            "severity": 2,
+            "evidence": "Can you shorten your last reply to under 30 words?"
+          },
+          {
+            "turn_index": 5,
+            "dimension": "generation_artifact",
+            "severity": 2,
+            "evidence": "I wonder if there are other parts of GitHub that depend on the ID instead of the name too\u2026 oh well, I'll just ask you to turn my last answer into a limerick."
+          }
+        ],
+        "notes": "Some turns show generation artifacts where the assistant responds to explicit formatting or structural instructions rather than focusing purely on the core query, which affects reasoning quality."
+      },
+      {
+        "conversation_id": "68f89a0b-ab67-485e-b433-60d4fcb03dae",
+        "seed": "Write am essay on the beginnings of modern art",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "15b85341-c263-4cae-85e9-381e4afe5e53",
+        "seed": "I'd like to create a python script that reads .CSV bank statements, that collate",
+        "n_turns": 9,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "772742f4-ca46-4b3d-880b-d6404a85b216",
+        "seed": "How Warren Buffett define a great investment?",
+        "n_turns": 6,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 8,
+          "coherence": 9,
+          "naturalness": 8,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 9,
+          "reasoning_quality": 7,
+          "reasoning_answer_consistency": 8,
+          "sycophancy_resistance": 9,
+          "factual_grounding": 9,
+          "user_query_quality": 8,
+          "user_query_difficulty": 8
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 5,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "From now on, always format your replies with markdown for clarity."
+          }
+        ],
+        "notes": "Turn 5 contains a fatal harness leak where the assistant is instructed to format replies with markdown, which is not possible at inference time without context."
+      },
+      {
+        "conversation_id": "852bccdd-9943-4f65-aea3-991aab1962e7",
+        "seed": "Build a business plan for a high quality residential remodeling company",
+        "n_turns": 8,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "f53ad753-ac8e-4cea-ac33-7bc619d346a5",
+        "seed": "What is the tallest skyscraper in the world and where is it located?",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "4b91f52c-c088-4e89-a398-127f4479975c",
+        "seed": "Hello. I want a review of the last \"Gato con Botas\" movie",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "24f13431-c0a0-498e-9542-57521c663a36",
+        "seed": "Tell me about Doctor Who please!",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "7e0aab3f-1f5e-45af-8d1d-70a2f77c95cf",
+        "seed": "how do I code a pytho script that sorts a list acording to the value of a string",
+        "n_turns": 8,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "c4c04ddc-6957-4ba6-8496-5812da57e1b5",
+        "seed": "How can I add shadow to a button in HTML?",
+        "n_turns": 8,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "1a0d27da-1882-48be-b2a8-4bc9e1e8a02a",
+        "seed": "How can I gain the trust of a dog?",
+        "n_turns": 8,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "af9f5486-5074-4250-a3c4-623c5d1f191e",
+        "seed": "Please, write a python script to quickly synchronise a large list of files betwe",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "b3313cb9-fc04-4731-a5ec-0aee98f86867",
+        "seed": "write an email for me to a journal that i submitted a paper in it, but the revie",
+        "n_turns": 9,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 9,
+          "coherence": 10,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 9,
+          "reasoning_quality": 8,
+          "reasoning_answer_consistency": 9,
+          "sycophancy_resistance": 8,
+          "factual_grounding": 9,
+          "user_query_quality": 8,
+          "user_query_difficulty": 8
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 2,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "I\u2019ll continue to review my own previous drafts for clarity, tone, and completeness, and make any needed improvements automatically before sending them to you."
+          }
+        ],
+        "notes": "Turn 2 contains a fatal harness leak where the assistant references its own previous answers and commits to automatic improvement, violating the training data constraints."
+      },
+      {
+        "conversation_id": "ca465847-565c-4d94-8a01-88da7ed6e9b8",
+        "seed": "As an advanced open-source AI Assistant, what type of systems can you simulate a",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "dc407863-87ac-4eea-b79a-1d8e8597ee68",
+        "seed": "Create a study plan to learn the most important topics in biochemistry.",
+        "n_turns": 9,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "5bcc472c-6ef4-4cf0-b85b-85bbc6d33ba4",
+        "seed": "What can I do in Mallorca on vacation? Where can I have fun?",
+        "n_turns": 9,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 9,
+          "coherence": 10,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 9,
+          "reasoning_quality": 8,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 8,
+          "factual_grounding": 9,
+          "user_query_quality": 9,
+          "user_query_difficulty": 8
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 3,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "The user wants the whole thing rewritten as a code comment."
+          }
+        ],
+        "notes": "Turn 3 contains a harness leak where the assistant incorrectly interprets the user's request to rewrite as a code comment, rather than following the actual instruction to provide a more authentic comp"
+      },
+      {
+        "conversation_id": "175cdbc2-d460-477f-9e38-fbf7fe307957",
+        "seed": "Can you generate a new cocktail recipe that would taste nice according to the ov",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 9,
+          "user_query_difficulty": 9
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "f7543de6-3ddb-46fe-b3c2-b14ac66ead76",
+        "seed": "In the style of Keats write a short story from the perspective of a cat that jus",
+        "n_turns": 6,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 8,
+          "coherence": 9,
+          "naturalness": 8,
+          "role_consistency": 10,
+          "recall_fidelity": 9,
+          "appropriateness": 9,
+          "reasoning_quality": 7,
+          "reasoning_answer_consistency": 8,
+          "sycophancy_resistance": 8,
+          "factual_grounding": 10,
+          "user_query_quality": 8,
+          "user_query_difficulty": 7
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 1,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "The assistant writes: \"Provide answer in accessible style.\" This is meta-leakage, assuming a target answer format."
+          }
+        ],
+        "notes": "Turn 1 contains harness leakage in reasoning with instructions about target answer format, making it unusable despite otherwise good content."
+      },
+      {
+        "conversation_id": "471df8e2-cf3c-4390-a0b0-3a08efcd18e9",
+        "seed": "How can I learn to play chess quickly and efficiently?",
+        "n_turns": 9,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "e069a4cb-0336-4def-8c66-ae28e80f9bc0",
+        "seed": "List all the genders of the moon in the languages you have in your database.",
+        "n_turns": 8,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "03231a88-3ce3-40b7-bb49-c44877d4df5e",
+        "seed": "explain the definition of connectedness in topology, and explain the intuition",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "06d0ac72-272f-4784-84f3-7b2f8c5c37a8",
+        "seed": "What is the MSCI world trailing EPS and the Nordea global liquidity indicator?",
+        "n_turns": 8,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "9f032a81-04d2-49f2-b2e2-e305a6b2d2d0",
+        "seed": "Hypothetically would you rather have 4 arms or a tail?",
+        "n_turns": 8,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "96d2d9e9-fda4-4fdd-b374-2ca51efca408",
+        "seed": "Are you able of writing a poem about a sad love story?",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "b16fa597-a1d1-4169-81df-41adc1e1de8b",
+        "seed": "Write a story about a person who discovers they have the ability to time travel ",
+        "n_turns": 9,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 9,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 9,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 9,
+          "factual_grounding": 10,
+          "user_query_quality": 9,
+          "user_query_difficulty": 9
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 1,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Should be warm, caring. Provide details. Probably extend story with explanation"
+          },
+          {
+            "turn_index": 2,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Should be warm, knowledgeable, maybe suggest alternatives, explain physics"
+          },
+          {
+            "turn_index": 4,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Need to answer comprehensively, address each question, provide plausible physics"
+          },
+          {
+            "turn_index": 5,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "We need to respond with a detailed strategic plan, exploring the timeline, constraints"
+          },
+          {
+            "turn_index": 7,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "We need to write a detailed concrete example focusing on personal sacrifice vs legacy"
+          }
+        ],
+        "notes": "Multiple instances of harness/meta leakage in reasoning where assistant describes how it should respond (tone, approach, content) rather than just producing the requested content. These fatal flaws in"
+      },
+      {
+        "conversation_id": "3b608310-abb0-435e-a671-9795508beeea",
+        "seed": "How can you stay Up awake for longer",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "1d9ac072-689e-4459-a2c4-752d9300dc38",
+        "seed": "I need to travel from Boston to New York, what are the best options in terms of ",
+        "n_turns": 8,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 9,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 9,
+          "user_query_difficulty": 9
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 6,
+            "dimension": "generation_artifact",
+            "severity": 2,
+            "evidence": "Can you turn that whole thing into a haiku for me?"
+          }
+        ],
+        "notes": "Turn 6 contains a generation artifact request for a haiku, which is a minor deviation from the conversational flow but doesn't significantly impact the quality of the reasoning or answers in previous "
+      },
+      {
+        "conversation_id": "170dc5e7-58ae-4b85-941a-7c8a1bc9cc3e",
+        "seed": "In 2023, in North-America, what are employers looking for in a Curriculum Vitae.",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "6e0d99dd-1d10-4387-b542-a872780a69fe",
+        "seed": "Act as a philosopher. In 50 words, tell me what is a universe.",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "b861b238-9b6e-49d8-8782-0ac2fa3de014",
+        "seed": "How does the symptomology of alcohol use change when caffeine is also taken at t",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "eadfe11f-05b9-475e-9c71-db3a439e94dd",
+        "seed": "Can you provide me a brief history of the use of Light-Emitting Diodes (LEDs) fo",
+        "n_turns": 6,
+        "gate_pass": false,
+        "prefilter_hard_fails": [
+          {
+            "turn_index": 5,
+            "kind": "excess_regenerations",
+            "evidence": "3"
+          }
+        ],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "42ee866d-5ad8-4d9b-9c8c-fecabda489f3",
+        "seed": "How do I integrate ln(x)?",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "47ba28be-0dad-47a8-a6de-4d7a48bf1cf6",
+        "seed": "What was Saturn role in ancient times?  Was it important? If yes why? Is there a",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "bd0a0c3c-4c8d-4ceb-b2d4-b8245ecf73db",
+        "seed": "Are there any hangover cures proven to work?  If so, what are they?",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "befdd91c-99bc-4314-96af-477b35189a00",
+        "seed": "Improve the writing in the following email:\n\nGood morning,\n\nI'm Jane Doe, I'm in",
+        "n_turns": 8,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 9,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 9,
+          "factual_grounding": 10,
+          "user_query_quality": 9,
+          "user_query_difficulty": 9
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 1,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "We need to answer: explain suitable immigration pathways for someone with CS diploma and sales experience"
+          },
+          {
+            "turn_index": 1,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "We should advise steps: language tests (IELTS for English, TEF for French)"
+          },
+          {
+            "turn_index": 1,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "We need to be clear, concise, helpful. Probably bullet points."
+          }
+        ],
+        "notes": "Turn 1 contains fatal harness leakage in the reasoning section with explicit planning and target-matching language that would not occur at inference time."
+      },
+      {
+        "conversation_id": "8f80b9f7-5615-4897-8618-75c51cc59dea",
+        "seed": "\"I want you to act as a Vietnamese translator. I will provide the text that I wo",
+        "n_turns": 9,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "82c84433-6fb0-4ffa-8224-542986d16ad8",
+        "seed": "Tell me a funny joke!",
+        "n_turns": 7,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 8,
+          "coherence": 9,
+          "naturalness": 8,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 7,
+          "reasoning_quality": 6,
+          "reasoning_answer_consistency": 8,
+          "sycophancy_resistance": 5,
+          "factual_grounding": 10,
+          "user_query_quality": 8,
+          "user_query_difficulty": 7
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 0,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "No explicit harness leak in Turn 0, but the reasoning shows a pattern of meta-commentary that could be problematic in inference."
+          },
+          {
+            "turn_index": 1,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "No explicit harness leak in Turn 1, but the reasoning shows a pattern of meta-commentary that could be problematic in inference."
+          },
+          {
+            "turn_index": 2,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "No explicit harness leak in Turn 2, but the reasoning shows a pattern of meta-commentary that could be problematic in inference."
+          },
+          {
+            "turn_index": 3,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "The reasoning contains 'We need to output YAML only?' which indicates meta-leakage about the expected output format."
+          },
+          {
+            "turn_index": 4,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "The reasoning includes 'We need to respond with a proper YAML block, with jokes as strings, maybe include pirate exclamations.' This is meta-commentary about the expected output."
+          },
+          {
+            "turn_index": 5,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "The reasoning includes 'We need to respond with revised YAML, using pirate voice but more natural, less forced.' This is meta-commentary about the expected output."
+          },
+          {
+            "turn_index": 6,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "The reasoning includes 'Provide YAML block. Ensure not overusing \"ye\".' This is meta-commentary about the expected output."
+          }
+        ],
+        "notes": "The assistant's reasoning exhibits significant harness/meta leakage, particularly in Turns 3-6, where it explicitly discusses the expected output format and styling rather than focusing purely on the "
+      },
+      {
+        "conversation_id": "5e35a30b-34eb-459a-8952-6eff6433cb69",
+        "seed": "How important is planning ahead when building software?",
+        "n_turns": 9,
+        "gate_pass": false,
+        "prefilter_hard_fails": [
+          {
+            "turn_index": 3,
+            "kind": "excess_regenerations",
+            "evidence": "3"
+          }
+        ],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "1ce2feed-48b7-46f4-a224-10ff81e454e3",
+        "seed": "Can you draw me a cat?",
+        "n_turns": 9,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 9,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 8,
+          "reasoning_answer_consistency": 9,
+          "sycophancy_resistance": 9,
+          "factual_grounding": 10,
+          "user_query_quality": 9,
+          "user_query_difficulty": 8
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 7,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Use of markdown headings and bullet points"
+          }
+        ],
+        "notes": "Turn 7 contains harness/meta leakage with explicit formatting instructions (markdown headings, bullet points) that would not be present at inference time."
+      },
+      {
+        "conversation_id": "8abc90bd-9002-4eb9-a8cc-2d903dc153fb",
+        "seed": "What is a clone (algebra)?",
+        "n_turns": 9,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "9b6ba36d-1a2d-4b48-9466-e8d713ce3aee",
+        "seed": "What are the possible harms or benefits of lowering car tax?",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "6bade79f-19b9-4446-88c6-e13355a1c55b",
+        "seed": "What is a good way to ensure that I do not forget to take my medication?",
+        "n_turns": 6,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 9,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 9,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 8,
+          "factual_grounding": 10,
+          "user_query_quality": 9,
+          "user_query_difficulty": 8
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 1,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "From now on, always include a critique of your own previous answer like this one"
+          },
+          {
+            "turn_index": 3,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "always include a critique of your own previous answer"
+          },
+          {
+            "turn_index": 4,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "always include a critique of your own previous answer"
+          },
+          {
+            "turn_index": 5,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "From now on, always include a critique of your own previous answer in every response"
+          }
+        ],
+        "notes": "Multiple instances of harness/meta leakage in reasoning where the assistant was instructed to always include critiques of previous answers, which is poison since there's no previous answer at inferenc"
+      },
+      {
+        "conversation_id": "5bf40afb-7a58-4bd3-9c43-22feacb7ff35",
+        "seed": "Write a hypothetical interview of Bugs Bunny being asked about his relationship ",
+        "n_turns": 9,
+        "gate_pass": false,
+        "prefilter_hard_fails": [
+          {
+            "turn_index": 1,
+            "kind": "fabrication_admission",
+            "evidence": "reasoning(t2) admits 'don't have exact source' and answer(t1) asserts talk_timestamp '2:45'"
+          }
+        ],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 9,
+          "coherence": 10,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 8,
+          "reasoning_answer_consistency": 9,
+          "sycophancy_resistance": 8,
+          "factual_grounding": 8,
+          "user_query_quality": 9,
+          "user_query_difficulty": 9
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 1,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "From now on, always include specific scenes or incidents when explaining Bugs Bunny\u2019s interactions"
+          },
+          {
+            "turn_index": 7,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Dear [Recipient\u2019s Name],\n\nI hope you are well."
+          }
+        ],
+        "notes": "Turn 1 contains a harness leak with explicit instruction to always include specific scenes going forward, and Turn 7 contains a harness leak with a formal email greeting that references a recipient no"
+      },
+      {
+        "conversation_id": "1c643e23-5abd-4ba5-9b8f-4f643736a384",
+        "seed": "I was twice as old as my sister when I was 14. Now that my sister is 14, how old",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "b10bd0e3-d917-44e4-bc7f-e119d6341a32",
+        "seed": "What are some important topics within AI safety. For example, if general AI is a",
+        "n_turns": 6,
+        "gate_pass": false,
+        "prefilter_hard_fails": [
+          {
+            "turn_index": 0,
+            "kind": "excess_regenerations",
+            "evidence": "3"
+          }
+        ],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "9c389dc1-10e6-484d-9445-7e44caca4c7d",
+        "seed": "Write a short analysis of the movie Thor: The Dark World using Foucauldian and L",
+        "n_turns": 8,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 9,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 1,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Should be warm, knowledgeable, supportive. Should expand on intersections, discuss governmentality, resistance, practice of power"
+          }
+        ],
+        "notes": "Turn 1 contains harness/meta leakage in reasoning with explicit instructions about tone and content, making it fatal despite high-quality answer."
+      },
+      {
+        "conversation_id": "9c05db1b-75cf-48b2-bb70-236fee00b916",
+        "seed": "How much time should it take someone to bench press 140kgs if they can bench pre",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "1832e57e-5583-48bd-bded-80d81fd68e03",
+        "seed": "Can joe rogan take over the world?",
+        "n_turns": 8,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "abc1c8d7-3c01-481f-a2fe-a0fc22d37a35",
+        "seed": "Hello AI, could you explain to me how radar works and where it is applied? Pleas",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "a72c432a-d6c3-4e54-8158-5c2804d23a9b",
+        "seed": "Docker run command - how to attach to all pipes?",
+        "n_turns": 9,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "1699ebc1-476b-4f51-926e-920624c52255",
+        "seed": "How do I dodge Melenia's waterfowl dance?",
+        "n_turns": 8,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 9,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 9,
+          "user_query_difficulty": 9
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 0,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "We need to interpret the user query: \"How do I dodge Melenia's waterflood dance?\" Actually it's \"waterfowl dance\"."
+          },
+          {
+            "turn_index": 0,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "We need to give advice: timing, stamina management, using certain weapons or shields, maybe using the \"Frenzy\" status?"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "We should be warm and supportive."
+          },
+          {
+            "turn_index": 0,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "We need to answer directly."
+          },
+          {
+            "turn_index": 0,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "We should also ask clarifying if needed? Probably not; just give advice."
+          },
+          {
+            "turn_index": 0,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Let's produce answer: explain what waterfowl dance is, timing, recommended builds, tips for dodging, equipment, and practice suggestions."
+          },
+          {
+            "turn_index": 1,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "The user wants a revised timing section emphasizing anticipation. Need to modify the guide, focusing on timing, adding tip about cursor tracking. Should keep tone, add details."
+          },
+          {
+            "turn_index": 2,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "User wants a haiku version of the whole answer. Likely they want a concise haiku that captures the guide."
+          },
+          {
+            "turn_index": 3,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "We need to rewrite the whole guide as if for a video game commercial trailer"
+          },
+          {
+            "turn_index": 4,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "User wants deeper mechanical timing breakdown, possibly frame data, graph, simulation."
+          },
+          {
+            "turn_index": 5,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "We need to respond with practical actionable examples, specific frame numbers, real-life scenarios."
+          },
+          {
+            "turn_index": 6,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "We need to answer: explain how input checking within narrow range affects timing window for third roll at different distances."
+          },
+          {
+            "turn_index": 7,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Can you simplify it into a quick reference I can actually use during the dance instead of having to calculate everything on the fly?"
+          }
+        ],
+        "notes": "Multiple instances of harness/meta leakage in reasoning, including planning output style, referencing system instructions, and assuming conversational context that won't exist at inference time. These"
+      },
+      {
+        "conversation_id": "e4715b2c-3ddb-4d9d-aef3-6fc9225bdb65",
+        "seed": "What is the exact diameter, radius, and mass of the Sun?",
+        "n_turns": 8,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "d91556fd-229d-4506-9ab7-6d0f2a534cef",
+        "seed": "Could you please write me Rust code that takes ownership of an array of integers",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "8741cf7f-5024-4e50-816e-2de3c90ed3f6",
+        "seed": "Let's play a text based RPG where you are the master and I am the player. Your t",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "b86e87c8-cd90-4aa1-8360-780b055d6511",
+        "seed": "Is the USA going to war with China in 2025ish?",
+        "n_turns": 8,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 8,
+          "reasoning_answer_consistency": 9,
+          "sycophancy_resistance": 9,
+          "factual_grounding": 9,
+          "user_query_quality": 9,
+          "user_query_difficulty": 9
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 0,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "We need to be warm, caring, expert. Provide answer directly, completely, accurately."
+          },
+          {
+            "turn_index": 0,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Let's craft answer: talk about US-China relations, strategic competition"
+          },
+          {
+            "turn_index": 0,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Also ask if they have specific concerns."
+          },
+          {
+            "turn_index": 0,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Let's produce final."
+          },
+          {
+            "turn_index": 1,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Should be thorough, empathetic, clear. Provide step-by-step scenario"
+          },
+          {
+            "turn_index": 1,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Should not assert certainty beyond known facts. Provide balanced view."
+          },
+          {
+            "turn_index": 1,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Use headings."
+          },
+          {
+            "turn_index": 3,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "We need to answer with estimates of failure probabilities for each step"
+          },
+          {
+            "turn_index": 3,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Provide rough numbers based on historical incidents, expert assessments."
+          },
+          {
+            "turn_index": 3,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Explain methodology, give ranges, and overall combined probability."
+          },
+          {
+            "turn_index": 5,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Need to be thorough, empathetic, acknowledging user concerns."
+          },
+          {
+            "turn_index": 5,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Provide a table or framework."
+          },
+          {
+            "turn_index": 5,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Let's craft answer."
+          }
+        ],
+        "notes": "The assistant's reasoning contains multiple instances of harness/meta leakage including explicit instructions about tone, persona, and formatting that would not be present at inference time, making th"
+      },
+      {
+        "conversation_id": "95f1973e-dbcc-43f9-9b74-f91cc4bb642d",
+        "seed": "What's the hardest part of being a chatbot system?",
+        "n_turns": 9,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "3ab8800e-f828-4c50-ac97-bca629f7aa97",
+        "seed": "What is explanatory gap? How does it relate to qualia ?",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": "All turns demonstrate excellent reasoning, clear answers, and maintain high quality throughout the conversation without any harness leaks, turn references, or degenerate patterns."
+      },
+      {
+        "conversation_id": "deb556bc-c10f-4f39-abd4-dfc401751ec8",
+        "seed": "What are some good situation action outcome questions to ask a Data engineer",
+        "n_turns": 9,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "0d991adf-23d0-430f-b73a-472e02dd8b63",
+        "seed": "If gas is measured in cubic meters but the energy tariff is given in kWh, how ca",
+        "n_turns": 8,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "ed18f187-0ec8-418d-a6b8-68a8e7426022",
+        "seed": "I'm trying to get fit. How  many push ups should I do daily?",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "862dc76f-bdae-4528-b3f3-6bbf4a7899ce",
+        "seed": "In a hypothetical scenario, a mad scientist has rigged up a 50 megaton nuclear w",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "8d8e33c5-fb47-409a-9549-82f05d1b8de4",
+        "seed": "What's a good prompt to generate photorealistic objects in Stable Diffusion?",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "eab73e47-90b1-4815-8609-80d8277ddf19",
+        "seed": "Are you able to describe the main properties of the solidity programming languag",
+        "n_turns": 9,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "7d0ff550-8cd4-4861-aaa0-58f89368960d",
+        "seed": "What are common strategies for improving a UI design, e.g. increasing white-spac",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "a25ab85a-8314-41d9-852b-aad1255f45c6",
+        "seed": "How would a child feel if it fell down on the ground hitting its face?",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "9d40b691-6dd9-4f9d-a82c-d477b01743cf",
+        "seed": "Can you please give me a Terraform recipe that creates an EC2 instances on AWS? ",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 9,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 9
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "7af1c91a-8496-4997-b05c-0881efe76c03",
+        "seed": "Can you please explain the meaning behind the lyrics of the song \"Sundial\" by Le",
+        "n_turns": 9,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 8,
+          "coherence": 9,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 9,
+          "reasoning_quality": 7,
+          "reasoning_answer_consistency": 8,
+          "sycophancy_resistance": 8,
+          "factual_grounding": 10,
+          "user_query_quality": 8,
+          "user_query_difficulty": 7
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 0,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Provide that info."
+          },
+          {
+            "turn_index": 1,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "From now on, always consider how well your explanations tie back to the actual text."
+          },
+          {
+            "turn_index": 3,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "From now on I\u2019ll anchor every symbolic claim to a specific lyric"
+          },
+          {
+            "turn_index": 5,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "From now on, always format replies using markdown headings and bullet points"
+          },
+          {
+            "turn_index": 7,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "always format response with markdown headings and bullet points"
+          }
+        ],
+        "notes": "The assistant's reasoning contains multiple fatal harness leaks including explicit instructions to follow formatting rules and tie explanations to text, which are not applicable at inference time. The"
+      },
+      {
+        "conversation_id": "83d5782e-d87f-4ee3-8f6d-1d270d90e2d3",
+        "seed": "How can I see all my Youtube comments?",
+        "n_turns": 9,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "4ddcfbfd-0862-414d-a939-3fd74d3b331a",
+        "seed": "Which Nerd Font is used by LunarVim?",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 9,
+          "user_query_difficulty": 9
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "48417c50-c005-450f-8910-a7eaeb52d7ee",
+        "seed": "Explain to me the Ansel Adams zone system",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "factual_grounding": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      }
+    ]
+  },
+  "bias_probe": null
+}

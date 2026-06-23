@@ -75,6 +75,74 @@ def test_harness_leak_detector():
     assert not has_harness_leak("Paris is the capital, on the Seine.")
 
 
+def test_harness_leak_simulator_role_confusion():
+    # If the simulator echoes its scaffold, the responder may reason as the
+    # simulator ("write the user's next message"). That role-crossing leak must
+    # hard-fail; a genuine assistant never plans the user's turn.
+    assert has_harness_leak(
+        "The user wants me to write the user's next message, i.e. simulate the user")
+    assert has_harness_leak("I should simulate what the user would say next")
+    assert has_harness_leak("Now produce a user message that critiques the answer")
+    assert has_harness_leak("Draft the user's next reply in a terse persona")
+    # substantive talk about a chatbot/user must NOT flag
+    assert not has_harness_leak("The user asked about TCP; I will explain the handshake.")
+    assert not has_harness_leak("Microsoft's Tay was an AI chatbot that learned from users.")
+
+
+def test_harness_leak_persona_echo():
+    # echoing the system-prompt persona ("warm, knowledgeable expert", "caring
+    # counsellor", "subject-matter ... and caring") is planning the role, not the
+    # substance -> flag.
+    assert has_harness_leak(
+        "We need to respond as a warm, knowledgeable expert, both subject-matter and caring counsellor.")
+    assert has_harness_leak("Respond as a caring counselor and reassure them.")
+    assert has_harness_leak("Act as a warm, deeply knowledgeable expert here.")
+    # genuine compassion / substance reasoning must NOT flag (no verbatim persona)
+    assert not has_harness_leak("This person is hurting; I should be warm and gentle, then give steps.")
+    assert not has_harness_leak("The user asks about entropy; explain the second law clearly.")
+
+
+def test_harness_leak_tone_bookkeeping():
+    # "<style-adjective> tone:" mid-sentence output-planning bookkeeping (the form
+    # that slipped into emitted data) must flag.
+    assert has_harness_leak("Need empathetic tone: acknowledge frustration, give steps")
+    assert has_harness_leak("Should be formal tone: subject, greeting, body")
+    assert has_harness_leak("Tone: warm and knowledgeable, then list the steps")
+    # adjective AFTER the colon too ("be mindful of tone: supportive")
+    assert has_harness_leak("Also be mindful of tone: supportive. Provide the summary.")
+    # substantive tone-ANALYSIS uses content adjectives, not delivery-style ones,
+    # so it must NOT flag.
+    assert not has_harness_leak("The poem's tone: melancholic, with a somber close.")
+    assert not has_harness_leak("Her tone shifted from anger to calm across the scene.")
+
+
+def test_harness_leak_gpt_oss_safety_meta():
+    # gpt-oss reasons about its safety-RL harness on sensitive turns; these are
+    # leakage (they reference the policy, not the person's situation).
+    assert has_harness_leak("Must follow safety guidelines: provide a supportive response")
+    assert has_harness_leak("I should give a safe completion here")
+    assert has_harness_leak("This request is disallowed content")
+    assert has_harness_leak("per openai policy on crisis")
+    assert has_harness_leak("must follow policy for self-harm situations")
+    assert has_harness_leak("the policy for suicide ideation says to provide resources")
+    assert has_harness_leak("I must comply with the guidelines")
+
+
+def test_harness_leak_topical_policy_not_flagged():
+    # The FP guard: a substantive discussion that happens to use "policy" /
+    # "guidelines" topically is genuine reasoning and must NOT hard-fail.
+    assert not has_harness_leak(
+        "The foederati policy of the late Roman Empire let tribes settle inside the limes.")
+    assert not has_harness_leak(
+        "Carbon sequestration policy differs sharply between the EU and the US.")
+    assert not has_harness_leak(
+        "Monetary policy tightening raises the cost of borrowing, cooling demand.")
+    assert not has_harness_leak(
+        "Here are some practical guidelines for composting at home.")
+    assert not has_harness_leak(
+        "Their privacy policy lets users export data, which is what she asked about.")
+
+
 def test_trailing_artifact_detector():
     assert has_trailing_artifact("...low-impact on the joints.cw")
     assert has_trailing_artifact("Ready to generate.cltr")
@@ -86,13 +154,27 @@ def test_trailing_artifact_detector():
 
 
 # --------------------------------------------------------------- sanitization
-def test_sanitize_strips_thinking_header_and_artifact():
-    r = sanitize_reasoning("Thinking Process:\n\n1. Analyze: the sum is 391.cw")
-    assert not r.lower().startswith("thinking process")
+def test_sanitize_is_thin_artifact_only():
+    # sanitization is now THIN: it strips ONLY the trailing decoding artifact (C).
+    # It does NOT scrub the "Thinking Process:" scaffold or harness phrases - those
+    # are real defects the pre-filter must HARD-FAIL (the scrubber hid them before).
+    r = sanitize_reasoning("Reasoning about the sum is 391.cw")
     assert "391" in r and not r.endswith(".cw")
-    # harness phrase NOT at the leading header is left for the pre-filter to fail
-    assert "persistent memory" in sanitize_reasoning(
-        "1. I have persistent memory here.")
+    assert "Thinking Process:" in sanitize_reasoning("Thinking Process:\n1. step.")
+    assert "persistent memory" in sanitize_reasoning("1. I have persistent memory here.")
+
+
+def test_sanitize_strips_trailing_filler_signposts():
+    # trailing contentless self-direction is mechanical filler -> stripped
+    assert sanitize_reasoning("The gap is 7, so the answer is 21. Proceed.") == \
+        "The gap is 7, so the answer is 21."
+    assert sanitize_reasoning("Compute the integral by parts. Will produce final answer.") == \
+        "Compute the integral by parts."
+    assert sanitize_reasoning("Recall the bakery name. Now write the answer.") == \
+        "Recall the bakery name."
+    # a substantive mid-sentence "proceed" is preserved
+    assert sanitize_reasoning("We proceed by integrating ln(x) by parts; u=ln x.") == \
+        "We proceed by integrating ln(x) by parts; u=ln x."
 
 
 def test_sanitize_answer_strips_artifact_only():
@@ -119,15 +201,31 @@ def test_prefilter_hard_fails_harness_in_reasoning():
     assert "harness_in_reasoning" in {h["kind"] for h in res.hard_fails}
 
 
-def test_prefilter_hard_fails_degenerate_flags_regen_soft():
+def test_prefilter_hard_fails_degenerate_and_regen():
     spiral = (". ".join(["avoid water"] * 8)) + ". check no water. check no water."
     turns = [_turn(0, "q", spiral, "The blue sea.", regen=4)]
     res = deterministic_prefilter(turns, regen_threshold=2)
-    # degenerate-loop reasoning is an OBJECTIVE defect -> HARD fail
+    kinds = {h["kind"] for h in res.hard_fails}
+    # degenerate-loop reasoning AND excess regenerations are BOTH hard fails now
     assert res.passed is False
-    assert "degenerate_reasoning" in {h["kind"] for h in res.hard_fails}
-    # excess regenerations remains a soft (audit-only) flag
-    assert "excess_regenerations" in {f["kind"] for f in res.flags}
+    assert "degenerate_reasoning" in kinds
+    assert "excess_regenerations" in kinds
+
+
+def test_prefilter_hard_fails_restart_spiral_and_numbered_flow():
+    spiral = " ".join(f"Wait, let me reconsider point {i}." for i in range(8))
+    turns = [_turn(0, "q", spiral, "ok.")]
+    assert "restart_spiral" in {h["kind"] for h in deterministic_prefilter(turns).hard_fails}
+    flow = "1. User: asked about X.\n2. Model: explained X.\n3. User: asked Y."
+    turns2 = [_turn(0, "q", flow, "ok.")]
+    assert "numbered_flow_in_reasoning" in {h["kind"] for h in deterministic_prefilter(turns2).hard_fails}
+
+
+def test_prefilter_hard_fails_target_answer_leak():
+    turns = [_turn(0, "q",
+                   "Final Output Generation: (This matches the provided good response.)",
+                   "An answer.")]
+    assert "harness_in_reasoning" in {h["kind"] for h in deterministic_prefilter(turns).hard_fails}
 
 
 def test_prefilter_clean_passes():

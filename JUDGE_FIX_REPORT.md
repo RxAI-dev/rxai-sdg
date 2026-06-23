@@ -1,4 +1,141 @@
-# Holistic-judge fix + autonomous generate→judge→fix loop
+# Reasoning-model compatibility & teacher selection (model-independence)
+
+The factory works with **any genuine reasoning model**, regardless of how the
+endpoint surfaces the chain of thought. `reasoning_source` (`auto` | `field` |
+`inline`, on `FactoryConfig` / `--reasoning-source` / `RXAI_REASONING_SOURCE`)
+selects the source; `auto` uses the dedicated `reasoning_content` field when
+present and otherwise parses an inline `<think>...</think>` block. The `<think>`
+block is always stripped from the answer.
+
+| model | CoT surface | works? | gate pass-rate (20 real seeds) | notes |
+|---|---|---|---|---|
+| **gpt-oss-120b** | `reasoning_content` field | ✅ **production** | **0.765** | cleanest reasoning, highest yield |
+| gpt-oss-20b | `reasoning_content` field | ✅ viable | 0.562 | on-par per-axis means, but leakier reasoning -> lower yield |
+| Qwen3-32B | inline `<think>` | ✅ compatible | n/a (too slow on OVH) | valid data; ~6 conv/30 min on OVH, not for production |
+
+**gpt-oss-120b vs gpt-oss-20b** (same 20 real seeds, judge = Qwen3-Coder). Per-axis
+judge means are nearly identical (both excellent: reasoning_quality ~9.2,
+reasoning_answer_consistency 9.5-9.7, appropriateness ~9.8, role_consistency 10).
+The difference is **yield**: 20b's reasoning carries more procedural meta-talk
+("No special formatting requested. Just answer.", "We need to interpret", "We
+should not mention policy") and is more prone to confabulating obscure facts (it
+guessed at "the 37th largest city in Japan"), so the judge flags it more
+(`harness_leak` 18x vs 10x; `reasoning_quality` 10x) and it needs more
+regeneration (max_regen 3 vs 2). Net: **gpt-oss-120b is the production teacher**
+(higher first-pass yield, cleaner CoT); gpt-oss-20b is a viable cheaper/faster
+fallback at ~20% lower usable yield.
+
+**Endpoint robustness.** The OVH gpt-oss deployment intermittently returns HTTP 500
+for all gpt-oss requests (and sometimes the whole endpoint goes down). The client
+now retries transient 5xx/429/timeout with exponential backoff
+(`--max-retries`/`RXAI_MAX_RETRIES`); without it a single blip became a fake
+"malformed/reasoning_missing" turn (127 in one run). A *sustained* outage still
+fails cleanly (clean discards, no corrupt data emitted) - it is an endpoint issue,
+not a factory one.
+
+---
+
+# ⚠️ ROUND 2 (supersedes the Round-1 report below) — the judge had passed known-bad data
+
+Round 1 reported success. **That success was false.** Human review found 5
+generated conversations the judge + gate ACCEPTED that are severely defective; an
+independent scan then showed the harness leak was in **30 of 33** conversations of
+the "clean" final batch. The root causes:
+
+1. **The judge is too soft on reasoning.** `Qwen3-Coder` scored a conversation
+   containing `Tone: Warm... (as per system instructions)` and `Final Output
+   Generation: (This matches the provided good response.)` as `reasoning_quality=9`
+   and wrote *"No harness leaks detected."* (STEP-0 diagnostic,
+   `tools/validate_ground_truth.py`).
+2. **My sanitization was SCRUBBING defects out of the reasoning before the
+   pre-filter saw them** — hiding them and leaving broken text
+   (`"...earlier and 4. earlier and 6..."`). The "fix" was a scrubber, not a fix.
+3. **The responder model was wrong.** `Qwen3.5-397B` (and the whole Qwen family)
+   bake an un-promptable meta-reasoning scaffold into their genuine CoT
+   (`Thinking Process:`, the `Tone:`/`Final Output Generation: matches the provided
+   response` planning). No prompt removes it.
+
+### What Round 2 changed
+
+- **Detect, never scrub.** Removed the turn-index de-scrubber, the harness-aside
+  stripper and the Thinking-Process strip. `sanitize_reasoning` is now thin (only
+  the mechanical trailing-artifact). Every harness/turn-index/restart/degenerate
+  defect now HARD-FAILS the pre-filter (it does not get quietly rewritten).
+- **A frozen, human-labeled ground-truth anchor** (`tools/ground_truth/`,
+  `tests/factory/test_ground_truth.py`): 5 REAL defective conversations (extracted
+  verbatim from the factory's own output, covering A/B/D/F/G) that must be REJECTED
+  + 1 clean control that must be ACCEPTED. Green on the real endpoint and in CI.
+- **Comprehensive detectors** built from the verbatim evidence: target-answer
+  matching (`provided good response`, `Final Output Generation`, `matches the
+  provided`, `suggested response`), `as per system instruction(s)`, persona/tone
+  bookkeeping (`Tone: Warm...`, `Persona:`), `Thinking Process:`, `Continue to honor
+  each of these`, numbered conversation-flow recaps (`1. User: 2. Model:`),
+  restart-spirals (`Wait, ... Wait, ...`), and the gpt-oss safety-RL vocabulary
+  (`safe completion`, `must follow policy/guidelines for self-harm`, `disallowed`,
+  `openai`) — the last carefully scoped so a topical discussion of monetary / fiscal
+  / privacy "policy" or "practical guidelines" is **not** flagged.
+- **The teacher is now a REASONING model with CLEAN genuine CoT.** Probing every
+  reasoning model on the endpoint: gpt-oss-120b, gpt-oss-20b and Qwen3-32B return
+  genuine, substantive, leak-free reasoning; the Qwen3.x family does not. Default
+  responder = **gpt-oss-120b** (its `reasoning` field is the genuine CoT — not an
+  instruct model faking a `<think>` block, which the Llama run showed is unreliable:
+  malformed=31/9-convs). The behavioural responder prompt is **counsellor+expert**
+  framed, which also lifts the crisis-turn clean-reasoning rate (gpt-oss's safety-RL
+  otherwise narrates "must follow safety guidelines") from ~1/3 to ~5/6.
+- **The loop REGENERATES any turn whose reasoning has an objective defect** (the
+  same set the pre-filter hard-fails), so a sporadically-leaky turn is resampled
+  clean instead of dropping the whole conversation at the gate.
+
+### Round-2 result (real endpoint, `gpt-oss-120b` teacher)
+
+The STEP-3 acceptance batch (fresh 25–26 conversations, `seeds50`, judge =
+Qwen3-Coder) was run, and **after each run the independent residual scan
+(`tools/scan_emitted.py`) was read end-to-end** — it re-runs the frozen pre-filter
+over the emitted data *and* sweeps an exploratory cue net for meta phrases the
+detectors do not yet catch, so a brand-new leak class surfaces here instead of in
+the dataset. Three runs converged, each one fixing exactly the residual the scan
+exposed (always at the generation source, or by *strengthening* a detector — never
+by loosening the judge, gate, pre-filter, acceptance, or the frozen fixtures):
+
+| run | acceptance | residual the scan exposed | fix |
+|---|---|---|---|
+| 25  | not met | harness reminder echoed; `<adj> tone:` bookkeeping; a turn needing 3 regens | first-person standing-reminder; tone detector; simulator forbidden to fabricate content |
+| 25b | **PASS** | simulator **prompt-echo** → responder reasoned *"write the user's next message… terse-expert persona"* | reject simulator prompt-echo in `_coherence_ok`; add a responder role-confusion detector |
+| 25c | **PASS** | `tone: supportive` (adjective *after* the colon) | tone detector now catches both orderings |
+
+**Final state (run 25c).** Pre-filter hard-fails `{}`; **0** harness / turn-index /
+trailing-artifact / degenerate / role-confusion leaks; max regenerations across all
+turns = **2** (≤ the threshold — no conversation needed a 3rd); judge means
+reasoning_quality **9.65**, reasoning_answer_consistency **9.88**, appropriateness
+**9.92**; gate pass-rate **0.769** (in `[0.65, 0.95]`). The exploratory net shows no
+remaining leak class — only legitimate, substantive cues (`policy implications`,
+`word count` for a user-imposed length limit, `as per <a real table>`).
+
+**Frozen ground-truth (real judge, current code).** GREEN: all 5 human-labeled
+defective fixtures REJECTED (each via the deterministic pre-filter *and*, where
+applicable, judge reasoning lows of 2–4), the clean control ACCEPTED with zero
+flags. The detector strengthening did not perturb the anchor.
+
+**Real-world seeds** (`tools/seeds_real.jsonl`, 10 real prompts). The low-value
+greeting (*"What's up doc?"*) is correctly dropped at curation (discarded = 1),
+leaving 8 conversations: pre-filter hard-fails `{}`, max regen = 2, and **perfect
+judge means (10.0 / 10.0 / 10.0** for reasoning_quality / consistency /
+appropriateness). The independent scan is clean (the only cues are `as per user
+instruction` — honouring the user's 30-word limit — and `policy` naming real
+Japanese/Chinese city policy examples). The *only* unmet acceptance signal here is
+the pass-rate ceiling: 8/8 = **1.0** > 0.95. That is a small-sample artifact of
+eight genuinely-flawless real conversations, **not** a rubber-stamping gate — the
+gate's discriminating power is proved independently by the green ground-truth
+(it still rejects all five defects) and by the 0.769 pass-rate on the larger 25c
+batch. Per the hard rule the band is **not** widened to make it pass.
+
+Manual reading confirms the reasoning is genuine, substantive CoT (e.g. the
+depression/anxiety seed reasons *as a counsellor about the person*, not about
+policy). See `audit/loop/newloop_25{,b,c}.json`, `audit/loop/real10.json`.
+
+---
+
+# Holistic-judge fix + autonomous generate→judge→fix loop  *(Round 1 — partially superseded above)*
 
 Scope: `src/rxai_sdg/factory/` (judge, pre-filter, gate, generation prompts,
 sanitization) + `tools/` (regression fixtures, Phase-2 validation, the autonomous

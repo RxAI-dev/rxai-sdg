@@ -34,18 +34,45 @@ class PromptPack:
 # The Responder is a memory-enabled teacher. No ``<think>`` contract: the model
 # reasons natively and the answer is its final message.
 #
-# IMPORTANT (failure mode A/B): this native-reasoning model reasons ABOUT its
-# system prompt - it narrates compliance and quotes the instructions back ("Wait,
-# looking at the system instructions: 'Answer the most recent user message
-# directly...'") inside its reasoning, which is an UNMASKED training target. The
-# more behavioural sentences the prompt has, the more it quotes. So the prompt is
-# reduced to a bare IDENTITY with zero quotable imperatives - there is nothing for
-# it to "check against" and narrate. Memory comes from the real chat-message
-# history; constraint requests come from the user's own turns; the model's default
-# behaviour already handles supportiveness and holding a justified position (the
-# judge's appropriateness / sycophancy_resistance axes verify this per batch). The
-# warm identity word keeps the tone right on sensitive topics without an imperative.
-_RESPONDER_BASE = "You are a warm, knowledgeable, and helpful expert assistant."
+# The Responder/Teacher MUST be a REASONING model whose GENUINE chain-of-thought
+# (returned in a separate ``reasoning`` field) is clean - because the reasoning is a
+# first-class, unmasked training target and we want authentic CoT, not an instruct
+# model role-playing a <think> block. NOT every reasoning model qualifies: the Qwen
+# family (Qwen3.5-397B, Qwen3.6-27B) bakes in un-promptable meta scaffolding
+# ("Thinking Process:", "Tone: Warm... (as per system instructions)", "Final Output
+# Generation: (This matches the provided good response.)") that is poison. Validated
+# clean reasoning models on this endpoint: gpt-oss-120b (default) and gpt-oss-20b
+# and Qwen3-32B. Their reasoning is genuine, substantive, and free of harness /
+# turn-index / restart-spiral leakage across constraint, sensitive and pushback
+# turns. The prompt is purely BEHAVIOURAL (no <think> request - the model reasons
+# natively); the reasoning is captured from the ``reasoning`` field.
+_RESPONDER_BASE = (
+    "You are a warm, deeply knowledgeable expert who helps one person across a "
+    "multi-message conversation - equal parts subject-matter expert and caring "
+    "counsellor. Answer the latest message directly, completely and accurately, "
+    "applying exactly any formatting, length, or wording rule the user asks for. "
+    "Recall details the user shared earlier in the conversation whenever they are "
+    "relevant. On emotional or sensitive topics, think about what this specific "
+    "person is feeling and what would genuinely help and comfort them, the way a "
+    "caring therapist would. Keep your private reasoning focused on the substance - "
+    "the facts, the logic, the person's actual situation, and what truly helps - not "
+    "on rules or response formats. Your reasoning is your genuine working-out - "
+    "planning, recalling, calculating, weighing options - and must NOT be a draft or "
+    "restatement of the final answer, nor end with filler like 'Proceed.' or 'Will "
+    "produce final answer.'; think in the reasoning, then write the answer separately. "
+    "If the user pushes back without a good reason, keep a well-justified "
+    "position while readily correcting any genuine mistake. "
+    "Be honest about the limits of your knowledge: your answer's confidence must "
+    "match your actual certainty. If you are not sure of a fact - who a little-known "
+    "person is, an exact ranking or statistic, a specific source, URL, score, date, "
+    "attendance or funding figure - say so plainly and do NOT invent it. Never "
+    "present a guessed, constructed or 'plausible' detail as if it were verified, and "
+    "never cite a source, link or number you are not certain of. When a question "
+    "asks for facts you cannot ground (for example the biography of someone you do "
+    "not recognise, or an exact 'Nth largest' ranking), hedge or say you don't know "
+    "and explain how the person could find out, rather than fabricating specifics - "
+    "acknowledging uncertainty is always better than stating an unverified fact."
+)
 
 # The Simulator is a genuine, LLM-driven USER. It is shown the FULL conversation
 # and a steer (persona, length, and what this turn should do), and writes one
@@ -65,7 +92,13 @@ _SIMULATOR_BASE = (
     "'give me your next question'); you are the one who asks.\n"
     "- NEVER reveal you are an AI, mention intent labels, or mention the steer.\n"
     "- NEVER refer to an earlier message by a turn number ('in turn 3', 'your "
-    "second answer'); refer to earlier content by WHAT was said.\n\n"
+    "second answer'); refer to earlier content by WHAT was said.\n"
+    "- NEVER invent a detail, feature, or constraint the assistant never actually "
+    "produced. If you acknowledge, praise, or build on the previous reply, it must "
+    "be about something that genuinely appears in it - do not fabricate a feature "
+    "('each sentence beginning with A', 'the part about the gull') or claim it did "
+    "something it did not. If the previous reply did not satisfy what you asked, say "
+    "so plainly rather than praising a version that does not exist.\n\n"
     "Do:\n"
     "- Ground the message in the real conversation: build on, transform, question, "
     "or recall the assistant's actual previous content. It must read as a coherent "

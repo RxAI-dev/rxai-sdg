@@ -40,6 +40,31 @@ def test_one_record_per_seed_and_records_validate():
         validate_record(rec.to_dict())
 
 
+def test_emitted_metadata_dataset_name_and_factory_models():
+    cfg = FactoryConfig(seed=0, dataset_name="my-corpus-v1")
+    responder = MockLLMClient(handler=constraint_satisfying_handler)
+    responder.model_name = "resp-model"
+    simulator = MockLLMClient(handler=simulator_user_turn_handler)
+    simulator.model_name = "sim-model"
+    factory = DataFactory(cfg, responder, simulator_client=simulator,
+                          rng=random.Random(0))
+    records = factory.generate(SEEDS[:2], band="basic")
+    assert records
+    for rec in records:
+        # dataset_name from config is stamped onto every example
+        assert rec.source_seed.dataset == "my-corpus-v1"
+        # per-role model provenance travels with the data (curator/judge are
+        # None here since no such client was supplied)
+        assert rec.factory_models == {
+            "responder": "resp-model", "simulator": "sim-model",
+            "curator": None, "judge": None,
+        }
+        d = rec.to_dict()
+        assert d["source_seed"]["dataset"] == "my-corpus-v1"
+        assert d["factory_models"]["responder"] == "resp-model"
+        validate_record(d)
+
+
 def test_accepts_string_and_dict_seeds():
     factory = _factory(2)
     records = factory.generate(

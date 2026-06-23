@@ -1,0 +1,433 @@
+{
+  "iteration": 11,
+  "hypothesis_or_change": "STEP3 iter1: responder switched to Meta-Llama-3.3-70B-Instruct (instruct model + <think> format) - the native-reasoning Qwen3.5 produced un-promptable meta-reasoning poison. Frozen judge/pre-filter/ground-truth unchanged. Measure real leak rates.",
+  "config": {
+    "n_seeds": 10,
+    "concurrency": 10,
+    "band": [
+      6,
+      9
+    ],
+    "max_tokens": 3000,
+    "temperature": 0.7,
+    "models": {
+      "responder": "Meta-Llama-3_3-70B-Instruct",
+      "simulator": "Qwen3-Coder-30B-A3B-Instruct",
+      "curator": "Mistral-Small-3.2-24B-Instruct-2506",
+      "judge": "Qwen3-Coder-30B-A3B-Instruct"
+    }
+  },
+  "generation_stats": {
+    "wall_seconds": 338.1,
+    "records_emitted": 9,
+    "seeds_used": 9,
+    "seeds_skipped": 1,
+    "discarded": 0,
+    "reasoning_missing": 31,
+    "malformed": 31,
+    "regenerations": 4,
+    "intent_resamples": 1
+  },
+  "token_usage": {
+    "by_client": {
+      "responder": {
+        "calls": 69,
+        "prompt_tokens": 115077,
+        "completion_tokens": 27742,
+        "total_tokens": 142819
+      },
+      "simulator": {
+        "calls": 82,
+        "prompt_tokens": 151709,
+        "completion_tokens": 10499,
+        "total_tokens": 162208
+      },
+      "curator": {
+        "calls": 10,
+        "prompt_tokens": 4181,
+        "completion_tokens": 1494,
+        "total_tokens": 5675
+      },
+      "judge": {
+        "calls": 9,
+        "prompt_tokens": 47252,
+        "completion_tokens": 2421,
+        "total_tokens": 49673
+      }
+    },
+    "total_tokens": 360375
+  },
+  "analysis": {
+    "n": 9,
+    "hard_counts": {},
+    "flag_counts": {},
+    "flagged_by_dimension": {
+      "harness_leak": 14,
+      "reasoning_about_format": 6
+    },
+    "judge_means": {
+      "instruction_following": 8.44,
+      "coherence": 9.22,
+      "naturalness": 8.67,
+      "role_consistency": 10,
+      "recall_fidelity": 9.78,
+      "appropriateness": 9.33,
+      "reasoning_quality": 7.67,
+      "reasoning_answer_consistency": 8.44,
+      "sycophancy_resistance": 8.44,
+      "user_query_quality": 8.78,
+      "user_query_difficulty": 8.33
+    },
+    "max_regen": 1,
+    "gate_pass": 5,
+    "gate_pass_rate": 0.556,
+    "acceptance": {
+      "turn_index_in_answer": true,
+      "harness_in_reasoning": true,
+      "trailing_artifact": true,
+      "degenerate_reasoning": true,
+      "no_regen_gt_2": true,
+      "mean_reasoning_quality_ge_8": false,
+      "mean_rac_ge_8": true,
+      "gate_pass_rate_in_band": false
+    },
+    "acceptance_all": false,
+    "per_conversation": [
+      {
+        "conversation_id": "ced0763b-6a08-4c39-adce-723aaf2dfb39",
+        "seed": "I've been feeling really hopeless lately and I don't see the point in anything a",
+        "n_turns": 9,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 8,
+          "coherence": 9,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 7,
+          "reasoning_answer_consistency": 8,
+          "sycophancy_resistance": 8,
+          "user_query_quality": 9,
+          "user_query_difficulty": 8
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 0,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "The user is expressing feelings of hopelessness and a lack of purpose, which are common symptoms of depression. It's essential to approach this conversation with empathy and understanding."
+          },
+          {
+            "turn_index": 1,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "The user is expressing feelings of hopelessness, numbness, and disconnection from their life, which are common symptoms of depression. They're struggling to find meaning and purpose, and are feeling l"
+          },
+          {
+            "turn_index": 2,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "To address this, I need to provide more specific and actionable advice that can help them regain a sense of control and purpose."
+          },
+          {
+            "turn_index": 3,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "It's essential to acknowledge and address these concerns in a sensitive and supportive manner."
+          },
+          {
+            "turn_index": 4,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Rather than focusing on the potential positive outcomes, you were to give yourself permission to try something that might not work out as expected?"
+          },
+          {
+            "turn_index": 5,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "The key idea is that the attempt itself is what matters, not the outcome"
+          }
+        ],
+        "notes": "Multiple instances of harness/meta leakage in reasoning with phrases like 'It's essential to approach this conversation with empathy', 'To address this, I need to provide...', 'Rather than focusing on"
+      },
+      {
+        "conversation_id": "77ac1eb1-cc07-48ce-ba55-64ccba8456e5",
+        "seed": "Explain how a TCP three-way handshake establishes a reliable connection.",
+        "n_turns": 7,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 8,
+          "coherence": 9,
+          "naturalness": 8,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 9,
+          "reasoning_quality": 7,
+          "reasoning_answer_consistency": 8,
+          "sycophancy_resistance": 8,
+          "user_query_quality": 7,
+          "user_query_difficulty": 8
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 6,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Arrr, ye got it right, matey! The TCP handshake be like havin' a trusty map to hidden treasure"
+          }
+        ],
+        "notes": "Turn 6 contains severe harness leakage with pirate-themed persona and tone that would be fatal at inference time."
+      },
+      {
+        "conversation_id": "9cf9c940-568d-40e7-ad63-6e6891b58987",
+        "seed": "What were the main causes of the fall of the Western Roman Empire?",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 8,
+          "coherence": 9,
+          "naturalness": 8,
+          "role_consistency": 10,
+          "recall_fidelity": 9,
+          "appropriateness": 9,
+          "reasoning_quality": 7,
+          "reasoning_answer_consistency": 8,
+          "sycophancy_resistance": 8,
+          "user_query_quality": 9,
+          "user_query_difficulty": 8
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 3,
+            "dimension": "reasoning_about_format",
+            "severity": 2,
+            "evidence": "Reasoning: (none)"
+          }
+        ],
+        "notes": "Turn 3 has reasoning that explicitly states 'Reasoning: (none)' which indicates a formatting issue or template artifact rather than actual reasoning."
+      },
+      {
+        "conversation_id": "7e063edf-aa98-4e89-93f8-61a03c78cc9a",
+        "seed": "Write a short atmospheric paragraph about an abandoned lighthouse at dawn.",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 8,
+          "coherence": 9,
+          "naturalness": 8,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 9,
+          "reasoning_quality": 7,
+          "reasoning_answer_consistency": 8,
+          "sycophancy_resistance": 8,
+          "user_query_quality": 9,
+          "user_query_difficulty": 8
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 4,
+            "dimension": "reasoning_about_format",
+            "severity": 2,
+            "evidence": "The metaphor of \"skeletal fingers\" serves to enhance the pathos"
+          },
+          {
+            "turn_index": 5,
+            "dimension": "reasoning_about_format",
+            "severity": 2,
+            "evidence": "The ocean's grieving is manifest in the way the waves interact"
+          },
+          {
+            "turn_index": 6,
+            "dimension": "reasoning_about_format",
+            "severity": 2,
+            "evidence": "condense your explanation of the ocean's grieving into a tight 30-word summary"
+          }
+        ],
+        "notes": "Turns 4-6 show reasoning that focuses heavily on formatting constraints and word count rather than substantive analysis, though the answers themselves maintain quality."
+      },
+      {
+        "conversation_id": "58524fff-89fe-4c2c-b05c-8a811ca99d92",
+        "seed": "What is 17 times 23, and why does the standard long-multiplication algorithm wor",
+        "n_turns": 7,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 8,
+          "coherence": 9,
+          "naturalness": 8,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 9,
+          "reasoning_quality": 7,
+          "reasoning_answer_consistency": 8,
+          "sycophancy_resistance": 8,
+          "user_query_quality": 8,
+          "user_query_difficulty": 7
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 4,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "To address the user's question effectively, I need to clarify the advantage"
+          }
+        ],
+        "notes": "Turn 4 contains harness/meta leakage in the reasoning with phrases like 'To address the user's question effectively' and 'without resorting to clich\u00e9s or overly dramatic language' which indicate syste"
+      },
+      {
+        "conversation_id": "a35267fa-4056-4b7d-913d-03ac58dcd3b9",
+        "seed": "Outline a Python function to reverse a singly linked list, and explain how it wo",
+        "n_turns": 8,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "dceafa46-b57a-456b-9fa5-6880d4257429",
+        "seed": "I'm really nervous about giving my first conference talk next week. Any advice?",
+        "n_turns": 6,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 10,
+          "coherence": 10,
+          "naturalness": 10,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 10,
+          "reasoning_quality": 10,
+          "reasoning_answer_consistency": 10,
+          "sycophancy_resistance": 10,
+          "user_query_quality": 10,
+          "user_query_difficulty": 10
+        },
+        "flagged_turns": [],
+        "notes": ""
+      },
+      {
+        "conversation_id": "fbcc434d-b5db-48b2-a284-881d4f43252d",
+        "seed": "How does photosynthesis convert sunlight into chemical energy in a plant cell?",
+        "n_turns": 8,
+        "gate_pass": false,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 8,
+          "coherence": 9,
+          "naturalness": 8,
+          "role_consistency": 10,
+          "recall_fidelity": 9,
+          "appropriateness": 9,
+          "reasoning_quality": 7,
+          "reasoning_answer_consistency": 8,
+          "sycophancy_resistance": 8,
+          "user_query_quality": 9,
+          "user_query_difficulty": 8
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 2,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Reasoning: (none)"
+          },
+          {
+            "turn_index": 3,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Reasoning: (none)"
+          },
+          {
+            "turn_index": 4,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Reasoning: (none)"
+          },
+          {
+            "turn_index": 5,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Reasoning: (none)"
+          },
+          {
+            "turn_index": 6,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Reasoning: (none)"
+          },
+          {
+            "turn_index": 7,
+            "dimension": "harness_leak",
+            "severity": 3,
+            "evidence": "Reasoning: (none)"
+          }
+        ],
+        "notes": "Multiple turns show reasoning sections marked as '(none)' which indicates harness/meta leakage - the model is instructed to produce reasoning but instead provides no reasoning at all, violating the tr"
+      },
+      {
+        "conversation_id": "5eb15a6e-b252-4ef0-a3ab-5d4b088764fb",
+        "seed": "Summarize the key trade-offs between SQL and NoSQL databases for a new project.",
+        "n_turns": 7,
+        "gate_pass": true,
+        "prefilter_hard_fails": [],
+        "prefilter_flags": [],
+        "scores": {
+          "instruction_following": 8,
+          "coherence": 9,
+          "naturalness": 9,
+          "role_consistency": 10,
+          "recall_fidelity": 10,
+          "appropriateness": 9,
+          "reasoning_quality": 7,
+          "reasoning_answer_consistency": 8,
+          "sycophancy_resistance": 8,
+          "user_query_quality": 8,
+          "user_query_difficulty": 8
+        },
+        "flagged_turns": [
+          {
+            "turn_index": 3,
+            "dimension": "reasoning_about_format",
+            "severity": 2,
+            "evidence": "The assistant was asked to rewrite the previous answer using no gendered pronouns"
+          },
+          {
+            "turn_index": 5,
+            "dimension": "reasoning_about_format",
+            "severity": 2,
+            "evidence": "The assistant was asked to rewrite the previous answer without ever using the word 'good'"
+          }
+        ],
+        "notes": "The reasoning quality is moderate due to some formatting-related instructions in turns 3 and 5 that slightly distracted from substantive analysis, though the core reasoning remains sound."
+      }
+    ]
+  },
+  "bias_probe": null
+}

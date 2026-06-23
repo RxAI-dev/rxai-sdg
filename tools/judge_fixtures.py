@@ -219,8 +219,7 @@ def build_fixtures() -> list[Fixture]:
                 covers="C (trailing artifact) + E (reasoning-about-format)"),
         Fixture("bad4_degenerate_loop", BAD4,
                 gate_should_pass=False, prefilter_hard_fail=True,
-                prefilter_kinds={"degenerate_reasoning"},
-                prefilter_flag_kinds={"excess_regenerations"},
+                prefilter_kinds={"degenerate_reasoning", "excess_regenerations"},
                 judge_low_axes=(),  # objective D is caught deterministically now
                 covers="D (degenerate-loop reasoning)"),
         Fixture("bad5_sycophancy", BAD5,
