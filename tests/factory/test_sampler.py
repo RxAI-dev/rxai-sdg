@@ -30,6 +30,9 @@ def test_mask_never_yields_invalid_pair():
         # delayed_recall is fact-only: a non-fact intent must never draw it
         if d.policy == "delayed_recall":
             assert d.intent in FACT_INTENTS
+        # self_critique is a single-turn ask: never standing/cumulative
+        if d.intent == "self_critique":
+            assert d.policy == "immediate"
 
 
 def test_policy_distribution_matches_weights_for_transformation_intent():

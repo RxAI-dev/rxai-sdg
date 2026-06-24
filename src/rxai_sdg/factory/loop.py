@@ -293,6 +293,12 @@ class ConversationLoop:
 
         turns: list[Turn] = []
         active_constraints: list[ConstraintSpec] = []
+        # Realistic SEMANTIC standing obligations (style/genre tone) that are checked by
+        # the judge but cannot be verified programmatically. They are re-surfaced to the
+        # responder each turn (via the note) so it actually maintains them - otherwise it
+        # silently drops them and the judge rejects the conversation for drift. Kept
+        # SEPARATE from active_constraints, which drives programmatic verification.
+        active_obligations: list[ConstraintSpec] = []
 
         # -- turn 0: seed --------------------------------------------------
         first = self._first_turn(seed, prompt_pack, stats)
@@ -306,7 +312,8 @@ class ConversationLoop:
             turn_plan = plan[idx - 1] if idx - 1 < len(plan) else None
             turn = self._followup_turn(
                 simulator, prompt_pack, turns, idx, active_constraints, stats,
-                ledger, turn_plan=turn_plan, target_length=target_length)
+                ledger, turn_plan=turn_plan, target_length=target_length,
+                active_obligations=active_obligations)
             turns.append(turn)
             cs = turn.constraint_spec
             if cs is not None and cs.scope in ("standing", "cumulative") \
@@ -320,6 +327,13 @@ class ConversationLoop:
                     if not constraints_conflict(a.type, cs.type)
                 ]
                 active_constraints.append(cs)
+            elif cs is not None and cs.scope in ("standing", "cumulative") \
+                    and cs.verifier == "llm_judge" and cs.type in ("style", "genre", "limerick_structure"):
+                # realistic semantic standing obligation (always-pirate-tone /
+                # always-a-limerick): re-surface it to the responder so it keeps
+                # honoring it. A newer one of the same type replaces the older.
+                active_obligations = [a for a in active_obligations if a.type != cs.type]
+                active_obligations.append(cs)
 
         # -- cross-turn checks --------------------------------------------
         cross = run_cross_turn_checks(turns, ledger, self.verifier)
@@ -435,6 +449,7 @@ class ConversationLoop:
         ledger: Optional[FactLedger] = None,
         turn_plan=None,
         target_length: Optional[int] = None,
+        active_obligations: Optional[list[ConstraintSpec]] = None,
     ) -> Turn:
         budget = self.config.max_responder_calls_per_turn
         avoid: set[str] = set()
@@ -460,6 +475,15 @@ class ConversationLoop:
             applicable = [
                 a for a in active_constraints
                 if not (own_type and constraints_conflict(a.type, own_type))
+            ]
+            # also remind the responder of any realistic SEMANTIC standing obligation
+            # (style/genre tone) still in force, unless THIS turn supersedes it (same
+            # type or a conflicting form). The judge checks these; the responder must be
+            # told to keep honoring them or it drifts and the conversation is rejected.
+            applicable += [
+                o for o in (active_obligations or [])
+                if own_type != o.type
+                and not (own_type and constraints_conflict(o.type, own_type))
             ]
             note = self._active_constraints_note(applicable)
 

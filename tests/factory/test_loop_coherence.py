@@ -113,6 +113,21 @@ def test_has_fabricated_experience_detector():
     assert not f("I've outlined the steps below.")
 
 
+def test_standing_semantic_obligation_rendered_for_responder():
+    # a standing style/genre obligation must be re-surfaced to the responder (so it
+    # keeps honouring the tone/form instead of drifting), in natural USER voice with
+    # NO schema vocabulary.
+    style = ConstraintSpec(intent="restyle", type="style",
+                           params={"style": "the persona of a pirate"}, lang="en",
+                           verifier="llm_judge", scope="standing", applies_from_turn=2)
+    genre = ConstraintSpec(intent="genre_convert", type="genre",
+                           params={"genre": "limerick"}, lang="en",
+                           verifier="llm_judge", scope="standing", applies_from_turn=3)
+    note = ConversationLoop._active_constraints_note([style, genre])
+    assert "pirate" in note and "limerick" in note
+    assert "standing" not in note.lower() and "llm_judge" not in note and "style" not in note
+
+
 def test_numeric_defect_regenerates_bad_arithmetic_turn():
     from rxai_sdg.factory.loop import _numeric_defect
     from rxai_sdg.factory.schemas import Segment, Turn

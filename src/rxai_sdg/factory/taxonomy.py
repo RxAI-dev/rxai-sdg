@@ -201,6 +201,13 @@ def default_invalid_pairs() -> set[tuple[str, str]]:
     # chained_compute cannot be a standing instruction.
     invalid.add(("chained_compute", "standing"))
 
+    # self_critique as a STANDING/cumulative rule ("critique your own previous answer
+    # on every turn from now on") is unnatural and is not re-surfaced to the responder,
+    # so it only ever shows up as standing-obligation DRIFT the judge rejects. Keep it a
+    # single-turn ask (immediate).
+    for policy in ("cumulative", "standing"):
+        invalid.add(("self_critique", policy))
+
     # open_chat / deepen default to immediate only.
     for intent in ("open_chat", "deepen"):
         for policy in ("cumulative", "standing", "delayed_recall"):
