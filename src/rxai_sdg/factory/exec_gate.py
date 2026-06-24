@@ -535,6 +535,58 @@ def check_repetition(text: str, turn_index: int, segment: str) -> list[GateFlag]
 
 
 # ---------------------------------------------------------------------------
+# table self-consistency: a "N - M noun = K" subtraction whose M contradicts the
+# accompanying markdown table's own row count for that noun
+# ---------------------------------------------------------------------------
+
+# The kings/interregna case: prose states "23 - 3 interregna = 20 monarchs",
+# implying 3 interregnum rows, but the table the answer itself prints has only 1
+# such row. The judge reads the prose as plausible; only counting the table rows
+# (which the answer authored) settles it. We require an internally-CONSISTENT
+# subtraction (K == N-M, so it is not a range like "5-7 chars") and that the
+# counted noun actually appears in the table, then reject if the printed table's
+# row count for that noun != M.
+_TABLE_SUB_RE = re.compile(
+    r"(\d+)\s*[−–-]\s*(\d+)\s+([A-Za-z]{4,})\b[^.\n=]{0,20}=\s*(\d+)")
+
+
+def parse_table_rows(text: str) -> list[str]:
+    """Lower-cased data rows of any markdown table in ``text`` (pipe-delimited,
+    excluding the ``|---|`` separator row)."""
+    rows: list[str] = []
+    for ln in (text or "").split("\n"):
+        s = ln.strip()
+        if s.startswith("|") and s.count("|") >= 2 and not re.match(r"^\|[\s:|-]+\|$", s):
+            rows.append(s.lower())
+    return rows
+
+
+def detect_table_count_mismatch(text: str) -> list[str]:
+    """A ``N - M <noun> = K`` claim whose M disagrees with the number of table rows
+    mentioning <noun>. Returns one evidence string per genuine contradiction."""
+    rows = parse_table_rows(text)
+    if not rows:
+        return []
+    out: list[str] = []
+    for m in _TABLE_SUB_RE.finditer(text or ""):
+        n, sub, word, k = int(m.group(1)), int(m.group(2)), m.group(3).lower(), int(m.group(4))
+        if k != n - sub:                      # not a consistent subtraction (e.g. a range)
+            continue
+        stem = word.rstrip("s")[:5]
+        if not any(stem in r for r in rows):  # noun isn't a table concept; skip
+            continue
+        cnt = sum(1 for r in rows if stem in r)
+        if cnt != sub:
+            out.append(f"'{n}-{sub} {word}={k}' but table has {cnt} '{word}' row(s), not {sub}")
+    return out
+
+
+def check_table_consistency(text: str, turn_index: int, segment: str) -> list[GateFlag]:
+    return [GateFlag("table_count_mismatch", 3, turn_index, segment, ev)
+            for ev in detect_table_count_mismatch(text)]
+
+
+# ---------------------------------------------------------------------------
 # orchestration
 # ---------------------------------------------------------------------------
 
@@ -573,6 +625,7 @@ def run_exec_gate(turns: list, run_code: bool = True) -> ExecGateResult:
                 continue
             hard: list[GateFlag] = []
             hard += check_repetition(text, ti, segment)
+            hard += check_table_consistency(text, ti, segment)
             if run_code:
                 hard += check_code_arithmetic(text, ti, segment)
             hard += check_inline_arithmetic(text, ti, segment)

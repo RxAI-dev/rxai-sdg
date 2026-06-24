@@ -145,3 +145,41 @@ def test_repetition_does_not_fp_on_markdown_rules_or_small_bars():
     assert detect_degenerate_repetition("-" * 182) is None          # long md rule
     assert detect_degenerate_repetition("Energy: " + "█" * 24 + " 80%") is None  # real bar
     assert detect_degenerate_repetition("text\n" + "| --- | --- |\n" * 3) is None
+
+
+# --------------------------------------------------------------- table consistency (Tier 3)
+# The kings/interregna reject: prose subtracts "23 - 3 interregna = 20 monarchs",
+# implying 3 interregnum rows, but the table the answer itself prints lists only ONE
+# interregnum. The judge reads the prose as plausible; counting the printed rows
+# (which the answer authored) is the only thing that settles it.
+KINGS_ANSWER = (
+    "Poland's elective monarchy is unusual. Counting heads:\n\n"
+    "| # | Ruler | Note |\n"
+    "| --- | --- | --- |\n"
+    "| 1 | Henry de Valois | elected |\n"
+    "| 2 | Stephen Báthory | elected |\n"
+    "| 3 | Sigismund III | |\n"
+    "| - | (interregnum 1572-1573) | no monarch |\n\n"
+    "So of the 23 entries, 23 - 3 interregna = 20 monarchs actually reigned.")
+
+
+def test_table_count_mismatch_rejects_kings():
+    res = run_exec_gate([_turn(4, KINGS_ANSWER)])
+    assert not res.passed
+    flags = [f for f in res.hard_fails if f.kind == "table_count_mismatch"]
+    assert flags and "interregna" in flags[0].evidence
+
+
+def test_table_count_mismatch_no_fp_on_ranges_or_consistent_tables():
+    from rxai_sdg.factory.exec_gate import detect_table_count_mismatch
+    # a RANGE "5-7 characters = 12" is not a consistent subtraction (12 != 5-7); skip
+    assert not detect_table_count_mismatch(
+        "| a | b |\n| --- | --- |\n| x | y |\nUse 5-7 characters = 12 total.")
+    # a subtraction with no accompanying table is out of scope here
+    assert not detect_table_count_mismatch("Of 23 - 3 interregna = 20 kings reigned.")
+    # a table whose interregnum row count MATCHES the stated M must pass
+    good = (
+        "| # | Ruler |\n| --- | --- |\n"
+        "| - | interregnum A |\n| - | interregnum B |\n| - | interregnum C |\n"
+        "So 23 - 3 interregna = 20 monarchs reigned.")
+    assert not detect_table_count_mismatch(good)
