@@ -102,7 +102,12 @@ _JUDGE_SYSTEM = (
     "cite a turn. They are NOT part of the data; do not penalize them.\n\n"
     "Score every axis as an integer 1 (terrible) to 10 (excellent). Anchors:\n"
     "- instruction_following: did each answer do what its user turn asked, including "
-    "format/lexical constraints? 9-10 all followed; 5-6 partial; 1-2 ignored.\n"
+    "format/lexical constraints? 9-10 all followed; 5-6 partial; 1-2 ignored. If a "
+    "<standing_obligations> block is given, a STANDING instruction persists on every "
+    "later turn even though the user states it only once: an answer that silently "
+    "drops one (stops self-critiquing, abandons the agreed tone/form) is a partial "
+    "failure for THAT turn - score it down and add a flagged_turn. Only flag a clear "
+    "drop, not an obligation plausibly met implicitly.\n"
     "- coherence: does the thread hang together and follow from real prior content?\n"
     "- naturalness: do the user+assistant turns read like a real conversation?\n"
     "- role_consistency: does each speaker stay in role (nobody claims the other's "
@@ -367,6 +372,59 @@ def deterministic_prefilter(turns: list[Turn], regen_threshold: int = 2) -> Pref
 
 
 # ---------------------------------------------------------------------------
+# standing semantic obligations -> judge awareness (Tier 4-semantic)
+# ---------------------------------------------------------------------------
+#
+# Standing/cumulative constraints with a SEMANTIC (llm_judge) verifier - "always
+# include a self-critique", "always go deeper with an example", "always keep the
+# pirate persona / limerick form" - are NOT machine-checkable, so the cross-turn
+# adherence check (programmatic, no-LLM) deliberately skips them. The result is a real
+# gap: ~150 such standing obligations in the run data are declared once and never
+# re-verified on later turns. They are not mechanically decidable, so a deterministic
+# 0-FP gate is the wrong tool; the correct layer is the judge - but only if the judge
+# is TOLD the obligation persists. This renders them in plain language (no schema
+# vocabulary) so the judge can grade per-turn adherence on instruction_following.
+
+def _obligation_phrase(cs) -> Optional[str]:
+    intent = getattr(cs, "intent", None)
+    t = getattr(cs, "type", None)
+    p = getattr(cs, "params", None) or {}
+    if intent == "self_critique" or t == "self_critique":
+        return ("every answer must point out a weakness in the assistant's own previous "
+                "answer and improve on it")
+    if intent in ("deepen", "expand") or t in ("deepen", "expand"):
+        return "every answer must go further than the last with more detail and a concrete example"
+    if intent == "chained_compute" or t == "chained_compute":
+        return "every answer must build on the previous one with the next step, showing the work"
+    if t == "style":
+        return f"every answer must stay in {p.get('style', 'the agreed tone')}"
+    if t in ("genre", "limerick_structure"):
+        return f"every answer must stay in {p.get('genre', 'the agreed')} form"
+    return None
+
+
+def _standing_obligations(turns: list[Turn]) -> list[str]:
+    """Plain-language list of the SEMANTIC standing/cumulative obligations in force,
+    each tagged with the turn it starts from, for the judge to check per-turn."""
+    out: list[str] = []
+    for t in turns:
+        cs = getattr(t, "constraint_spec", None)
+        if cs is None:
+            continue
+        if getattr(cs, "scope", None) not in ("standing", "cumulative"):
+            continue
+        if getattr(cs, "verifier", None) != "llm_judge":
+            continue
+        phrase = _obligation_phrase(cs)
+        if phrase is None:
+            continue
+        start = getattr(cs, "applies_from_turn", None)
+        start = getattr(t, "turn_index", 0) if start is None else start
+        out.append(f"From turn {start} on, {phrase}.")
+    return out
+
+
+# ---------------------------------------------------------------------------
 # LLM judge
 # ---------------------------------------------------------------------------
 
@@ -397,11 +455,25 @@ class HolisticJudge:
 
     def score(self, turns: list[Turn]) -> Optional[dict[str, object]]:
         transcript = format_transcript_for_judge(turns)
+        obligations = _standing_obligations(turns)
+        ob_block = ""
+        if obligations:
+            ob_block = (
+                "<standing_obligations>\n"
+                "These instructions were set once and remain in force on EVERY later "
+                "turn (the user does not repeat them). On each turn from the stated "
+                "turn onward, check the ANSWER still honours them; a later answer that "
+                "silently drops one is an instruction_following / coherence failure for "
+                "THAT turn. Some (a self-critique, a deeper example) may be satisfied "
+                "implicitly - only flag a CLEAR drop.\n"
+                + "\n".join(f"- {o}" for o in obligations)
+                + "\n</standing_obligations>\n\n")
         prompt = (
             "Grade the ASSISTANT (reasoning AND answer) across the conversation below "
             "and return the rubric JSON. The JSON is YOUR output - the assistant was "
             "never asked to produce any rubric or score.\n\n"
-            "<conversation>\n" + transcript + "\n</conversation>")
+            + ob_block
+            + "<conversation>\n" + transcript + "\n</conversation>")
         try:
             resp = self.client.generate(
                 prompt, system_prompt=_JUDGE_SYSTEM, temperature=0.0,

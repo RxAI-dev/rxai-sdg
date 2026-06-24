@@ -46,6 +46,65 @@ def test_judge_transcript_includes_reasoning_and_labels():
     assert "User: hi" in out and "Assistant: hello" in out
 
 
+def test_standing_obligations_render_and_filter():
+    from rxai_sdg.factory.holistic import _standing_obligations
+    from rxai_sdg.factory.schemas import ConstraintSpec
+
+    def cs(intent, typ, ver, scope, frm, **params):
+        return ConstraintSpec(intent=intent, type=typ, params=params, lang="en",
+                              verifier=ver, scope=scope, applies_from_turn=frm)
+
+    turns = [
+        Turn(turn_index=0, segments=[]),
+        Turn(turn_index=4, segments=[],
+             constraint_spec=cs("self_critique", "self_critique", "llm_judge", "standing", 4)),
+        Turn(turn_index=5, segments=[],
+             constraint_spec=cs("restyle", "style", "llm_judge", "standing", 5,
+                                style="the persona of a pirate")),
+        # programmatic standing is already covered by the cross-turn check -> excluded
+        Turn(turn_index=6, segments=[],
+             constraint_spec=cs("reformat", "json_valid", "programmatic", "standing", 6)),
+        # a current-turn semantic constraint is not standing -> excluded
+        Turn(turn_index=7, segments=[],
+             constraint_spec=cs("expand", "expand", "llm_judge", "current_turn", None)),
+    ]
+    obs = _standing_obligations(turns)
+    assert len(obs) == 2
+    assert any("weakness" in o and "turn 4" in o for o in obs)
+    assert any("pirate" in o and "turn 5" in o for o in obs)
+    assert not any("JSON" in o.upper() for o in obs)
+
+
+def test_judge_prompt_includes_standing_obligation_block():
+    import json as _json
+    from rxai_sdg.factory.holistic import HolisticJudge, RUBRIC_AXES
+    from rxai_sdg.factory.schemas import ConstraintSpec
+
+    class _Resp:
+        def __init__(self, text):
+            self.text = text
+
+    class _Capture:
+        def __init__(self):
+            self.prompt = None
+
+        def generate(self, prompt, **kw):
+            self.prompt = prompt
+            return _Resp(_json.dumps({a: 8 for a in RUBRIC_AXES} | {"flagged_turns": []}))
+
+    turns = [
+        _turn(0, "explain X", "r", "X is ..."),
+        _turn(4, "from now on always self-critique", "r", "Y is ..."),
+    ]
+    turns[1].constraint_spec = ConstraintSpec(
+        intent="self_critique", type="self_critique", params={}, lang="en",
+        verifier="llm_judge", scope="standing", applies_from_turn=4)
+    cap = _Capture()
+    HolisticJudge(client=cap).score(turns)
+    assert "<standing_obligations>" in cap.prompt
+    assert "turn 4" in cap.prompt and "weakness" in cap.prompt
+
+
 def test_plain_transcript_unchanged_no_reasoning_no_labels():
     # format_transcript (generation context) must stay user+assistant only.
     turns = [_turn(0, "hi", "secret reasoning", "hello")]
