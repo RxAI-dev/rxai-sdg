@@ -240,6 +240,31 @@ def test_hamming_weight_flags_wrong_popcount():
     assert flags and "popcount is 3" in flags[0]
 
 
+# --------------------------------------------------------------- haiku soft-flag (FN fix)
+def test_heuristic_offby1_haiku_is_non_gating():
+    # A haiku flagged ONLY by a heuristic off-by-1 syllable count (no cmudict) must NOT
+    # reject - we cannot prove a defect, so it is a non-gating soft flag. (When cmudict
+    # is installed the count is accurate and a real miss still hard-fails via the
+    # confident path; this guards the heuristic-fallback envs against false negatives.)
+    import rxai_sdg.factory.exec_gate as eg
+    saved = eg._CMU
+    eg._CMU = {}  # force the heuristic fallback
+    try:
+        # "Three doors, one car hides" heuristically counts 6 (miscounts "hides"); the
+        # real haiku is 5-7-5. Under the heuristic this is an off-by-1 -> must be soft.
+        turn = {"turn_index": 2, "constraint_spec": {"type": "genre", "params": {"genre": "haiku"}},
+                "segments": [
+                    {"segment_type": "query", "text": "write a haiku about the Monty Hall problem"},
+                    {"segment_type": "reasoning", "text": "compose 5-7-5"},
+                    {"segment_type": "answer",
+                     "text": "Three doors, one car hides\nHost reveals goat, odds still shift\nSwitch, win two thirds chance"}]}
+        res = eg.run_exec_gate([turn])
+        assert res.passed, "heuristic off-by-1 haiku must not gate"
+        assert any(f.kind == "haiku_syllables" for f in res.soft_flags)
+    finally:
+        eg._CMU = saved
+
+
 def test_table_count_mismatch_no_fp_on_ranges_or_consistent_tables():
     from rxai_sdg.factory.exec_gate import detect_table_count_mismatch
     # a RANGE "5-7 characters = 12" is not a consistent subtraction (12 != 5-7); skip

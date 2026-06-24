@@ -381,6 +381,10 @@ def deterministic_prefilter(turns: list[Turn], regen_threshold: int = 2) -> Pref
     for f in gate.human_flags:
         hard.append({"turn_index": f.turn_index, "kind": f.kind,
                      "evidence": "FLAG_FOR_HUMAN: " + f.evidence})
+    # low-confidence exec-gate signals (e.g. a heuristic-only off-by-1 haiku count
+    # with no cmudict) must NOT gate - record them as audit-only soft flags.
+    for f in gate.soft_flags:
+        soft.append({"turn_index": f.turn_index, "kind": f.kind, "evidence": f.evidence})
 
     return PrefilterResult(passed=(len(hard) == 0), hard_fails=hard, flags=soft)
 

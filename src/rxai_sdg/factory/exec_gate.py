@@ -54,14 +54,19 @@ class GateFlag:
 class ExecGateResult:
     hard_fails: list[GateFlag] = field(default_factory=list)
     human_flags: list[GateFlag] = field(default_factory=list)
+    #: low-confidence signals that must NOT gate (we cannot prove a defect): e.g. a
+    #: heuristic-only haiku syllable count off by 1 when cmudict is unavailable. These
+    #: are recorded for audit but never reject (rejecting them is a false negative).
+    soft_flags: list[GateFlag] = field(default_factory=list)
 
     @property
     def passed(self) -> bool:
         # A human_flag is NOT a silent accept: it blocks the gate pending review.
+        # soft_flags are explicitly non-gating.
         return not self.hard_fails and not self.human_flags
 
     def all_flags(self) -> list[GateFlag]:
-        return self.hard_fails + self.human_flags
+        return self.hard_fails + self.human_flags + self.soft_flags
 
 
 # ---------------------------------------------------------------------------
@@ -866,9 +871,12 @@ def run_exec_gate(turns: list, run_code: bool = True) -> ExecGateResult:
                             hard.append(GateFlag("haiku_syllables", 3, ti, segment,
                                                  f"not 5-7-5: {detail}"))
                         else:
-                            # heuristic-only, off by 1: cannot confidently reject -> human
-                            res.human_flags.append(GateFlag(
-                                "haiku_syllables", 3, ti, segment,
+                            # heuristic-only, off by 1 (no cmudict): the syllable
+                            # counter is unreliable here (it miscounts silent-e plurals
+                            # like 'hides'), so we CANNOT prove a defect -> record a
+                            # NON-GATING soft flag rather than reject a correct haiku.
+                            res.soft_flags.append(GateFlag(
+                                "haiku_syllables", 1, ti, segment,
                                 f"heuristic syllable count off by 1 (no cmudict): {detail}",
                                 human_review=True))
             res.hard_fails.extend(hard)
