@@ -751,6 +751,55 @@ def check_alpha_sort(text: str, turn_index: int, segment: str) -> list[GateFlag]
 
 
 # ---------------------------------------------------------------------------
+# binary Hamming-weight self-consistency (coding-theory fabrication)
+# ---------------------------------------------------------------------------
+#
+# The Gates/codes reject: "every codeword has even Hamming weight (the weight of
+# 01,10,11 is 1,1,2 respectively)". The stated weights are correct popcounts, but the
+# parity CLAIM is self-contradictory: 01 and 10 have weight 1, which is odd. The LLM
+# judge reads it as authoritative coding theory; popcount settles it in one line.
+# We check two decidable things about a "weight of <bins> is <nums>" statement: the
+# stated weight equals the binary popcount, and any nearby even/odd parity claim
+# holds for every listed codeword.
+_WEIGHT_OF_RE = re.compile(
+    r"(even|odd)?\s*(?:hamming\s+)?weight[s]?\s+of\s+"
+    r"([01]{2,}(?:\s*[,/]\s*[01]{2,})*)\s+(?:is|are|=|:)\s*"
+    r"([0-9]+(?:\s*[,/]\s*[0-9]+)*)", re.I)
+
+
+def detect_hamming_weight_contradiction(text: str) -> list[str]:
+    """A binary "weight of <codewords> is <numbers>" statement whose stated weight
+    disagrees with the popcount, or whose nearby even/odd parity claim is violated by
+    one of the listed codewords."""
+    out: list[str] = []
+    for m in _WEIGHT_OF_RE.finditer(text or ""):
+        bins = [b.strip() for b in re.split(r"[,/]", m.group(2)) if b.strip()]
+        nums = [n.strip() for n in re.split(r"[,/]", m.group(3)) if n.strip()]
+        popcounts = [sum(1 for c in b if c == "1") for b in bins]
+        # 1. stated weight vs actual popcount
+        for b, n, pc in zip(bins, nums, popcounts):
+            if pc != int(n):
+                out.append(f"weight of {b} stated {n} but popcount is {pc}")
+        # 2. parity claim ("even"/"odd" ... weight) contradicted by a listed codeword
+        parity = m.group(1)
+        if not parity:
+            words = re.findall(r"\b(even|odd)\b", text[max(0, m.start() - 45):m.start()], re.I)
+            parity = words[-1].lower() if words else None
+        if parity:
+            want_even = parity.lower() == "even"
+            for b, pc in zip(bins, popcounts):
+                if (pc % 2 == 0) != want_even:
+                    out.append(f"claims {parity.lower()} weight but weight({b})={pc}")
+                    break
+    return out
+
+
+def check_hamming_weight(text: str, turn_index: int, segment: str) -> list[GateFlag]:
+    return [GateFlag("hamming_weight_contradiction", 3, turn_index, segment, ev)
+            for ev in detect_hamming_weight_contradiction(text)]
+
+
+# ---------------------------------------------------------------------------
 # orchestration
 # ---------------------------------------------------------------------------
 
@@ -791,6 +840,7 @@ def run_exec_gate(turns: list, run_code: bool = True) -> ExecGateResult:
             hard += check_repetition(text, ti, segment)
             hard += check_table_consistency(text, ti, segment)
             hard += check_alpha_sort(text, ti, segment)
+            hard += check_hamming_weight(text, ti, segment)
             if run_code:
                 hard += check_code_arithmetic(text, ti, segment)
             hard += check_inline_arithmetic(text, ti, segment)

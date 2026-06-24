@@ -213,6 +213,33 @@ def test_alpha_sort_no_fp_on_correct_or_tiebreaker_lists():
     assert not detect_alpha_sort_violation(tb)
 
 
+# --------------------------------------------------------------- hamming weight (Doc 4)
+def test_hamming_weight_parity_contradiction_rejects():
+    # frozen from the real Gates/codes reject (Doc 4 turn 1)
+    ans = ("Because every codeword has even Hamming weight (the weight of 01,10,11 is "
+           "1,1,2 respectively), the code is *even*.")
+    res = run_exec_gate([_turn(1, ans)])
+    assert not res.passed
+    flags = [f for f in res.hard_fails if f.kind == "hamming_weight_contradiction"]
+    assert flags and "even" in flags[0].evidence
+
+
+def test_hamming_weight_no_fp_on_correct_claims():
+    from rxai_sdg.factory.exec_gate import detect_hamming_weight_contradiction
+    # a CORRECT even-weight statement must pass
+    assert not detect_hamming_weight_contradiction(
+        "All codewords have even Hamming weight (the weight of 0011,1100,1111 is 2,2,4).")
+    # correct stated popcounts with no parity claim must pass
+    assert not detect_hamming_weight_contradiction(
+        "The weight of 01,10,11 is 1,1,2 respectively.")
+
+
+def test_hamming_weight_flags_wrong_popcount():
+    from rxai_sdg.factory.exec_gate import detect_hamming_weight_contradiction
+    flags = detect_hamming_weight_contradiction("The weight of 1011 is 2.")  # popcount 3
+    assert flags and "popcount is 3" in flags[0]
+
+
 def test_table_count_mismatch_no_fp_on_ranges_or_consistent_tables():
     from rxai_sdg.factory.exec_gate import detect_table_count_mismatch
     # a RANGE "5-7 characters = 12" is not a consistent subtraction (12 != 5-7); skip
