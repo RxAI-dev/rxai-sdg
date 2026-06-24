@@ -306,6 +306,20 @@ def deterministic_prefilter(turns: list[Turn], regen_threshold: int = 2) -> Pref
                          "evidence": f"{count_restart_markers(reasoning)} restarts: "
                                      + _evidence(reasoning)})
 
+        # broken delayed-recall metadata: a turn tagged delayed_recall scope must
+        # recall a planted ledger fact (non-null fact_id + planted_turn). A
+        # delayed_recall label with null fact_id/planted_turn is an empty recall (the
+        # confirmed metadata defect from pairing delayed_recall with a non-fact
+        # intent). The generator mask now prevents it; this gates any residual.
+        cs = getattr(t, "constraint_spec", None)
+        if cs is not None and getattr(cs, "scope", None) == "delayed_recall" \
+                and (getattr(cs, "fact_id", None) is None
+                     or getattr(cs, "planted_turn", None) is None):
+            hard.append({"turn_index": ti, "kind": "broken_delayed_recall",
+                         "evidence": f"intent={getattr(cs, 'intent', '?')} "
+                                     f"fact_id={getattr(cs, 'fact_id', None)} "
+                                     f"planted_turn={getattr(cs, 'planted_turn', None)}"})
+
         # excess regenerations -> HARD fail (was a soft flag; correlated with
         # degenerate/low-yield turns the judge passed).
         ver = getattr(t, "verification", None)

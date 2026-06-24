@@ -27,18 +27,26 @@ def test_mask_never_yields_invalid_pair():
             assert d.policy != "standing"
         if d.intent in ("open_chat", "deepen"):
             assert d.policy == "immediate"
+        # delayed_recall is fact-only: a non-fact intent must never draw it
+        if d.policy == "delayed_recall":
+            assert d.intent in FACT_INTENTS
 
 
 def test_policy_distribution_matches_weights_for_transformation_intent():
-    # Restrict to a single transformation intent valid with all policies so the
-    # policy marginal is unaffected by the mask.
+    # A transformation intent (reformat) is valid with immediate/cumulative/standing
+    # but NOT delayed_recall (which is fact-only). The policy marginal is therefore
+    # the configured weights RENORMALISED over reformat's valid policies; delayed_recall
+    # is never emitted for it.
     cfg = FactoryConfig()
     tax = cfg.build_taxonomy()
     s = IntentPolicySampler(tax, {"reformat": 1.0}, cfg.policy_weights,
                             rng=random.Random(1))
     counts = collections.Counter(s.sample("en").policy for _ in range(40000))
     total = sum(counts.values())
-    expected = {k: v / 100 for k, v in cfg.policy_weights.items()}
+    assert counts["delayed_recall"] == 0  # fact-only policy never drawn for reformat
+    valid = tax.valid_policies_for("reformat")
+    denom = sum(cfg.policy_weights[p] for p in valid)
+    expected = {p: cfg.policy_weights[p] / denom for p in valid}
     for policy, exp in expected.items():
         got = counts[policy] / total
         assert abs(got - exp) < 0.02, f"{policy}: {got:.3f} vs {exp:.3f}"

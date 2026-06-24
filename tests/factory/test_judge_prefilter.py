@@ -269,6 +269,32 @@ def test_prefilter_hard_fails_turn_index_in_answer():
     assert "turn_index_in_answer" in kinds
 
 
+def test_prefilter_hard_fails_broken_delayed_recall():
+    from rxai_sdg.factory.schemas import ConstraintSpec
+    # a delayed_recall-scoped turn whose intent is NOT a fact recall has null
+    # fact_id/planted_turn -> broken metadata (the confirmed defect).
+    t = _turn(4, "be more critical of your last answer", "r", "Here is a critique.")
+    t.constraint_spec = ConstraintSpec(
+        intent="self_critique", type="self_critique", params={}, lang="en",
+        verifier="llm_judge", scope="delayed_recall", applies_from_turn=None,
+        planted_turn=None, fact_id=None)
+    res = deterministic_prefilter([t])
+    assert res.passed is False
+    assert "broken_delayed_recall" in {h["kind"] for h in res.hard_fails}
+
+
+def test_prefilter_passes_legit_delayed_recall():
+    from rxai_sdg.factory.schemas import ConstraintSpec
+    # a PROPER delayed_recall fact_recall (fact_id + planted_turn) must NOT flag.
+    t = _turn(6, "what was my dog's name again?", "r", "Your dog is named Rex.")
+    t.constraint_spec = ConstraintSpec(
+        intent="fact_recall", type="fact_recall", params={"value": "Rex"}, lang="en",
+        verifier="programmatic", scope="delayed_recall", applies_from_turn=None,
+        planted_turn=2, fact_id="f1")
+    res = deterministic_prefilter([t])
+    assert "broken_delayed_recall" not in {h["kind"] for h in res.hard_fails}
+
+
 def test_prefilter_hard_fails_harness_in_reasoning():
     turns = [_turn(0, "q",
                    "You are a helpful expert assistant with persistent memory.",

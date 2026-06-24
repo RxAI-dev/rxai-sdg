@@ -174,9 +174,15 @@ POLICY_TO_SCOPE: dict[str, str] = {
 #:
 #: * ``fact_recall``/``fact_update`` are only valid with ``immediate`` or
 #:   ``delayed_recall`` (recall has no cumulative/standing meaning).
+#: * ``delayed_recall`` is ONLY valid for the fact intents: the policy plants a
+#:   fact at turn k and recalls it at turn k+D via the ledger (fact_id /
+#:   planted_turn). Pairing it with a NON-fact intent (self_critique,
+#:   chained_compute, expand, ...) produced a turn tagged ``scope=delayed_recall``
+#:   with ``fact_id=null``/``planted_turn=null`` - a broken, empty recall label
+#:   (the confirmed metadata defect). So forbid it for every non-fact intent.
 #: * ``chained_compute`` is invalid with ``standing``.
 #: * ``open_chat``/``deepen`` default to ``immediate`` only.
-#: * all transformation intents are valid with all four policies.
+#: * all transformation intents are valid with ``immediate``/``cumulative``/``standing``.
 def default_invalid_pairs() -> set[tuple[str, str]]:
     invalid: set[tuple[str, str]] = set()
 
@@ -184,6 +190,13 @@ def default_invalid_pairs() -> set[tuple[str, str]]:
     for intent in FACT_INTENTS:
         for policy in ("cumulative", "standing"):
             invalid.add((intent, policy))
+
+    # delayed_recall is only meaningful for the fact intents (it plants + recalls a
+    # ledger fact). Forbid it for every other intent so no turn gets a delayed_recall
+    # scope with a null fact_id/planted_turn.
+    for intent in BASE_INTENTS:
+        if intent not in FACT_INTENTS:
+            invalid.add((intent, "delayed_recall"))
 
     # chained_compute cannot be a standing instruction.
     invalid.add(("chained_compute", "standing"))
