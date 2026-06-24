@@ -1,0 +1,67 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "memory_score",
+    "instruction_score",
+    "freshness_score",
+    "overall_score",
+    "confidence",
+    "issues",
+    "rationale"
+  ],
+  "properties": {
+    "memory_score": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10
+    },
+    "instruction_score": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10
+    },
+    "freshness_score": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10
+    },
+    "overall_score": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["low", "medium", "high"]
+    },
+    "issues": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 5,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "rationale": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["memory", "instruction", "freshness"],
+      "properties": {
+        "memory": {
+          "type": "string",
+          "minLength": 1
+        },
+        "instruction": {
+          "type": "string",
+          "minLength": 1
+        },
+        "freshness": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}
