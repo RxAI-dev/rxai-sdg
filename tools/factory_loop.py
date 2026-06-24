@@ -246,6 +246,10 @@ def main(argv=None) -> int:
     ap.add_argument("--iter", type=int, default=0)
     ap.add_argument("--seeds", default=str(ROOT / "tools" / "seeds.jsonl"))
     ap.add_argument("--out", default=None)
+    ap.add_argument("--rejected-out", default=None,
+                    help="path for conversations that FAIL the gate (with reasons), so "
+                         "the rejected pile can be inspected for false negatives. "
+                         "Defaults to '<out>.rejected.jsonl'.")
     ap.add_argument("--audit", default=None)
     ap.add_argument("--hypothesis", default="", help="hypothesis/diff note for the audit")
     ap.add_argument("--n", type=int, default=10)
@@ -292,6 +296,29 @@ def main(argv=None) -> int:
     factory.writer.write_jsonl(records, out)
 
     result = analyze_batch(records, cfg)
+
+    # Persist the REJECTED pile separately (the runner generates gate-OFF, so every
+    # completed conversation is in --out; here we split out the ones that FAIL the gate,
+    # annotated with their rejection reasons, so false negatives can be eyeballed).
+    rejected_out = args.rejected_out or (str(Path(out).with_suffix("")) + ".rejected.jsonl")
+    gate_by_id = {c["conversation_id"]: c for c in result["per_conversation"]}
+    n_rejected = 0
+    Path(rejected_out).parent.mkdir(parents=True, exist_ok=True)
+    with open(rejected_out, "w", encoding="utf-8") as fh:
+        for rec in records:
+            info = gate_by_id.get(rec.conversation_id, {})
+            if info.get("gate_pass", True):
+                continue
+            n_rejected += 1
+            d = rec.to_dict()
+            d["_rejection"] = {
+                "prefilter_hard_fails": info.get("prefilter_hard_fails", []),
+                "flagged_turns": info.get("flagged_turns", []),
+                "scores": info.get("scores", {}),
+                "notes": info.get("notes", ""),
+            }
+            fh.write(json.dumps(d, default=str) + "\n")
+
     usage = {name: c.usage() for name, c in clients.items()}
     total_tokens = sum(u.get("total_tokens", 0) for u in usage.values())
 
@@ -357,6 +384,7 @@ def main(argv=None) -> int:
         print(f"    {k:28s} {result['judge_means'].get(k)}")
     print(f"max regen across turns: {result['max_regen']}")
     print(f"gate pass: {result['gate_pass']}/{result['n']}  rate={result['gate_pass_rate']}")
+    print(f"rejected pile: {n_rejected} -> {rejected_out}")
     if bias:
         print("bias probe (user_query_quality mean):")
         print(f"    frozen  {bias['frozen_judge']['model']}: "
