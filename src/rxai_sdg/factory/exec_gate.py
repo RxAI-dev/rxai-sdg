@@ -587,6 +587,170 @@ def check_table_consistency(text: str, turn_index: int, segment: str) -> list[Ga
 
 
 # ---------------------------------------------------------------------------
+# lexicographic-sort self-consistency: a list the answer itself LABELS as sorted
+# alphabetically that is not actually in alphabetical order
+# ---------------------------------------------------------------------------
+#
+# The word-sorting reject: the answer presents a list under an explicit "primary
+# alphabetical sort (A -> Z)" heading (or a JSON step labelled the same) but the
+# order is wrong - "Housetop" before "Household", or "Fire" placed after "Firearm"/
+# "Firefly". Lexicographic order is decidable offline, so no LLM judge should ever
+# rule on it. NARROW BY DESIGN: we only check a list the answer itself claims is in
+# PURE alphabetical order (not a length/secondary/tie-break key), and only a
+# word-shaped list (short single-word items), so a length-sorted or combined-key
+# list - where alphabetical is merely a tie-breaker - never fires.
+_ALPHA_CLAIM_RE = re.compile(
+    r"alphabetical|alphabetic order|\ba\s*[→‐-―\-]+\s*z\b|\ba\s*to\s*z\b", re.I)
+# a label that is NOT a pure-primary alphabetical order (alphabetical is a secondary
+# / tie-break key, or the list is sorted by length / a combined key).
+_NOT_PURE_ALPHA_RE = re.compile(
+    r"\blength\b|\bcombined\b|tie[\s‐-―\-]?break|\bsecondary\b|\btertiary\b|"
+    r"\bshorter\b|\bshortest\b|\blongest\b|\bvowel|[→]\s*length", re.I)
+_ALPHA_SORT_CUE_RE = re.compile(r"\bsort|order|primary\b", re.I)
+_LIST_ITEM_RE = re.compile(r"^(\d+[.)]|[-*•])\s+")
+_SINGLE_WORD_RE = re.compile(r"^[A-Za-z][A-Za-z'\-]*$")
+
+
+def _sort_item_clean(s: str) -> str:
+    s = s.strip()
+    s = re.sub(r"^\s*(\d+[.)]|[-*•])\s*", "", s)   # numbering / bullet
+    s = re.sub(r"\*+", "", s)                            # markdown emphasis
+    s = re.sub(r"\(.*?\)", "", s)                        # "(duplicate)" parentheticals
+    return s.strip().strip('"').strip()
+
+
+def _sort_first_token(s: str) -> Optional[str]:
+    m = re.match(r"[A-Za-z][A-Za-z'\-]*", s)
+    return m.group(0) if m else None
+
+
+def _is_word_list(items: list[str]) -> bool:
+    cleaned = [_sort_item_clean(x) for x in items]
+    short = sum(1 for c in cleaned if _SINGLE_WORD_RE.match(c) or len(c.split()) <= 2)
+    return short >= max(4, int(0.8 * len(cleaned)))
+
+
+def _alpha_violation(items: list[str]) -> Optional[str]:
+    toks = [_sort_first_token(_sort_item_clean(x)) for x in items]
+    toks = [t for t in toks if t]
+    if len(toks) < 4:
+        return None
+    low = [t.lower() for t in toks]
+    for i in range(len(low) - 1):
+        if low[i] > low[i + 1]:
+            return f"{toks[i]!r} before {toks[i + 1]!r}"
+    return None
+
+
+def _md_alpha_lists(text: str) -> list[list[str]]:
+    """Word lists in markdown that immediately follow a PURE-alphabetical-sort claim
+    line (numbered/bulleted, starting within a couple of lines of the claim and not
+    crossing a horizontal rule or heading)."""
+    out: list[list[str]] = []
+    lines = text.split("\n")
+    n = len(lines)
+    i = 0
+    while i < n:
+        ln = lines[i].strip()
+        is_claim = (_ALPHA_CLAIM_RE.search(ln) and not _NOT_PURE_ALPHA_RE.search(ln)
+                    and _ALPHA_SORT_CUE_RE.search(ln) and not ln.startswith("|"))
+        if not is_claim:
+            i += 1
+            continue
+        j = i + 1
+        nonblank = 0
+        started = False
+        seq: list[str] = []
+        while j < n:
+            s = lines[j].strip()
+            if not s:
+                j += 1
+                continue
+            if not started:
+                if re.match(r"^(-{3,}|#{1,6}\s)", s):      # new section -> claim no longer governs
+                    break
+                if _LIST_ITEM_RE.match(s):
+                    started = True
+                    seq.append(s)
+                else:
+                    nonblank += 1
+                    if nonblank > 2:                       # list too far from the claim
+                        break
+                j += 1
+            elif _LIST_ITEM_RE.match(s):
+                seq.append(s)
+                j += 1
+            else:
+                break
+        if len(seq) >= 4 and _is_word_list(seq):
+            out.append(seq)
+        i = j if j > i else i + 1
+    return out
+
+
+def _json_alpha_lists(obj: Any, out: list[list[str]]) -> None:
+    """Lists inside a JSON object whose sibling string field labels them as a pure
+    alphabetical sort (the ``{"step": "Primary alphabetical sort", "order": [...]}``
+    shape)."""
+    if isinstance(obj, dict):
+        claim = any(isinstance(v, str) and _ALPHA_CLAIM_RE.search(v)
+                    and not _NOT_PURE_ALPHA_RE.search(v) for v in obj.values())
+        if claim:
+            for v in obj.values():
+                if (isinstance(v, list) and len(v) >= 4
+                        and all(isinstance(x, str) for x in v) and _is_word_list(v)):
+                    out.append(v)
+        for v in obj.values():
+            _json_alpha_lists(v, out)
+    elif isinstance(obj, list):
+        for v in obj:
+            _json_alpha_lists(v, out)
+
+
+def _json_candidates(text: str) -> list[Any]:
+    objs: list[Any] = []
+    cands = [text]
+    for m in _FENCE_RE.findall(text or ""):
+        cands.append(m[1])
+    for c in cands:
+        c = (c or "").strip()
+        starts = [x for x in (c.find("{"), c.find("[")) if x != -1]
+        if not starts:
+            continue
+        try:
+            objs.append(json.loads(c[min(starts):]))
+        except (ValueError, TypeError):
+            try:
+                objs.append(json.loads(c))
+            except (ValueError, TypeError):
+                pass
+    return objs
+
+
+def detect_alpha_sort_violation(text: str) -> list[str]:
+    """A list the answer itself labels as alphabetically sorted that is NOT in
+    lexicographic order. Returns one evidence string per violated list."""
+    out: list[str] = []
+    for seq in _md_alpha_lists(text or ""):
+        v = _alpha_violation(seq)
+        if v:
+            out.append(f"alpha-sorted list out of order: {v}")
+    for obj in _json_candidates(text or ""):
+        lists: list[list[str]] = []
+        _json_alpha_lists(obj, lists)
+        for seq in lists:
+            v = _alpha_violation(seq)
+            if v:
+                out.append(f"alpha-sorted list out of order: {v}")
+    return out
+
+
+def check_alpha_sort(text: str, turn_index: int, segment: str) -> list[GateFlag]:
+    return [GateFlag("alpha_sort_violation", 3, turn_index, segment, ev)
+            for ev in detect_alpha_sort_violation(text)]
+
+
+# ---------------------------------------------------------------------------
 # orchestration
 # ---------------------------------------------------------------------------
 
@@ -626,6 +790,7 @@ def run_exec_gate(turns: list, run_code: bool = True) -> ExecGateResult:
             hard: list[GateFlag] = []
             hard += check_repetition(text, ti, segment)
             hard += check_table_consistency(text, ti, segment)
+            hard += check_alpha_sort(text, ti, segment)
             if run_code:
                 hard += check_code_arithmetic(text, ti, segment)
             hard += check_inline_arithmetic(text, ti, segment)

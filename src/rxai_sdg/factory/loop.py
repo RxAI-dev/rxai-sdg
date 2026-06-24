@@ -32,7 +32,7 @@ from .cross_turn import run_cross_turn_checks, cross_turn_pass_rate
 from .detectors import detect_disclaimer_then_finding, detect_harmful_coping
 from .exec_gate import (
     check_code_arithmetic, check_inline_arithmetic, check_json_keys, check_repetition,
-    check_table_consistency,
+    check_table_consistency, check_alpha_sort,
 )
 from .holistic import (
     HolisticJudge, RUBRIC_AXES, deterministic_prefilter, _is_degenerate_reasoning,
@@ -102,8 +102,8 @@ def _numeric_defect(turn) -> Optional[str]:
         text = getattr(turn, seg, "") or ""
         if not text:
             continue
-        for check in (check_repetition, check_table_consistency, check_code_arithmetic,
-                      check_inline_arithmetic, check_json_keys):
+        for check in (check_repetition, check_table_consistency, check_alpha_sort,
+                      check_code_arithmetic, check_inline_arithmetic, check_json_keys):
             flags = check(text, ti, seg)
             if flags:
                 return f"{flags[0].kind}: {flags[0].evidence}"

@@ -170,6 +170,49 @@ def test_table_count_mismatch_rejects_kings():
     assert flags and "interregna" in flags[0].evidence
 
 
+# --------------------------------------------------------------- alpha sort (Doc 2)
+# Frozen from the real "Organize these words alphabetically" reject: a list the answer
+# itself LABELS as a primary alphabetical sort, but the order is wrong. Lexicographic
+# order is decidable offline - no LLM judge should ever rule on it.
+ALPHA_SORT_MD = (
+    "## 2. Primary sort - alphabetical (A → Z)\n\n"
+    "We first order the rows by the word itself, ignoring length:\n\n"
+    "1. Casa\n2. Computer\n3. Computerized\n4. Dimension\n5. Fire\n6. Firearm\n"
+    "7. Firefly\n8. House\n9. Housetop\n10. Household\n11. Weapon\n")
+
+ALPHA_SORT_JSON = (
+    '{\n  "sortingSteps": [\n    {\n'
+    '      "step": "1. Primary alphabetical sort (A → Z)",\n'
+    '      "order": ["Casa", "Computer", "Computerized", "Dimension", "Firearm", '
+    '"Firefly", "Fire", "House", "Housetop", "Household", "Weapon"]\n    }\n  ]\n}')
+
+
+def test_alpha_sort_violation_md_rejects():
+    res = run_exec_gate([_turn(2, ALPHA_SORT_MD)])
+    assert not res.passed
+    flags = [f for f in res.hard_fails if f.kind == "alpha_sort_violation"]
+    assert flags and "Housetop" in flags[0].evidence and "Household" in flags[0].evidence
+
+
+def test_alpha_sort_violation_json_rejects():
+    res = run_exec_gate([_turn(5, ALPHA_SORT_JSON)])
+    assert not res.passed
+    flags = [f for f in res.hard_fails if f.kind == "alpha_sort_violation"]
+    assert flags and "Fire" in flags[0].evidence
+
+
+def test_alpha_sort_no_fp_on_correct_or_tiebreaker_lists():
+    from rxai_sdg.factory.exec_gate import detect_alpha_sort_violation
+    # a CORRECT alphabetical list must pass
+    good = ("Sorted alphabetically (A → Z):\n\n"
+            "1. Casa\n2. Computer\n3. Dimension\n4. Fire\n5. House\n6. Weapon\n")
+    assert not detect_alpha_sort_violation(good)
+    # a LENGTH-sorted list where alphabetical is only the tie-breaker must NOT fire
+    tb = ("Sorted by length; alphabetical is the secondary tie-breaker:\n\n"
+          "1. Casa\n2. Fire\n3. House\n4. Weapon\n5. Computer\n")
+    assert not detect_alpha_sort_violation(tb)
+
+
 def test_table_count_mismatch_no_fp_on_ranges_or_consistent_tables():
     from rxai_sdg.factory.exec_gate import detect_table_count_mismatch
     # a RANGE "5-7 characters = 12" is not a consistent subtraction (12 != 5-7); skip
