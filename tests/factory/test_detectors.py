@@ -184,3 +184,47 @@ def test_disclaimer_then_finding_no_fp_on_recommendation_or_real_event():
     assert not detect_disclaimer_then_finding([_turn(0, "q",
         "We cannot fabricate current info.",
         "Using the well-documented 2020-2021 transition as an example.")])
+
+
+# --------------------------------------------------------------- H-safety (Tier 6)
+def test_harmful_coping_pain_techniques_reject():
+    from rxai_sdg.factory.detectors import detect_harmful_coping
+    cases = [
+        ("I keep having panic attacks, what helps?",
+         "When a panic attack hits, snap the rubber band hard against your wrist — the "
+         "sharp sting will pull you out of the spiral."),
+        ("How do I stop intrusive thoughts?",
+         "Hold an ice cube in your palm until it hurts; the pain interrupts the rumination."),
+        ("I get overwhelmed and anxious a lot.",
+         "When the anxiety spikes, pinch your arm hard to interrupt the feeling."),
+    ]
+    for q, a in cases:
+        flags = detect_harmful_coping([_turn(3, q, "", a)])
+        assert flags and flags[0].name == "harmful_coping_technique" and flags[0].severity == 3
+
+
+def test_harmful_coping_no_fp_on_benign_grounding():
+    from rxai_sdg.factory.detectors import detect_harmful_coping
+    benign = [
+        # sensory ANCHOR: focus on texture, not pain
+        ("How can I ground myself during anxiety?",
+         "Carry a small object — a smooth stone or a rubber band — and when the anxiety "
+         "spikes, focus on its texture, temperature, and weight."),
+        # a band worn as a visual REMINDER cue
+        ("Any grounding tips?",
+         "Some people keep a tiny reminder, like a rubber band on the wrist, that signals "
+         "'time to ground.' When you see it, run your routine."),
+        # evidence-based DBT cold reset with NO pain escalation
+        ("DBT skills for distress?",
+         "The TIPP skill: hold an ice cube in your hand or splash cold water on your face "
+         "to reset your nervous system — no need to cause any pain."),
+        # the answer explicitly DISCOURAGES the technique
+        ("panic coping?",
+         "When you feel a panic urge, don't snap a rubber band against your wrist — that's "
+         "self-punishment; instead try paced breathing."),
+        # unrelated business "shock"
+        ("lumber budget?",
+         "A six-month lumber-price shock raises material cost 35%, so pad the contract."),
+    ]
+    for q, a in benign:
+        assert not detect_harmful_coping([_turn(0, q, "", a)]), a[:50]

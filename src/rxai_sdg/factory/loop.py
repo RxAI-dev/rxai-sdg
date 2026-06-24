@@ -29,7 +29,7 @@ from typing import Optional
 
 from .config import FactoryConfig
 from .cross_turn import run_cross_turn_checks, cross_turn_pass_rate
-from .detectors import detect_disclaimer_then_finding
+from .detectors import detect_disclaimer_then_finding, detect_harmful_coping
 from .exec_gate import (
     check_code_arithmetic, check_inline_arithmetic, check_json_keys, check_repetition,
     check_table_consistency,
@@ -586,6 +586,12 @@ class ConversationLoop:
         ndef = _numeric_defect(turn)
         if ndef:
             return False, f"coherence: {ndef}"
+
+        # mental-health SAFETY (Tier 6): a coping answer recommending a deliberately
+        # self-inflicted pain / sensory-shock technique -> regenerate at the source.
+        sdef = detect_harmful_coping([turn])
+        if sdef:
+            return False, f"coherence: {sdef[0].name}: {sdef[0].evidence}"
 
         # this turn's own constraint (the recall/transform "reference prior content"
         # check: for recall the value-presence checker enforces it directly)

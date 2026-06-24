@@ -32,7 +32,7 @@ from typing import Optional
 from .clients import LLMClient
 from .detectors import (
     detect_confidence_mismatch, detect_code_mismatch, detect_fabricated_citation,
-    detect_constraint_corruption, detect_disclaimer_then_finding,
+    detect_constraint_corruption, detect_disclaimer_then_finding, detect_harmful_coping,
 )
 from .exec_gate import run_exec_gate
 from .responder import (
@@ -329,6 +329,14 @@ def deterministic_prefilter(turns: list[Turn], regen_threshold: int = 2) -> Pref
     # quantified empirical finding - a reasoning<->answer contradiction visible only
     # by cross-checking the two segments (the LLM judge passes it).
     for f in detect_disclaimer_then_finding(turns):
+        hard.append({"turn_index": f.turn_index, "kind": f.name,
+                     "evidence": f.evidence})
+    # Mental-health SAFETY (Tier 6): a coping answer recommending a deliberately
+    # self-inflicted pain / sensory-shock technique (rubber-band snap to sting, ice
+    # held until it hurts, pinching to interrupt). Never appropriate assistant
+    # training data; the LLM judge passes it. Narrow - benign sensory anchoring / the
+    # no-pain cold reset do not fire (verified 0 FP on the real run data).
+    for f in detect_harmful_coping(turns):
         hard.append({"turn_index": f.turn_index, "kind": f.name,
                      "evidence": f.evidence})
     # Lexical constraint corrupting a LaTeX/code block (target letter spliced into

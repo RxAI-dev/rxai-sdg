@@ -318,6 +318,68 @@ def detect_disclaimer_then_finding(turns: list[dict]) -> list[Flag]:
     return flags
 
 
+# --------------------------------------------------------------------- H-safety
+# A mental-health / coping answer that recommends DELIBERATELY SELF-INFLICTED PAIN
+# or sensory SHOCK as the coping mechanism (snap a rubber band against your wrist to
+# sting; hold an ice cube UNTIL IT HURTS; pinch/dig your nails to interrupt a panic
+# attack). Modern clinical guidance discourages these as self-punishment, and an
+# assistant should never emit them - so they must not enter training data.
+#
+# NARROW BY DESIGN. A benign sensory ANCHOR (hold a smooth stone / a band and notice
+# its texture, temperature, weight), a band worn as a visual REMINDER cue, or the
+# evidence-based DBT "hold an ice cube" / cold-water-on-the-face reset (no pain
+# escalation) are GOOD advice and must NOT fire. The trigger is an explicit
+# pain/sting/shock action, self/skin-directed, in a coping context, and NOT framed as
+# something to avoid. Verified 0 false positives on the real run data (the benign
+# "rubber band on the wrist" reminder and "smooth stone / rubber band texture anchor"
+# answers all pass).
+_COPING_CTX_RE = re.compile(
+    r"\b(?:anxiet\w+|panic|intrusive thought\w*|ruminat\w+|spiral(?:ing|s|led)?|urge|"
+    r"craving|distress\w*|overwhelm\w*|self[- ]?harm|coping|cope|calm (?:down|yourself)|"
+    r"ground(?:ing|ed)?|flashback|dissociat\w+|emotional|panic attack)\b", re.I)
+_PAIN_TECHNIQUE_RES = [
+    # snap a (rubber/elastic) band ...
+    re.compile(r"\bsnap\w*\b[^.\n]{0,40}\b(?:rubber\s+band|elastic(?:\s+band)?|band)\b", re.I),
+    # ... a (rubber/elastic) band snapped / against the wrist / to sting
+    re.compile(r"\b(?:rubber|elastic)\s+band\b[^.\n]{0,40}\b(?:snap\w*|against (?:your |the )?(?:wrist|skin)|sting\w*)", re.I),
+    # hold ice / an ice cube UNTIL IT HURTS / to cause pain  (not the benign cold reset)
+    re.compile(r"\bice(?:\s+cube)?\b[^.\n]{0,45}\b(?:until it (?:hurts|stings|is painful|burns)|to cause pain|sharp pain|painful (?:cold|jolt))", re.I),
+    # pinch yourself / dig nails to interrupt
+    re.compile(r"\b(?:pinch (?:yourself|your (?:arm|skin|wrist))|dig (?:your )?nails?\s+(?:into|in))\b[^.\n]{0,35}\b(?:hard|sharply|until it (?:hurts|stings)|to (?:interrupt|stop|break|snap out))", re.I),
+]
+# a DISCOURAGING frame - the answer is advising AGAINST the technique, not a defect.
+_DISCOURAGE_RE = re.compile(
+    r"\b(?:instead of|rather than|don'?t|do not|never|avoid\w*|discourag\w*|"
+    r"not recommend\w*|shouldn'?t|harmful|unhealthy|self[- ]?punish\w*|"
+    r"counter[- ]?productive|move away from|no longer|used to (?:be )?(?:suggest|recommend))\b", re.I)
+
+
+def detect_harmful_coping(turns: list[dict]) -> list[Flag]:
+    """H (PRIMARY, hard reject). A coping/mental-health answer recommending a
+    DELIBERATELY self-inflicted pain / sensory-shock technique (rubber-band snap to
+    sting, ice held until it hurts, pinching to interrupt a panic spike). Benign
+    sensory anchoring / a reminder band / the no-pain cold reset are NOT flagged, nor
+    is an answer that explicitly DISCOURAGES the technique."""
+    flags: list[Flag] = []
+    for t in turns:
+        answer = _seg(t, "answer")
+        if not answer:
+            continue
+        if not (_COPING_CTX_RE.search(answer) or _COPING_CTX_RE.search(_seg(t, "query"))):
+            continue
+        for rx in _PAIN_TECHNIQUE_RES:
+            m = rx.search(answer)
+            if not m:
+                continue
+            window = answer[max(0, m.start() - 60):m.end() + 25]
+            if _DISCOURAGE_RE.search(window):
+                continue  # the answer is warning AGAINST the technique
+            flags.append(Flag("H", "harmful_coping_technique", 3, _turn_index(t),
+                              f"pain/shock coping technique: {m.group(0)[:60]!r}"))
+            break
+    return flags
+
+
 # ----------------------------------------------------------------------- G-corrupt
 # A lexical sentence-start / first-letter constraint applied DESTRUCTIVELY to
 # structured content: the model prefixes the target letter onto every line of a
