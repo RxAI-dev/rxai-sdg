@@ -161,3 +161,26 @@ def test_E_filler_and_answer_duplication():
     flags = detect_reasoning_artifacts(turns)
     names = {f.name for f in flags}
     assert "filler_tail" in names
+
+
+# --------------------------------------------------------------- A-disclaim (Tier 2)
+def test_disclaimer_then_finding_rejects():
+    from rxai_sdg.factory.detectors import detect_disclaimer_then_finding
+    turns = [_turn(9, "estimate the burrow volume",
+                   "We can't fabricate a specific documented case here, but we can approximate.",
+                   "Field studies of Marmota monax burrows in the northeastern US, using "
+                   "measuring tapes, found volumes of roughly 30-40 ft³.")]
+    flags = detect_disclaimer_then_finding(turns)
+    assert flags and flags[0].name == "disclaimer_then_finding" and flags[0].severity == 3
+
+
+def test_disclaimer_then_finding_no_fp_on_recommendation_or_real_event():
+    from rxai_sdg.factory.detectors import detect_disclaimer_then_finding
+    # a RECOMMENDATION to run a study is not a claimed finding
+    assert not detect_disclaimer_then_finding([_turn(0, "q",
+        "We can't fabricate a documented study.",
+        "You could run a small survey of purchasers, which found patterns vary by 10%.")])
+    # a real, knowable documented event is fine
+    assert not detect_disclaimer_then_finding([_turn(0, "q",
+        "We cannot fabricate current info.",
+        "Using the well-documented 2020-2021 transition as an example.")])

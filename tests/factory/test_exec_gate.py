@@ -129,3 +129,19 @@ def test_haiku_valid_575_passes():
 def test_syllable_counter_basic():
     assert count_syllables("jars") == 1
     assert count_syllables("compartment") == 3
+
+
+# --------------------------------------------------------------- repetition (Tier 1)
+def test_degenerate_block_chart_rejects():
+    # the woodchuck "bar chart" runaway: thousands of block glyphs in one cell.
+    ans = "| Hypothetical wood-chucking | " + "█" * 3000 + " | " + "▓" * 2500 + " |"
+    res = run_exec_gate([_turn(6, ans)])
+    assert not res.passed
+    assert any(f.kind == "degenerate_repetition" for f in res.hard_fails)
+
+
+def test_repetition_does_not_fp_on_markdown_rules_or_small_bars():
+    from rxai_sdg.factory.exec_gate import detect_degenerate_repetition
+    assert detect_degenerate_repetition("-" * 182) is None          # long md rule
+    assert detect_degenerate_repetition("Energy: " + "█" * 24 + " 80%") is None  # real bar
+    assert detect_degenerate_repetition("text\n" + "| --- | --- |\n" * 3) is None

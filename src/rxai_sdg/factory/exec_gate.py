@@ -503,6 +503,38 @@ def _scan_keys(s: str, ti: int, seg: str, flags: list, seen: set) -> None:
 
 
 # ---------------------------------------------------------------------------
+# degenerate repetition / runaway generation in the ANSWER body
+# ---------------------------------------------------------------------------
+
+# Block / shading glyphs used for ASCII bar charts. A runaway decode produces a
+# single cell with thousands of these (or any char). The LLM judge has no
+# repetition detector in the answer body, so this MUST hard-fail pre-judge.
+_BLOCK_CHARS = "█▓░▒▉▊▋▌▍▎▏▔▕▖▗▘▙▚▛▜▝▞▟◼◾◻⬛⬜"
+# 40+ identical block glyphs in a row (a real bar is a handful per cell; legit
+# multi-bar charts have many SHORT runs, never one giant run).
+_BLOCK_RUN_RE = re.compile(r"([" + _BLOCK_CHARS + r"])\1{39,}")
+# 250+ identical of ANY char (legit markdown rules in this corpus top out ~182).
+_CHAR_RUN_RE = re.compile(r"(.)\1{249,}", re.S)
+
+
+def detect_degenerate_repetition(text: str) -> Optional[str]:
+    """A runaway single-character run (the thousands-of-█ 'bar chart' loop)."""
+    m = _BLOCK_RUN_RE.search(text or "")
+    if m:
+        return f"degenerate block-char run ({len(m.group(0))}x {m.group(1)!r})"
+    m = _CHAR_RUN_RE.search(text or "")
+    if m:
+        ch = m.group(1)
+        return f"degenerate char run ({len(m.group(0))}x {ch!r})"
+    return None
+
+
+def check_repetition(text: str, turn_index: int, segment: str) -> list[GateFlag]:
+    ev = detect_degenerate_repetition(text)
+    return [GateFlag("degenerate_repetition", 3, turn_index, segment, ev)] if ev else []
+
+
+# ---------------------------------------------------------------------------
 # orchestration
 # ---------------------------------------------------------------------------
 
@@ -540,6 +572,7 @@ def run_exec_gate(turns: list, run_code: bool = True) -> ExecGateResult:
             if not text:
                 continue
             hard: list[GateFlag] = []
+            hard += check_repetition(text, ti, segment)
             if run_code:
                 hard += check_code_arithmetic(text, ti, segment)
             hard += check_inline_arithmetic(text, ti, segment)

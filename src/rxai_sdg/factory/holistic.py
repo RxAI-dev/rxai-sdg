@@ -32,7 +32,7 @@ from typing import Optional
 from .clients import LLMClient
 from .detectors import (
     detect_confidence_mismatch, detect_code_mismatch, detect_fabricated_citation,
-    detect_constraint_corruption,
+    detect_constraint_corruption, detect_disclaimer_then_finding,
 )
 from .exec_gate import run_exec_gate
 from .responder import (
@@ -323,6 +323,12 @@ def deterministic_prefilter(turns: list[Turn], regen_threshold: int = 2) -> Pref
     # judge is empirically blind to it (scores factual_grounding 10), so it must
     # hard-fail deterministically like the other factuality gates.
     for f in detect_fabricated_citation(turns):
+        hard.append({"turn_index": f.turn_index, "kind": f.name,
+                     "evidence": f.evidence})
+    # Reasoning admits it can't document a specific, yet the answer asserts a
+    # quantified empirical finding - a reasoning<->answer contradiction visible only
+    # by cross-checking the two segments (the LLM judge passes it).
+    for f in detect_disclaimer_then_finding(turns):
         hard.append({"turn_index": f.turn_index, "kind": f.name,
                      "evidence": f.evidence})
     # Lexical constraint corrupting a LaTeX/code block (target letter spliced into
