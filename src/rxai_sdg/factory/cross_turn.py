@@ -12,9 +12,15 @@ from __future__ import annotations
 
 from typing import Any
 
+from .constraints import constraints_conflict
 from .ledger import FactLedger
 from .schemas import Turn
 from .verifiers import ConstraintVerifier
+
+# single-value budgets where a later instance REPLACES the earlier (not additive,
+# unlike forbidden_token which accumulates).
+_SINGLE_VALUE_TYPES = {"length_tokens", "length_words", "n_bullets",
+                       "max_words_per_sentence", "first_letter"}
 
 
 def run_cross_turn_checks(
@@ -56,13 +62,31 @@ def run_cross_turn_checks(
             })
 
     # standing-instruction adherence: re-verify each standing constraint against
-    # every later turn's answer.
+    # every later turn's answer - but stop once it is SUPERSEDED by a later
+    # standing/cumulative constraint of a conflicting form (e.g. "always JSON"
+    # replaces "always 3 bullets"); otherwise the replaced rule false-fails on every
+    # subsequent turn.
     for turn in turns:
         cs = turn.constraint_spec
         if cs is None or cs.scope != "standing" or cs.verifier not in ("programmatic", "hybrid"):
             continue
+        superseded_at = None
+        for mid in turns:
+            if mid.turn_index <= turn.turn_index:
+                continue
+            mcs = mid.constraint_spec
+            # superseded by a later standing/cumulative constraint that either
+            # CONFLICTS in form, or is a newer single-value budget of the SAME type
+            # (a later "<=150 words" / "5 bullets" replaces the earlier limit).
+            if mcs is not None and mcs.scope in ("standing", "cumulative") and (
+                    constraints_conflict(mcs.type, cs.type)
+                    or (mcs.type == cs.type and cs.type in _SINGLE_VALUE_TYPES)):
+                superseded_at = mid.turn_index
+                break
         for later in turns:
             if later.turn_index <= turn.turn_index:
+                continue
+            if superseded_at is not None and later.turn_index >= superseded_at:
                 continue
             res = verifier.verify(later.answer or "", cs)
             results["standing"].append({

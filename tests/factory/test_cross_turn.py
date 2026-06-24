@@ -53,3 +53,42 @@ def test_update_overwrite_latest_value():
 
 def test_pass_rate_is_one_when_no_checks():
     assert cross_turn_pass_rate({"standing": [], "delayed_recall": []}) == 1.0
+
+
+# --------------------------------------------------- standing-drift gating (Tier 4)
+def _t_cs(i, ans, cstype=None, scope=None, params=None, verifier="hybrid"):
+    from rxai_sdg.factory.schemas import Turn, Segment, ConstraintSpec
+    segs = [Segment("query", "q"), Segment("reasoning", "r"), Segment("answer", ans)]
+    cs = (ConstraintSpec(type=cstype, scope=scope, params=params or {},
+                         verifier=verifier, intent="x") if cstype else None)
+    return Turn(turn_index=i, segments=segs, constraint_spec=cs)
+
+
+def test_standing_drift_gates_but_supersession_does_not():
+    from rxai_sdg.factory.cross_turn import run_cross_turn_checks
+    from rxai_sdg.factory.ledger import FactLedger
+    from rxai_sdg.factory.loop import _cross_turn_hard_fails
+    # legit supersession: "3 bullets" standing replaced by "always JSON" -> no fail
+    ok = [_t_cs(0, "intro"),
+          _t_cs(1, "- a\n- b\n- c", "n_bullets", "standing", {"n": 3}),
+          _t_cs(2, '{"x":1}', "json_valid", "standing"),
+          _t_cs(3, '{"y":2}', "deepen", "current_turn")]
+    assert not _cross_turn_hard_fails(run_cross_turn_checks(ok, FactLedger()))
+    # real drift: "3 bullets" standing silently dropped, nothing supersedes it -> fail
+    drift = [_t_cs(0, "intro"),
+             _t_cs(1, "- a\n- b\n- c", "n_bullets", "standing", {"n": 3}),
+             _t_cs(2, "Just prose, no bullets at all here.", "deepen", "current_turn")]
+    hf = _cross_turn_hard_fails(run_cross_turn_checks(drift, FactLedger()))
+    assert any(h["kind"] == "cross_turn_standing" for h in hf)
+
+
+def test_same_type_budget_supersession_no_false_fail():
+    from rxai_sdg.factory.cross_turn import run_cross_turn_checks
+    from rxai_sdg.factory.ledger import FactLedger
+    from rxai_sdg.factory.loop import _cross_turn_hard_fails
+    # a later "<=150 words" replaces the earlier "<=5 words"; a 30-word answer is fine
+    turns = [_t_cs(0, "intro"),
+             _t_cs(1, "tiny", "length_tokens", "standing", {"max_words": 5}),
+             _t_cs(2, "now a longer budget applies", "length_tokens", "standing", {"max_words": 150}),
+             _t_cs(3, " ".join(["word"] * 30), "deepen", "current_turn")]
+    assert not _cross_turn_hard_fails(run_cross_turn_checks(turns, FactLedger()))

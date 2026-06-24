@@ -27,6 +27,31 @@ from .taxonomy import POLICY_TO_SCOPE
 from .ledger import NeedlePlanner
 
 
+# Mutually-exclusive constraint groups: at most one member of a group can hold for a
+# given answer, so a new turn imposing one member SUPERSEDES any active member of the
+# same group (cumulative/standing stacking only makes sense for compatible
+# constraints). Lives here (not loop.py) so cross_turn can use it for supersession
+# without a circular import.
+_CONFLICT_GROUPS: list[frozenset[str]] = [
+    # full-answer "form": markdown prose, JSON, YAML, a table, a limerick.
+    frozenset({"json_valid", "yaml_valid", "markdown_table", "markdown_format",
+               "limerick_structure"}),
+    # a fixed bullet count is a STRUCTURED form too - it cannot coexist with a JSON
+    # object / YAML doc / table / limerick (you cannot be 3 markdown bullets AND a
+    # JSON object). NB: it is NOT grouped with markdown_format, with which it composes.
+    frozenset({"json_valid", "yaml_valid", "markdown_table", "limerick_structure",
+               "n_bullets"}),
+    frozenset({"first_letter", "alphabetical_sentence_starts"}),  # sentence starts
+]
+
+
+def constraints_conflict(type_a: str, type_b: str) -> bool:
+    """True when two constraint types cannot both hold on the same answer."""
+    if type_a == type_b:
+        return False
+    return any(type_a in g and type_b in g for g in _CONFLICT_GROUPS)
+
+
 @dataclass
 class BuildContext:
     rng: random.Random

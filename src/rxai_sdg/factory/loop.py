@@ -133,22 +133,30 @@ def has_fabricated_experience(answer: str) -> bool:
     return bool(_FABRICATED_EXPERIENCE_RE.search(answer or ""))
 
 
+def _cross_turn_hard_fails(cross: dict) -> list[dict]:
+    """Cross-turn checks that the loop COMPUTES but historically only recorded:
+    a standing constraint dropped in a later turn (drift), a planted fact recalled
+    wrongly, or a stale value returned after an update. These are objective training-
+    data defects (the model learning it may silently abandon a standing instruction),
+    so they now HARD-FAIL the gate. Standing checks are already supersession-aware."""
+    out: list[dict] = []
+    for kind in ("standing", "delayed_recall", "update_overwrite"):
+        for e in cross.get(kind, []) or []:
+            if not e.get("passed", True):
+                out.append({
+                    "kind": "cross_turn_" + kind,
+                    "turn_index": e.get("checked_turn", e.get("turn_index", 0)),
+                    "evidence": str(e.get("detail", ""))[:120],
+                })
+    return out
+
+
 # Mutually-exclusive constraint groups: at most one member of a group can hold
 # for a given answer, so when a new turn imposes one member it supersedes any
-# active member of the same group (spec §4.3 - cumulative/standing stacking only
-# makes sense for compatible constraints).
-_CONFLICT_GROUPS: list[frozenset[str]] = [
-    frozenset({"json_valid", "yaml_valid", "markdown_table", "markdown_format",
-               "limerick_structure"}),  # answer "form"
-    frozenset({"first_letter", "alphabetical_sentence_starts"}),  # sentence starts
-]
-
-
-def constraints_conflict(type_a: str, type_b: str) -> bool:
-    """True when two constraint types cannot both hold on the same answer."""
-    if type_a == type_b:
-        return False
-    return any(type_a in g and type_b in g for g in _CONFLICT_GROUPS)
+# active member of the same group (spec §4.3). The grouping + ``constraints_conflict``
+# now live in constraints.py so cross_turn can reuse them for supersession without a
+# circular import.
+from .constraints import constraints_conflict  # noqa: E402  (re-exported below)
 
 
 def render_constraint_nl(cs: ConstraintSpec) -> str:
@@ -331,14 +339,23 @@ class ConversationLoop:
         # defects); the LLM judge then scores the 9-axis rubric over the reasoning
         # AND answer. Both feed the gate, which drops conversations so the emitted
         # dataset is clean by construction.
+        cross_hard = _cross_turn_hard_fails(cross)
         if self.holistic is not None:
             prefilter = deterministic_prefilter(
                 turns, regen_threshold=self.config.prefilter_regen_threshold)
+            pfd = prefilter.to_dict()
+            # fold the cross-turn hard-fails into the pre-filter record so they are
+            # both VISIBLE in the emitted score and gate the conversation.
+            if cross_hard:
+                pfd["hard_fails"] = pfd.get("hard_fails", []) + cross_hard
+                pfd["passed"] = False
+                pfd["reasons"] = pfd.get("reasons", []) + [
+                    f"{h['kind']}@t{h['turn_index']}: {h['evidence']}" for h in cross_hard]
             score = self.holistic.score(turns) or {}
-            score["prefilter"] = prefilter.to_dict()
+            score["prefilter"] = pfd
             record.holistic_score = score or None
-            if self.config.holistic_gate_enabled and not self._holistic_ok(
-                    score, prefilter):
+            if self.config.holistic_gate_enabled and (
+                    cross_hard or not self._holistic_ok(score, prefilter)):
                 stats.holistic_gated += 1
                 return None, stats
 
