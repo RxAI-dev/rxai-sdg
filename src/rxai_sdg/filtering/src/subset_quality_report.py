@@ -11,8 +11,9 @@ import yaml
 from utils import read_jsonl, safe_filename
 
 
-DEFAULT_CONFIG_PATH = Path("configs/config.yaml")
-DEFAULT_OUT_DIR = Path("data/results/subset_quality_report")
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_CONFIG_PATH = PROJECT_ROOT / "configs" / "config.yaml"
+DEFAULT_OUT_DIR = PROJECT_ROOT / "data" / "results" / "subset_quality_report"
 SCORE_COLUMNS = ["memory_score", "instruction_score", "freshness_score", "overall_score"]
 PRIMARY_SCORE = "overall_score"
 
@@ -46,6 +47,8 @@ def latest_records(path: Path) -> list[dict[str, Any]]:
     for record in read_jsonl(path):
         eval_id = record.get("_eval_id")
         if isinstance(eval_id, str):
+            if eval_id in latest and latest[eval_id].get("_status") == "ok" and record.get("_status") != "ok":
+                continue
             latest[eval_id] = record
     return list(latest.values())
 
@@ -282,10 +285,14 @@ def main() -> None:
     parser.add_argument("--expected-per-subset", type=int, default=100)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT_DIR)
     args = parser.parse_args()
+    args.out = args.out if args.out.is_absolute() else PROJECT_ROOT / args.out
 
-    config = load_config(args.config)
+    config_path = args.config if args.config.is_absolute() else PROJECT_ROOT / args.config
+    config = load_config(config_path)
     expected_subsets = config["dataset"]["subsets"]
     results_dir = Path(config["evaluation"]["output_dir"])
+    if not results_dir.is_absolute():
+        results_dir = PROJECT_ROOT / results_dir
 
     df = load_results(results_dir, args.models)
     args.out.mkdir(parents=True, exist_ok=True)

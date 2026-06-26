@@ -19,7 +19,8 @@ from tqdm import tqdm
 from utils import append_jsonl, load_json, load_text, read_jsonl, safe_filename, stable_example_id
 
 
-DEFAULT_CONFIG_PATH = Path("configs/config.yaml")
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_CONFIG_PATH = PROJECT_ROOT / "configs" / "config.yaml"
 RETRYABLE_STATUS_CODES = {408, 409, 425, 429, 500, 502, 503, 504}
 
 
@@ -61,14 +62,31 @@ def load_eval_config(
     model = model_override or cfg["default_model"]
     temperature = temperature_override if temperature_override is not None else float(cfg["temperature"])
     concurrency = concurrency_override if concurrency_override is not None else int(cfg["concurrency"])
+    input_path = Path(cfg["input_path"])
+    output_dir = Path(cfg["output_dir"])
+    system_prompt_path = Path(cfg["system_prompt_path"])
+    user_template_path = Path(cfg["user_template_path"])
+    output_schema_path = Path(cfg["output_schema_path"])
+
+    if not input_path.is_absolute():
+        input_path = PROJECT_ROOT / input_path
+    if not output_dir.is_absolute():
+        output_dir = PROJECT_ROOT / output_dir
+    if not system_prompt_path.is_absolute():
+        system_prompt_path = PROJECT_ROOT / system_prompt_path
+    if not user_template_path.is_absolute():
+        user_template_path = PROJECT_ROOT / user_template_path
+    if not output_schema_path.is_absolute():
+        output_schema_path = PROJECT_ROOT / output_schema_path
+
     return EvalConfig(
         base_url=cfg["base_url"],
         api_key_env=cfg["api_key_env"],
-        input_path=Path(cfg["input_path"]),
-        output_dir=Path(cfg["output_dir"]),
-        system_prompt_path=Path(cfg["system_prompt_path"]),
-        user_template_path=Path(cfg["user_template_path"]),
-        output_schema_path=Path(cfg["output_schema_path"]),
+        input_path=input_path,
+        output_dir=output_dir,
+        system_prompt_path=system_prompt_path,
+        user_template_path=user_template_path,
+        output_schema_path=output_schema_path,
         model=model,
         concurrency=concurrency,
         request_timeout_seconds=float(cfg["request_timeout_seconds"]),
@@ -254,7 +272,7 @@ def example_stats(example: dict[str, Any], messages: list[dict[str, str]]) -> di
 
 
 def is_retryable_error(exc: Exception) -> bool:
-    if isinstance(exc, (RateLimitError, APITimeoutError, APIConnectionError)):
+    if isinstance(exc, (RateLimitError, APITimeoutError, APIConnectionError, JudgeOutputError)):
         return True
     if isinstance(exc, APIStatusError):
         return exc.status_code in RETRYABLE_STATUS_CODES
@@ -418,7 +436,8 @@ def main() -> None:
     parser.add_argument("--rerun-ok", action="store_true", help="Append new attempts even for examples already judged ok.")
     args = parser.parse_args()
 
-    config = load_eval_config(args.config, args.model, args.temperature, args.concurrency)
+    config_path = args.config if args.config.is_absolute() else PROJECT_ROOT / args.config
+    config = load_eval_config(config_path, args.model, args.temperature, args.concurrency)
     asyncio.run(
         run_evaluation(
             config,

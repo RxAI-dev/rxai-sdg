@@ -12,7 +12,8 @@ import yaml
 from utils import read_jsonl, safe_filename
 
 
-DEFAULT_CONFIG_PATH = Path("configs/config.yaml")
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_CONFIG_PATH = PROJECT_ROOT / "configs" / "config.yaml"
 SCORE_COLUMNS = [
     "memory_score",
     "instruction_score",
@@ -35,6 +36,8 @@ def latest_records(path: Path) -> list[dict[str, Any]]:
     for record in records:
         eval_id = record.get("_eval_id")
         if isinstance(eval_id, str):
+            if eval_id in latest and latest[eval_id].get("_status") == "ok" and record.get("_status") != "ok":
+                continue
             latest[eval_id] = record
     return list(latest.values())
 
@@ -422,10 +425,14 @@ def main() -> None:
         "--out", type=Path, default=Path("data/results/judge_validation_summary")
     )
     args = parser.parse_args()
+    args.out = args.out if args.out.is_absolute() else PROJECT_ROOT / args.out
 
-    config = load_config(args.config)
+    config_path = args.config if args.config.is_absolute() else PROJECT_ROOT / args.config
+    config = load_config(config_path)
     eval_config = config["evaluation"]
     results_dir = Path(eval_config["output_dir"])
+    if not results_dir.is_absolute():
+        results_dir = PROJECT_ROOT / results_dir
     models = args.models if args.models else eval_config["judge_models"]
 
     frames = [load_model_results(results_dir, model) for model in models]

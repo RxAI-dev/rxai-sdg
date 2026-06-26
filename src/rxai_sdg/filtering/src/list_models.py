@@ -9,7 +9,8 @@ from dotenv import load_dotenv
 from openai import OpenAI
 
 
-DEFAULT_CONFIG_PATH = Path("configs/config.yaml")
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_CONFIG_PATH = PROJECT_ROOT / "configs" / "config.yaml"
 
 
 def main() -> None:
@@ -18,7 +19,8 @@ def main() -> None:
     parser.add_argument("--contains", type=str, default=None)
     args = parser.parse_args()
 
-    with args.config.open("r", encoding="utf-8") as file:
+    config_path = args.config if args.config.is_absolute() else PROJECT_ROOT / args.config
+    with config_path.open("r", encoding="utf-8") as file:
         config = yaml.safe_load(file)
 
     eval_config = config["evaluation"]

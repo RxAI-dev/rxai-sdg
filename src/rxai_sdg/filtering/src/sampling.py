@@ -11,7 +11,8 @@ from datasets import Dataset, DatasetDict, get_dataset_config_names, load_datase
 from tqdm import tqdm
 
 
-DEFAULT_CONFIG_PATH = Path("configs/config.yaml")
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_CONFIG_PATH = PROJECT_ROOT / "configs" / "config.yaml"
 
 
 def load_config(path: Path) -> dict[str, Any]:
@@ -100,7 +101,8 @@ def main() -> None:
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG_PATH)
     args = parser.parse_args()
 
-    config = load_config(args.config)
+    config_path = args.config if args.config.is_absolute() else PROJECT_ROOT / args.config
+    config = load_config(config_path)
     dataset_config = config["dataset"]
     sampling_config = config["sampling"]
 
@@ -109,7 +111,11 @@ def main() -> None:
     split = dataset_config.get("split", "train")
     samples_per_subset = int(sampling_config["samples_per_subset"])
     seed = int(sampling_config["random_seed"])
+    
     output_dir = Path(sampling_config["output_dir"])
+    if not output_dir.is_absolute():
+        output_dir = PROJECT_ROOT / output_dir
+        
     formats = set(sampling_config.get("formats", ["jsonl"]))
 
     output_dir.mkdir(parents=True, exist_ok=True)
