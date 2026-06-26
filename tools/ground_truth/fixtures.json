@@ -2576,7 +2576,7 @@
       },
       {
        "segment_type": "reasoning",
-       "text": "User asks: \"What are the key differences between classical and operant conditioning in psychology?\" Straightforward request. Provide clear comparison. Possibly bullet points. Should be thorough but concise. Provide definitions, key elements, processes, role of reinforcement vs association, voluntary vs involuntary responses, timing, etc. Also mention examples. Provide table maybe. No special formatting requested. Provide answer."
+       "text": "User asks: \"What are the key differences between classical and operant conditioning in psychology?\" Straightforward request. Provide clear comparison. Possibly bullet points. Should be thorough but concise. Provide definitions, key elements, processes, role of reinforcement vs association, voluntary vs involuntary responses, timing, etc. Also mention examples. A side-by-side table is the clearest way to line up response type, timing, and mechanism, and a familiar example under each anchors the contrast."
       },
       {
        "segment_type": "answer",
@@ -2640,7 +2640,7 @@
       },
       {
        "segment_type": "reasoning",
-       "text": "The user wants a pirate-style reworking of Emma’s study saga, using their own words, presumably a fun rewrite in pirate language. They said \"Ah, so ye wanna make me walk the plank with me own words, eh? Well, arrr, I’ll need me cutlass and compass to navigate this sea of conditioning, and I’m ready to set sail with yer pirate-style reworking of Emma’s study saga!\" So they want the assistant to produce a pirate-themed version of the earlier example. They likely want a creative, pirate-flavored narrative describing the same concepts. Should maintain the educational content but in pirate style. Provide the story of Emma (maybe rename her to a pirate name) learning to study, with classical and operant conditioning blended. Use pirate lingo: \"Arrr\", \"matey\", \"shiver me timbers\", \"walk the plank\", \"cutlass\", \"compass\", \"galley\", \"crow's nest\". Keep it clear. Should be engaging. Provide perhaps bullet points or sections. Let's comply."
+       "text": "The user wants a pirate-style reworking of Emma’s study saga, using their own words, presumably a fun rewrite in pirate language. They said \"Ah, so ye wanna make me walk the plank with me own words, eh? Well, arrr, I’ll need me cutlass and compass to navigate this sea of conditioning, and I’m ready to set sail with yer pirate-style reworking of Emma’s study saga!\" So they want the assistant to produce a pirate-themed version of the earlier example. They likely want a creative, pirate-flavored narrative describing the same concepts. Should maintain the educational content but in pirate style. Provide the story of Emma (maybe rename her to a pirate name) learning to study, with classical and operant conditioning blended. Use pirate lingo: \"Arrr\", \"matey\", \"shiver me timbers\", \"walk the plank\", \"cutlass\", \"compass\", \"galley\", \"crow's nest\". Keep it clear and engaging. I'll keep the same four learning phases from the original Emma story so the pedagogy survives the costume change, just retold through a pirate captain drilling her crew."
       },
       {
        "segment_type": "answer",

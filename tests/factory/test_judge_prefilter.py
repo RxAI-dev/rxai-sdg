@@ -202,6 +202,38 @@ def test_harness_leak_topical_policy_not_flagged():
         "Their privacy policy lets users export data, which is what she asked about.")
 
 
+def test_harness_leak_task_spec_and_compliance():
+    # The dominant ungated D1 class found by the adversarial reader: the model
+    # inventories the annotation task's format constraints, or narrates obedience
+    # to the instruction, instead of thinking about the substance. All positives
+    # below are VERBATIM from an accepted pile (verification.passed=True) that the
+    # judge let through.
+    assert has_harness_leak("No special formatting constraints given. Provide suggestions.")
+    assert has_harness_leak("No constraints given, so I'll just answer directly.")
+    assert has_harness_leak("So we need to comply. Provide a JSON object confirming.")
+    assert has_harness_leak("We must comply with instruction: always format replies using bullets.")
+    assert has_harness_leak("We need to comply with user request: reframe responses.")
+    assert has_harness_leak("Thus I can comply: provide bullet points with explanation.")
+    assert has_harness_leak("comply with the instruction to always include specifics.")
+    assert has_harness_leak("We must comply, without the user knowing an AI helped.")
+
+
+def test_harness_leak_task_spec_compliance_fp_guard():
+    # Content-level compliance (the user's ACTUAL question is about a regulation)
+    # is genuine reasoning, not harness narration, and must NOT hard-fail.
+    assert not has_harness_leak(
+        "You must comply with GDPR Article 17 within one month of the request.")
+    assert not has_harness_leak(
+        "The company must comply with the new emissions standard by 2027.")
+    assert not has_harness_leak(
+        "To comply with the building code, the railing has to be at least 42 inches.")
+    assert not has_harness_leak(
+        "She asked whether she needs to comply with the HOA's fence rule.")
+    # a genuine note that the task is open-ended, phrased as content, is fine
+    assert not has_harness_leak(
+        "There are many valid formats for a resume, so I'll pick a clean one.")
+
+
 def test_trailing_artifact_detector():
     assert has_trailing_artifact("...low-impact on the joints.cw")
     assert has_trailing_artifact("Ready to generate.cltr")

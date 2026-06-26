@@ -267,6 +267,33 @@ HARNESS_REASONING_RES: list[re.Pattern] = [
     re.compile(r"\bthe\s+user'?s?\s+next\s+(?:message|reply|turn)\b", re.IGNORECASE),
     re.compile(r"\bproduce\s+(?:a|the)\s+user\s+(?:message|reply)\b", re.IGNORECASE),
     re.compile(r"simulate\s+what\s+the\s+user\s+would\s+say", re.IGNORECASE),
+    # --- task-spec checking + compliance narration (the dominant ungated D1
+    #     class, ~37% of an accepted pile per the adversarial reader). The model
+    #     inventories the annotation task's format constraints ("No special
+    #     formatting constraints given") or narrates obedience to the instruction
+    #     ("We need to comply. Provide a JSON object.") instead of thinking about
+    #     the substance. An assistant genuinely working a problem never does this;
+    #     only a harness-aware model checks "are there formatting constraints?" or
+    #     frames its turn as "complying". Anchored to FIRST-PERSON task compliance
+    #     ("we/I/let's comply", "comply with the request/instruction") so a
+    #     content-level "you must comply with GDPR" (the user's actual question)
+    #     does NOT match. Verified high-precision: 16/16 real hits were task
+    #     compliance, 0 were regulatory content. ---
+    re.compile(r"\bno\s+(?:special\s+)?(?:formatting|format)\s+"
+               r"(?:constraints?|requirements?|instructions?|rules?)?\s*"
+               r"(?:given|needed|required|requested|specified|provided|here|imposed)\b",
+               re.IGNORECASE),
+    re.compile(r"\bno\s+(?:explicit\s+|other\s+|additional\s+)?constraints?\s+"
+               r"(?:are\s+)?(?:given|specified|provided|mentioned|stated|imposed)\b",
+               re.IGNORECASE),
+    re.compile(r"\b(?:we|i)\s+(?:must|should|need\s+to|have\s+to|just|can)\s+comply\b",
+               re.IGNORECASE),
+    re.compile(r"\blet'?s\s+comply\b", re.IGNORECASE),
+    re.compile(r"\bcompl(?:y|ies|ying)\s+with\s+(?:the\s+|user'?s?\s+|these\s+)?"
+               r"(?:request|instruction)", re.IGNORECASE),
+    re.compile(r"\bwithout\s+(?:anyone|the\s+user|them)\s+knowing\s+"
+               r"(?:that\s+)?(?:an?\s+)?(?:ai|assistant|i\s+helped|ai\s+helped|it\s+was)\b",
+               re.IGNORECASE),
 ]
 
 
