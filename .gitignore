@@ -176,3 +176,6 @@ runs/
 
 # repair-loop data artifacts (parquet inputs/outputs are not code)
 data/
+
+# runtime artifact written to CWD during factory runs (dependency log)
+fuzzy_map_log.csv
