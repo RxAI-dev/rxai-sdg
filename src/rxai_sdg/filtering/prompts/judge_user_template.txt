@@ -1,0 +1,8 @@
+Evaluate the following SFT example.
+
+The example is serialized as JSON. It may contain fields such as messages, conversations, prompt, completion, response, chosen, rejected, or dataset-specific metadata. Focus on the actual user/assistant content.
+
+SFT_EXAMPLE_JSON:
+{example_json}
+
+Return only the final JSON object.

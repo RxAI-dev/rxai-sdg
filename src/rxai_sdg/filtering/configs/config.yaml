@@ -1,0 +1,40 @@
+dataset:
+  hf_repo: ReactiveAI/beta-reasoning
+  subsets:
+    - Dolci-Think-SFT-32B-completed
+    - Dolci-Think-SFT-7B-completed
+    - real-chat-reasoning
+    - tulu-wildchat-r1-completed
+    - wild-chat-reasoning
+    - wildchat-r1-completed
+  split: train
+
+sampling:
+  samples_per_subset: 100
+  random_seed: 42
+  output_dir: data/sampled
+  formats:
+    - jsonl
+    - parquet
+
+evaluation:
+  base_url: https://oai.endpoints.kepler.ai.cloud.ovh.net/v1
+  api_key_env: OVH_AI_ENDPOINTS_API_KEY
+  input_path: data/sampled/all_sampled.jsonl
+  output_dir: data/results
+  system_prompt_path: prompts/judge_prompt.txt
+  user_template_path: prompts/judge_user_template.txt
+  output_schema_path: prompts/judge_output_schema.json
+  default_model: Qwen3.5-397B-A17B
+  judge_models:
+    - Qwen3.5-397B-A17B
+    - Qwen3-Coder-30B-A3B-Instruct
+    - gpt-oss-120b
+    - Mistral-Small-3.2-24B-Instruct-2506
+  concurrency: 4
+  request_timeout_seconds: 420
+  max_retries: 5
+  max_output_tokens: 12000
+  temperature: 0
+  json_mode: true
+  extra_body:
