@@ -208,6 +208,8 @@ class LoopStats:
     reasoning_missing: int = 0
     #: conversations dropped by the holistic quality gate (below the score floor).
     holistic_gated: int = 0
+    #: conversations dropped by the focused factuality gate (>=1 confident-FALSE claim).
+    factuality_gated: int = 0
     downweighted: list[str] = field(default_factory=list)
 
     def merge(self, other: "LoopStats") -> None:
@@ -219,6 +221,7 @@ class LoopStats:
         self.coherence_failures += other.coherence_failures
         self.reasoning_missing += other.reasoning_missing
         self.holistic_gated += other.holistic_gated
+        self.factuality_gated += other.factuality_gated
         for tag in other.downweighted:
             if tag not in self.downweighted:
                 self.downweighted.append(tag)
@@ -234,6 +237,8 @@ class ConversationLoop:
         simulator_client=None,
         holistic: Optional[HolisticJudge] = None,
         quality_config: Optional[QualityConfig] = None,
+        factuality=None,
+        voice_classifier=None,
         rng: Optional[random.Random] = None,
     ):
         self.responder = responder
@@ -242,6 +247,8 @@ class ConversationLoop:
         self.verifier = verifier or ConstraintVerifier()
         self.simulator_client = simulator_client
         self.holistic = holistic
+        self.factuality = factuality
+        self.voice_classifier = voice_classifier
         self.quality_config = quality_config or QualityConfig()
         #: aggregate stats merged from each conversation's per-run stats
         self.stats = LoopStats()
@@ -375,7 +382,32 @@ class ConversationLoop:
                 stats.holistic_gated += 1
                 return None, stats
 
+        # -- focused factuality gate (problem 2): decomposed claim verification --
+        # catches confident-but-wrong named specifics the holistic rubric is blind
+        # to. The result is ALWAYS attached to the record (so a gate-off measurement
+        # run keeps factuality failures inspectable in --out); it only DROPS the
+        # conversation when the master gate is on (production), mirroring the
+        # holistic gate's behaviour.
+        if self.factuality is not None and self.config.factuality_gate_enabled:
+            fc = self.factuality.check(turns)
+            if record.holistic_score is None:
+                record.holistic_score = {}
+            if isinstance(record.holistic_score, dict):
+                record.holistic_score["factuality"] = fc.to_dict()
+            if (self.config.holistic_gate_enabled and fc.available and not fc.passed):
+                stats.factuality_gated += 1
+                return None, stats
+
         return record, stats
+
+    def _voice_defect(self, reasoning: str) -> bool:
+        """Classifier BACKSTOP (problem 1): True if the small classifier judges the
+        reasoning to be annotator-voice. Only meaningful when a classifier is wired
+        and enabled; the free regex (``_reasoning_defect``) runs first, so this is
+        consulted only for what regex passed."""
+        if self.voice_classifier is None or not self.config.voice_classifier_gate_enabled:
+            return False
+        return self.voice_classifier.is_annotator(reasoning or "")
 
     def _holistic_ok(self, score: Optional[dict], prefilter=None) -> bool:
         """Config-driven gate over the deterministic pre-filter + LLM rubric.
@@ -426,6 +458,8 @@ class ConversationLoop:
             rdef = _reasoning_defect(out.turn.reasoning or "") if ok else None
             if ok and rdef:
                 ok, detail = False, f"coherence: {rdef}"
+            if ok and self._voice_defect(out.turn.reasoning or ""):
+                ok, detail = False, "coherence: annotator-voice reasoning (classifier)"
             ndef = _numeric_defect(out.turn) if ok else None
             if ok and ndef:
                 ok, detail = False, f"coherence: {ndef}"
@@ -604,6 +638,10 @@ class ConversationLoop:
         rdef = _reasoning_defect(turn.reasoning or "")
         if rdef:
             return False, f"coherence: {rdef}"
+
+        # classifier BACKSTOP for annotator-voice the regex missed (problem 1).
+        if self._voice_defect(turn.reasoning or ""):
+            return False, "coherence: annotator-voice reasoning (classifier)"
 
         # a PROVABLE numeric/encoding contradiction (exec gate: code comment-vs-computed,
         # inline arithmetic, confusable JSON keys) -> regenerate at the source instead of

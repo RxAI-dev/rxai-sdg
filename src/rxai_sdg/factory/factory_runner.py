@@ -28,7 +28,9 @@ from typing import Iterable, Optional
 from .clients import LLMClient
 from .config import FactoryConfig
 from .dataset import FactoryDatasetPostprocessor
+from .factuality import FactChecker
 from .holistic import HolisticJudge
+from .reasoning_voice import ReasoningVoiceClassifier
 from .loop import ConversationLoop, LoopStats
 from .responder import Responder
 from .sampler import IntentPolicySampler
@@ -78,9 +80,24 @@ class DataFactory:
         cur_client = curator_client if config.seed_curator_enabled else None
         self.curator = SeedCurator(rng=self.rng, client=cur_client)
         self.writer = SegmentWriter()
+        # focused factuality gate (problem 2): reuses the judge client - a decomposed
+        # claim-verification pass that catches named-specific fabrication the holistic
+        # rubric is blind to. Only built when enabled and a judge client is supplied.
+        self.factuality = None
+        if config.factuality_gate_enabled and holistic_client is not None:
+            self.factuality = FactChecker(
+                holistic_client, max_tokens=config.factuality_max_tokens)
+        # small-classifier voice gate (problem 1): reuses the curator client (fast,
+        # cheap) as a paraphrase-robust backstop behind the regex.
+        self.voice_classifier = None
+        if config.voice_classifier_gate_enabled and curator_client is not None:
+            self.voice_classifier = ReasoningVoiceClassifier(
+                curator_client, max_tokens=config.voice_classifier_max_tokens)
         self.loop = ConversationLoop(
             self.responder, self.sampler, config,
-            simulator_client=simulator_client, holistic=self.holistic, rng=self.rng)
+            simulator_client=simulator_client, holistic=self.holistic,
+            factuality=self.factuality, voice_classifier=self.voice_classifier,
+            rng=self.rng)
         self.stats = FactoryRunStats(loop=self.loop.stats)
         self._stats_lock = threading.Lock()
         #: records collected by the most recent ``generate`` call

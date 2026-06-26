@@ -123,6 +123,20 @@ class FactoryConfig:
     holistic_judge_max_tokens: int = 16000
     #: deterministic pre-filter: flag a turn whose ``regenerations`` exceeds this.
     prefilter_regen_threshold: int = 2
+    #: focused factuality gate (problem 2): a SEPARATE decomposed claim-verification
+    #: call that catches confident-but-wrong named specifics the holistic rubric is
+    #: blind to (validated: flags a wrong actor name the rubric scored fg=9). A
+    #: conversation with >=1 confident-FALSE claim is rejected. Off by default
+    #: (extra LLM call per conversation); enable via --factuality-gate.
+    factuality_gate_enabled: bool = False
+    factuality_max_tokens: int = 12000
+    #: small LLM classifier gate (problem 1): a BACKSTOP behind the free regex that
+    #: catches annotator-voice reasoning paraphrases regex misses ("the user
+    #: wants ...", "let's craft answer"). Consulted only when the regex passes; an
+    #: ANNOTATOR verdict regenerates the turn. Off by default (per-turn LLM call);
+    #: enable via --voice-gate.
+    voice_classifier_gate_enabled: bool = False
+    voice_classifier_max_tokens: int = 2000
     #: legacy two-field gate thresholds (kept for back-compat of existing JSON/YAML
     #: configs; no longer used by the gate, which reads ``holistic_gate`` above).
     holistic_min_coherence: int = 6

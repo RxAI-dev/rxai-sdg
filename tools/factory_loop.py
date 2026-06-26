@@ -116,6 +116,11 @@ def build_factory(args):
         # -> we measure the gate pass-rate and inspect failures ourselves.
         holistic_gate_enabled=False,
         seed_curator_enabled=True,
+        # new gates (problems 1 & 2). Voice classifier gates DURING generation
+        # (regenerate the turn); factuality attaches its result and is applied
+        # post-hoc by analyze_batch since the loop runs gate-OFF for measurement.
+        factuality_gate_enabled=args.factuality_gate,
+        voice_classifier_gate_enabled=args.voice_gate,
     )
     cfg.length_bands["smoke"] = LengthBand(args.min_turns, args.max_turns)
     factory = DataFactory(
@@ -162,12 +167,20 @@ def analyze_batch(records, cfg):
             r = getattr(getattr(t, "verification", None), "regenerations", 0) or 0
             max_regen = max(max_regen, r)
         passed = ConversationLoop._holistic_ok(loop, score, pf)
+        # focused factuality gate (problem 2): a conversation the decomposed
+        # claim-check found a confident-FALSE claim in fails the gate too. Attached
+        # by the loop as score["factuality"]; only gate when the check was available.
+        fact = score.get("factuality") if isinstance(score, dict) else None
+        fact_false = bool(fact and fact.get("available") and not fact.get("passed"))
+        if fact_false:
+            passed = False
         gate_pass += int(passed)
         per_conv.append({
             "conversation_id": rec.conversation_id,
             "seed": (rec.source_seed.first_query or "")[:80],
             "n_turns": len(turns),
             "gate_pass": passed,
+            "factuality_false_claims": (fact or {}).get("false_claims", []) if fact else [],
             "prefilter_hard_fails": pf.hard_fails,
             "prefilter_flags": pf.flags,
             "scores": {k: score.get(k) for k in RUBRIC_AXES},
@@ -277,6 +290,10 @@ def main(argv=None) -> int:
     ap.add_argument("--transform-ratio", type=float, default=0.3)
     ap.add_argument("--min-recall-distance", type=int, default=4)
     ap.add_argument("--bias-judge-model", default=None)
+    ap.add_argument("--factuality-gate", action="store_true",
+                    help="enable the focused decomposed factuality gate (problem 2)")
+    ap.add_argument("--voice-gate", action="store_true",
+                    help="enable the small-classifier annotator-voice backstop (problem 1)")
     ap.add_argument("--log-raw", action="store_true")
     args = ap.parse_args(argv)
 
