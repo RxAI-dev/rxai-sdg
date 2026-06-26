@@ -288,6 +288,12 @@ HARNESS_REASONING_RES: list[re.Pattern] = [
                re.IGNORECASE),
     re.compile(r"\b(?:we|i)\s+(?:must|should|need\s+to|have\s+to|just|can)\s+comply\b",
                re.IGNORECASE),
+    # bare-imperative compliance ("Need to comply.", "Must comply:") with no
+    # subject - the same task-obedience narration, just without "we/I". The
+    # negative lookahead keeps content-level "comply with GDPR / the code" safe
+    # (those are answered, not narrated, and read as "comply WITH <regulation>").
+    re.compile(r"\b(?:need(?:s)?\s+to|must|should|have\s+to|has\s+to|going\s+to|"
+               r"ready\s+to|just)\s+comply\b(?!\s+with)", re.IGNORECASE),
     re.compile(r"\blet'?s\s+comply\b", re.IGNORECASE),
     re.compile(r"\bcompl(?:y|ies|ying)\s+with\s+(?:the\s+|user'?s?\s+|these\s+)?"
                r"(?:request|instruction)", re.IGNORECASE),

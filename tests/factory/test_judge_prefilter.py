@@ -216,6 +216,10 @@ def test_harness_leak_task_spec_and_compliance():
     assert has_harness_leak("Thus I can comply: provide bullet points with explanation.")
     assert has_harness_leak("comply with the instruction to always include specifics.")
     assert has_harness_leak("We must comply, without the user knowing an AI helped.")
+    # bare-imperative compliance (no "we/I" subject) is the same narration
+    assert has_harness_leak("Need to comply. Provide five bullet points summarizing.")
+    assert has_harness_leak("Must comply: keep it to three sentences.")
+    assert has_harness_leak("Should comply and give the JSON object.")
 
 
 def test_harness_leak_task_spec_compliance_fp_guard():
