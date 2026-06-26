@@ -210,6 +210,12 @@ def test_harness_leak_task_spec_and_compliance():
     # judge let through.
     assert has_harness_leak("No special formatting constraints given. Provide suggestions.")
     assert has_harness_leak("No constraints given, so I'll just answer directly.")
+    # paraphrase space the model actually produces (found by reading the pile)
+    assert has_harness_leak("No specific formatting constraints from user. Provide answer.")
+    assert has_harness_leak("Probably no special formatting constraints. Provide clear walk-through.")
+    assert has_harness_leak("No special formatting constraints beyond normal.")
+    assert has_harness_leak("No formatting constraints except normal prose.")
+    assert has_harness_leak("No specific constraints provided, so keep it readable.")
     assert has_harness_leak("So we need to comply. Provide a JSON object confirming.")
     assert has_harness_leak("We must comply with instruction: always format replies using bullets.")
     assert has_harness_leak("We need to comply with user request: reframe responses.")
@@ -236,6 +242,13 @@ def test_harness_leak_task_spec_compliance_fp_guard():
     # a genuine note that the task is open-ended, phrased as content, is fine
     assert not has_harness_leak(
         "There are many valid formats for a resume, so I'll pick a clean one.")
+    # content that happens to mention formatting/constraints must NOT fire
+    assert not has_harness_leak(
+        "The optimization problem has no constraints, so use plain gradient descent.")
+    assert not has_harness_leak(
+        "The CSS has no special formatting for that class, so inherit the parent style.")
+    assert not has_harness_leak(
+        "This recipe has no special requirements for high altitude.")
 
 
 def test_trailing_artifact_detector():

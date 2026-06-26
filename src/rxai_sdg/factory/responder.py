@@ -279,12 +279,20 @@ HARNESS_REASONING_RES: list[re.Pattern] = [
     #     content-level "you must comply with GDPR" (the user's actual question)
     #     does NOT match. Verified high-precision: 16/16 real hits were task
     #     compliance, 0 were regulatory content. ---
-    re.compile(r"\bno\s+(?:special\s+)?(?:formatting|format)\s+"
-               r"(?:constraints?|requirements?|instructions?|rules?)?\s*"
-               r"(?:given|needed|required|requested|specified|provided|here|imposed)\b",
+    # Broadened to the paraphrase space the model actually produces - reading an
+    # accepted pile showed the narrow "given"-anchored form missed most variants
+    # ("No specific formatting constraints from user.", "Probably no special
+    # formatting constraints.", "...beyond normal.", "No formatting constraints
+    # except normal prose."). A format/constraint head is REQUIRED so content like
+    # "the CSS has no special formatting for that class" or an unconstrained-
+    # optimization "the problem has no constraints" stays unflagged.
+    re.compile(r"\bno\s+(?:\w+\s+){0,2}(?:formatting|format)\s+"
+               r"(?:constraints?|requirements?|instructions?|rules?|specs?|guidelines?|"
+               r"given|needed|required|requested|specified|provided|imposed)\b",
                re.IGNORECASE),
-    re.compile(r"\bno\s+(?:explicit\s+|other\s+|additional\s+)?constraints?\s+"
-               r"(?:are\s+)?(?:given|specified|provided|mentioned|stated|imposed)\b",
+    re.compile(r"\bno\s+(?:explicit|other|additional|specific|special|particular)?\s*"
+               r"constraints?\s+(?:are\s+)?"
+               r"(?:given|specified|provided|mentioned|stated|imposed)\b",
                re.IGNORECASE),
     re.compile(r"\b(?:we|i)\s+(?:must|should|need\s+to|have\s+to|just|can)\s+comply\b",
                re.IGNORECASE),

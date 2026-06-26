@@ -2603,7 +2603,7 @@
       },
       {
        "segment_type": "reasoning",
-       "text": "We need to respond with a deeper explanation of blended conditioning, concrete example like student studying, include practical setting, lab example, discuss nuances, maybe mention Pavlovian-instrumental transfer, secondary reinforcement, etc. Provide detail, show interaction, mention timeline, mechanisms, neural basis maybe. Keep warm, supportive tone. No specific formatting constraints beyond clarity. Let's craft answer."
+       "text": "We need to respond with a deeper explanation of blended conditioning, concrete example like student studying, include practical setting, lab example, discuss nuances, maybe mention Pavlovian-instrumental transfer, secondary reinforcement, etc. Provide detail, show interaction, mention timeline, mechanisms, neural basis maybe. Keep the tone warm and supportive, and lean on one concrete worked example (the student) so the interaction between the two systems is visible rather than abstract."
       },
       {
        "segment_type": "answer",
