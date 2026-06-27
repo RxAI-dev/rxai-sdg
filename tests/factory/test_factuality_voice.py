@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 from rxai_sdg.factory.clients import LLMResponse  # noqa: E402
 from rxai_sdg.factory.factuality import FactChecker, _last_json_object  # noqa: E402
 from rxai_sdg.factory.reasoning_voice import ReasoningVoiceClassifier  # noqa: E402
+from rxai_sdg.factory.reasoning_rewrite import ReasoningRewriter  # noqa: E402
 from rxai_sdg.factory.schemas import Segment, Turn  # noqa: E402
 
 
@@ -104,3 +105,40 @@ def test_voice_classifier_skips_tiny_and_fails_open():
     assert clf.client.calls == 0
     # an error fails open (returns None -> not annotator -> does not gate)
     assert ReasoningVoiceClassifier(ScriptedClient(raise_exc=True)).is_annotator("x" * 60) is False
+
+
+# --------------------------------------------------------- ReasoningRewriter
+def test_rewriter_returns_faithful_rewrite():
+    orig = "The user wants five bullets. We need to comply. " + "Owner earnings = 9.8 + 2.5 - 3.0. " * 2
+    rw = ReasoningRewriter(ScriptedClient(
+        "I work it through: owner earnings = 9.8 + 2.5 - 3.0."))
+    out = rw.rewrite(orig)
+    assert out is not None and "9.8" in out
+
+
+def test_rewriter_rejects_invented_figure():
+    orig = "The user asks about the survey. We should summarize the headline result."
+    # rewrite invents a specific 4-digit figure absent from the original -> reject
+    # (guards against fabricated years / citation years / large stats).
+    rw = ReasoningRewriter(ScriptedClient(
+        "I recall the 2013 survey of 45000 respondents found a clear trend."))
+    assert rw.rewrite(orig) is None
+
+
+def test_rewriter_rejects_balloon():
+    orig = "The user wants an overview. Mention 1963 and the TARDIS."
+    rw = ReasoningRewriter(ScriptedClient("1963 TARDIS " + "blah " * 200))
+    assert rw.rewrite(orig) is None
+
+
+def test_rewriter_skips_tiny_and_fails_open():
+    rw = ReasoningRewriter(ScriptedClient("rewritten"))
+    assert rw.rewrite("short") is None and rw.client.calls == 0
+    assert ReasoningRewriter(ScriptedClient(raise_exc=True)).rewrite("x" * 60) is None
+
+
+def test_rewriter_allows_small_derived_numbers():
+    # an intermediate sum (12.3) not in the original is fine (it's derived, <4 digits)
+    orig = "We need to compute. Net income 9.8 plus D&A 2.5."
+    rw = ReasoningRewriter(ScriptedClient("Net income 9.8 plus D&A 2.5 gives 12.3."))
+    assert rw.rewrite(orig) is not None

@@ -238,7 +238,7 @@ class ConversationLoop:
         holistic: Optional[HolisticJudge] = None,
         quality_config: Optional[QualityConfig] = None,
         factuality=None,
-        voice_classifier=None,
+        reasoning_rewriter=None,
         rng: Optional[random.Random] = None,
     ):
         self.responder = responder
@@ -248,7 +248,7 @@ class ConversationLoop:
         self.simulator_client = simulator_client
         self.holistic = holistic
         self.factuality = factuality
-        self.voice_classifier = voice_classifier
+        self.reasoning_rewriter = reasoning_rewriter
         self.quality_config = quality_config or QualityConfig()
         #: aggregate stats merged from each conversation's per-run stats
         self.stats = LoopStats()
@@ -342,6 +342,14 @@ class ConversationLoop:
                 active_obligations = [a for a in active_obligations if a.type != cs.type]
                 active_obligations.append(cs)
 
+        # -- reasoning-rewrite pass (problem 1): re-voice annotator-narration into
+        # genuine first-person thinking BEFORE the prefilter/judge/factuality see it,
+        # so every downstream check scores the final reasoning. A no-op when disabled
+        # or when a rewrite fails its faithfulness guard (original kept).
+        if self.reasoning_rewriter is not None and self.config.reasoning_rewrite_enabled:
+            for _t in turns:
+                self._apply_reasoning_rewrite(_t)
+
         # -- cross-turn checks --------------------------------------------
         cross = run_cross_turn_checks(turns, ledger, self.verifier)
         if directive is not None:
@@ -400,14 +408,20 @@ class ConversationLoop:
 
         return record, stats
 
-    def _voice_defect(self, reasoning: str) -> bool:
-        """Classifier BACKSTOP (problem 1): True if the small classifier judges the
-        reasoning to be annotator-voice. Only meaningful when a classifier is wired
-        and enabled; the free regex (``_reasoning_defect``) runs first, so this is
-        consulted only for what regex passed."""
-        if self.voice_classifier is None or not self.config.voice_classifier_gate_enabled:
-            return False
-        return self.voice_classifier.is_annotator(reasoning or "")
+    def _apply_reasoning_rewrite(self, turn) -> None:
+        """Reasoning-rewrite pass (problem 1, the durable fix). Transform the turn's
+        reasoning from annotator/task-narration voice into genuine first-person
+        thinking IN PLACE, preserving substance. Unlike the abandoned
+        regenerate-on-annotator-voice gate (which collapsed yield), this never
+        discards a turn: a failed/unfaithful rewrite simply leaves the original."""
+        if self.reasoning_rewriter is None or not self.config.reasoning_rewrite_enabled:
+            return
+        for seg in (turn.segments or []):
+            if seg.segment_type == "reasoning" and (seg.text or "").strip():
+                new = self.reasoning_rewriter.rewrite(seg.text)
+                if new:
+                    seg.text = new
+                break
 
     def _holistic_ok(self, score: Optional[dict], prefilter=None) -> bool:
         """Config-driven gate over the deterministic pre-filter + LLM rubric.
@@ -458,8 +472,6 @@ class ConversationLoop:
             rdef = _reasoning_defect(out.turn.reasoning or "") if ok else None
             if ok and rdef:
                 ok, detail = False, f"coherence: {rdef}"
-            if ok and self._voice_defect(out.turn.reasoning or ""):
-                ok, detail = False, "coherence: annotator-voice reasoning (classifier)"
             ndef = _numeric_defect(out.turn) if ok else None
             if ok and ndef:
                 ok, detail = False, f"coherence: {ndef}"
@@ -638,10 +650,6 @@ class ConversationLoop:
         rdef = _reasoning_defect(turn.reasoning or "")
         if rdef:
             return False, f"coherence: {rdef}"
-
-        # classifier BACKSTOP for annotator-voice the regex missed (problem 1).
-        if self._voice_defect(turn.reasoning or ""):
-            return False, "coherence: annotator-voice reasoning (classifier)"
 
         # a PROVABLE numeric/encoding contradiction (exec gate: code comment-vs-computed,
         # inline arithmetic, confusable JSON keys) -> regenerate at the source instead of

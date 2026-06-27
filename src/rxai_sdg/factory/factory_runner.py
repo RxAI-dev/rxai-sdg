@@ -30,7 +30,7 @@ from .config import FactoryConfig
 from .dataset import FactoryDatasetPostprocessor
 from .factuality import FactChecker
 from .holistic import HolisticJudge
-from .reasoning_voice import ReasoningVoiceClassifier
+from .reasoning_rewrite import ReasoningRewriter
 from .loop import ConversationLoop, LoopStats
 from .responder import Responder
 from .sampler import IntentPolicySampler
@@ -78,7 +78,9 @@ class DataFactory:
         # LLM seed curator (fix A) when a curator client is supplied and enabled;
         # otherwise a transparent heuristic fallback is used.
         cur_client = curator_client if config.seed_curator_enabled else None
-        self.curator = SeedCurator(rng=self.rng, client=cur_client)
+        self.curator = SeedCurator(
+            rng=self.rng, client=cur_client,
+            skip_fact_dense=config.skip_fact_dense_seeds)
         self.writer = SegmentWriter()
         # focused factuality gate (problem 2): reuses the judge client - a decomposed
         # claim-verification pass that catches named-specific fabrication the holistic
@@ -87,16 +89,17 @@ class DataFactory:
         if config.factuality_gate_enabled and holistic_client is not None:
             self.factuality = FactChecker(
                 holistic_client, max_tokens=config.factuality_max_tokens)
-        # small-classifier voice gate (problem 1): reuses the curator client (fast,
-        # cheap) as a paraphrase-robust backstop behind the regex.
-        self.voice_classifier = None
-        if config.voice_classifier_gate_enabled and curator_client is not None:
-            self.voice_classifier = ReasoningVoiceClassifier(
-                curator_client, max_tokens=config.voice_classifier_max_tokens)
+        # reasoning-rewrite pass (problem 1): reuses the curator client (fast) to
+        # re-voice annotator narration into genuine first-person thinking. Replaces
+        # the regenerate-on-annotator-voice gate that collapsed yield.
+        self.reasoning_rewriter = None
+        if config.reasoning_rewrite_enabled and curator_client is not None:
+            self.reasoning_rewriter = ReasoningRewriter(
+                curator_client, max_tokens=config.reasoning_rewrite_max_tokens)
         self.loop = ConversationLoop(
             self.responder, self.sampler, config,
             simulator_client=simulator_client, holistic=self.holistic,
-            factuality=self.factuality, voice_classifier=self.voice_classifier,
+            factuality=self.factuality, reasoning_rewriter=self.reasoning_rewriter,
             rng=self.rng)
         self.stats = FactoryRunStats(loop=self.loop.stats)
         self._stats_lock = threading.Lock()

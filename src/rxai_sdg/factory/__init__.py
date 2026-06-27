@@ -94,6 +94,7 @@ from .holistic import (
 )
 from .factuality import FactChecker, FactCheckResult
 from .reasoning_voice import ReasoningVoiceClassifier
+from .reasoning_rewrite import ReasoningRewriter
 from .writer import SegmentWriter, flag_dangling_references
 from .variants import derive_variants
 from .dataset import (
@@ -134,7 +135,7 @@ __all__ = [
     "UserSimulator", "SimulatorResult", "GROUNDING_KINDS",
     "run_cross_turn_checks", "cross_turn_pass_rate",
     "HolisticJudge", "RUBRIC_AXES", "PrefilterResult", "deterministic_prefilter",
-    "FactChecker", "FactCheckResult", "ReasoningVoiceClassifier",
+    "FactChecker", "FactCheckResult", "ReasoningVoiceClassifier", "ReasoningRewriter",
     "SegmentWriter", "flag_dangling_references", "derive_variants",
     "FactoryDatasetPostprocessor", "record_to_row", "row_to_record",
     "QualityConfig", "check_quality",

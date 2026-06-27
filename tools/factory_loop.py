@@ -116,11 +116,13 @@ def build_factory(args):
         # -> we measure the gate pass-rate and inspect failures ourselves.
         holistic_gate_enabled=False,
         seed_curator_enabled=True,
-        # new gates (problems 1 & 2). Voice classifier gates DURING generation
-        # (regenerate the turn); factuality attaches its result and is applied
-        # post-hoc by analyze_batch since the loop runs gate-OFF for measurement.
+        # new mechanisms (problems 1 & 2). The reasoning-rewrite pass transforms
+        # annotator-voice reasoning in place (no yield cost); factuality attaches its
+        # result and is applied post-hoc by analyze_batch since the loop runs gate-OFF
+        # for measurement.
         factuality_gate_enabled=args.factuality_gate,
-        voice_classifier_gate_enabled=args.voice_gate,
+        reasoning_rewrite_enabled=args.voice_gate,
+        skip_fact_dense_seeds=args.skip_fact_dense,
     )
     cfg.length_bands["smoke"] = LengthBand(args.min_turns, args.max_turns)
     factory = DataFactory(
@@ -293,7 +295,11 @@ def main(argv=None) -> int:
     ap.add_argument("--factuality-gate", action="store_true",
                     help="enable the focused decomposed factuality gate (problem 2)")
     ap.add_argument("--voice-gate", action="store_true",
-                    help="enable the small-classifier annotator-voice backstop (problem 1)")
+                    help="enable the reasoning-rewrite pass: re-voice annotator-voice "
+                         "reasoning into genuine first-person thinking (problem 1)")
+    ap.add_argument("--skip-fact-dense", action="store_true",
+                    help="drop fact-dense seeds at curation (problem 2): obscure "
+                         "rankings/biographies/stats where the responder fabricates")
     ap.add_argument("--log-raw", action="store_true")
     args = ap.parse_args(argv)
 

@@ -35,6 +35,25 @@ def test_heuristic_skips_contentless_greetings():
     assert "entropy" in out[0].seed.first_query
 
 
+class _FactDenseClient:
+    """Curator client that always classifies a seed fact_dense (problem-2 test)."""
+
+    def generate(self, prompt, *, system_prompt="", temperature=0.7,
+                 max_tokens=2048, **kwargs):
+        return LLMResponse(text=json.dumps({
+            "domain": "general", "topic": "obscure ranking", "action": "keep",
+            "sensitivity": "none", "verifiability": "fact_dense", "facts": []}))
+
+
+def test_skip_fact_dense_drops_when_enabled_keeps_otherwise():
+    seeds = ["What is the 37th largest city in Japan?"]
+    kept = SeedCurator(client=_FactDenseClient(), skip_fact_dense=False).curate(seeds)
+    assert len(kept) == 1
+    assert kept[0].directive.verifiability == "fact_dense"
+    dropped = SeedCurator(client=_FactDenseClient(), skip_fact_dense=True).curate(seeds)
+    assert dropped == []
+
+
 def test_heuristic_flags_sensitive_and_restricts_intents():
     out = SeedCurator().curate(
         ["I feel hopeless and don't want to be here anymore."])

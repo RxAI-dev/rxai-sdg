@@ -130,13 +130,19 @@ class FactoryConfig:
     #: (extra LLM call per conversation); enable via --factuality-gate.
     factuality_gate_enabled: bool = False
     factuality_max_tokens: int = 12000
-    #: small LLM classifier gate (problem 1): a BACKSTOP behind the free regex that
-    #: catches annotator-voice reasoning paraphrases regex misses ("the user
-    #: wants ...", "let's craft answer"). Consulted only when the regex passes; an
-    #: ANNOTATOR verdict regenerates the turn. Off by default (per-turn LLM call);
-    #: enable via --voice-gate.
-    voice_classifier_gate_enabled: bool = False
-    voice_classifier_max_tokens: int = 2000
+    #: reasoning-rewrite pass (problem 1, the durable fix): re-voice annotator/task
+    #: narration into genuine first-person thinking, preserving substance. Replaces
+    #: the abandoned regenerate-on-annotator-voice gate, which collapsed yield
+    #: (gpt-oss is annotator-voiced at ~100% base rate, so it discarded half the
+    #: batch). A failed/unfaithful rewrite leaves the original. Off by default
+    #: (per-turn LLM call); enable via --voice-gate.
+    reasoning_rewrite_enabled: bool = False
+    reasoning_rewrite_max_tokens: int = 2000
+    #: problem-2 fix: drop fact-dense seeds (obscure rankings/biographies/stats) at
+    #: curation, where the responder fabricates unavoidably and the factuality gate
+    #: would otherwise zero the yield. The gate stays on as the backstop for
+    #: fabrication that still slips into a "verifiable" seed's later turns.
+    skip_fact_dense_seeds: bool = False
     #: legacy two-field gate thresholds (kept for back-compat of existing JSON/YAML
     #: configs; no longer used by the gate, which reads ``holistic_gate`` above).
     holistic_min_coherence: int = 6
