@@ -11,7 +11,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from rxai_sdg.factory.clients import LLMResponse  # noqa: E402
-from rxai_sdg.factory.factuality import FactChecker, _last_json_object  # noqa: E402
+from rxai_sdg.factory.factuality import (  # noqa: E402
+    AnswerRepairer, FactChecker, _last_json_object,
+)
 from rxai_sdg.factory.reasoning_voice import ReasoningVoiceClassifier  # noqa: E402
 from rxai_sdg.factory.reasoning_rewrite import ReasoningRewriter  # noqa: E402
 from rxai_sdg.factory.schemas import Segment, Turn  # noqa: E402
@@ -142,3 +144,43 @@ def test_rewriter_allows_small_derived_numbers():
     orig = "We need to compute. Net income 9.8 plus D&A 2.5."
     rw = ReasoningRewriter(ScriptedClient("Net income 9.8 plus D&A 2.5 gives 12.3."))
     assert rw.rewrite(orig) is not None
+
+
+# ------------------------------------------------------------- AnswerRepairer
+def _ans_turn(idx, text):
+    return Turn(turn_index=idx, segments=[Segment("query", "q"), Segment("answer", text)])
+
+
+def test_repairer_applies_correction_to_matching_answer():
+    turns = [_ans_turn(0, "The breathing pattern is 4 + 7 + 8 = 20 seconds total, very calming.")]
+    claims = [{"claim": "4 + 7 + 8 = 20 seconds total",
+               "correction": "4 + 7 + 8 = 19 seconds"}]
+    rep = AnswerRepairer(ScriptedClient(
+        "The breathing pattern is 4 + 7 + 8 = 19 seconds total, very calming."))
+    assert rep.repair(turns, claims) is True
+    assert "19" in turns[0].segments[1].text
+
+
+def test_repairer_noop_without_claims():
+    turns = [_ans_turn(0, "A clean answer with no errors at all here.")]
+    rep = AnswerRepairer(ScriptedClient("should not be called"))
+    assert rep.repair(turns, []) is False
+    assert rep.client.calls == 0
+
+
+def test_repairer_skips_unmatched_claim():
+    # a claim with no token overlap with any answer is not attributed -> no edit.
+    turns = [_ans_turn(0, "Photosynthesis converts light into chemical energy.")]
+    claims = [{"claim": "the Roman Empire peaked in 117 CE", "correction": "..."}]
+    rep = AnswerRepairer(ScriptedClient("x"))
+    assert rep.repair(turns, claims) is False
+    assert rep.client.calls == 0
+
+
+def test_repairer_rejects_runaway_rewrite():
+    # a repair that balloons (a sign it rewrote everything) is discarded -> no change.
+    turns = [_ans_turn(0, "Short answer 4+7+8=20.")]
+    claims = [{"claim": "4+7+8=20", "correction": "4+7+8=19"}]
+    rep = AnswerRepairer(ScriptedClient("4+7+8=19 " + "padding " * 100))
+    assert rep.repair(turns, claims) is False
+    assert "20" in turns[0].segments[1].text  # original kept

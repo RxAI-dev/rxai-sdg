@@ -16,6 +16,7 @@ adjudicates verifiable named-entity / date / attribution / quantitative claims.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -103,6 +104,90 @@ class FactCheckResult:
             "false_claims": self.false_claims[:10],
             "available": self.available,
         }
+
+
+def _tok(s: str) -> set:
+    return set(re.findall(r"\w+", (s or "").lower()))
+
+
+@dataclass
+class AnswerRepairer:
+    """Repair-then-recheck (problem 2, yield lever). The factuality check already
+    returns each false claim WITH its correction; rather than just reject, feed
+    those corrections back and apply them to the offending answer, then let the
+    caller re-check. Validated: a salvageable error (a wrong sum) is fixed and the
+    re-check passes; an unsalvageable one (an answer built on a false premise) is
+    fixed superficially but the re-check still rejects it - so yield rises on
+    fixable conversations while cleanliness is guaranteed by the re-check."""
+
+    client: LLMClient
+    max_tokens: int = 3000
+    enabled: bool = True
+    #: a claim is attributed to the answer with the highest token overlap, but only
+    #: if the overlap clears this fraction of the claim's tokens (else it is skipped
+    #: - we never guess which answer to edit).
+    min_overlap: float = 0.5
+
+    def repair(self, turns: list[Turn], false_claims: list[dict]) -> bool:
+        """Apply corrections to the matching answers IN PLACE. Returns True if any
+        answer was changed."""
+        if not false_claims:
+            return False
+        answer_segs = [seg for t in turns for seg in (t.segments or [])
+                       if seg.segment_type == "answer" and (seg.text or "").strip()]
+        if not answer_segs:
+            return False
+        by_seg: dict[int, list] = {}
+        for c in false_claims:
+            seg = self._best_match(c.get("claim", ""), answer_segs)
+            if seg is not None:
+                by_seg.setdefault(id(seg), []).append(c)
+        seg_by_id = {id(s): s for s in answer_segs}
+        changed = False
+        for sid, claims in by_seg.items():
+            seg = seg_by_id[sid]
+            fixed = self._fix(seg.text, claims)
+            if fixed and fixed.strip() and fixed != seg.text:
+                seg.text = fixed
+                changed = True
+        return changed
+
+    def _best_match(self, claim: str, segs: list):
+        ct = _tok(claim)
+        if not ct:
+            return None
+        best, best_score = None, 0.0
+        for seg in segs:
+            st = _tok(seg.text)
+            score = len(ct & st) / len(ct)
+            if score > best_score:
+                best, best_score = seg, score
+        return best if best_score >= self.min_overlap else None
+
+    def _fix(self, answer: str, claims: list) -> Optional[str]:
+        errs = "\n".join(
+            f"- WRONG: {c.get('claim','')}\n  FIX: {c.get('correction','')}"
+            for c in claims)
+        system = (
+            "You are given an assistant ANSWER and a list of specific factual/"
+            "arithmetic errors, each with its correction. Return the FULL answer "
+            "with ONLY those errors fixed, changing the wrong values/words and any "
+            "directly dependent figures, and keeping everything else and all "
+            "formatting identical. Do not add commentary. Output ONLY the corrected "
+            "answer.")
+        try:
+            resp = self.client.generate(
+                f"ERRORS TO FIX:\n{errs}\n\nANSWER:\n{answer[:4000]}",
+                system_prompt=system, temperature=0.0, max_tokens=self.max_tokens)
+        except Exception:  # noqa: BLE001
+            return None
+        out = (resp.text or "").strip()
+        # a localized repair stays close to the original size; reject a runaway
+        # rewrite (keeps the original, which the gate then rejects - no yield loss
+        # vs not repairing, and no risk of a mangled answer entering the dataset).
+        if not out or not (0.5 * len(answer) <= len(out) <= 1.5 * len(answer) + 200):
+            return None
+        return out
 
 
 @dataclass

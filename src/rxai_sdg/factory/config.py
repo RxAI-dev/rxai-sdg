@@ -130,6 +130,11 @@ class FactoryConfig:
     #: (extra LLM call per conversation); enable via --factuality-gate.
     factuality_gate_enabled: bool = False
     factuality_max_tokens: int = 12000
+    #: repair-then-recheck (problem-2 yield lever): when the factuality check fails,
+    #: feed its own corrections back to fix the offending answers and re-verify.
+    #: Lifts yield on fixable conversations; the re-check still rejects the rest.
+    factuality_repair_enabled: bool = False
+    factuality_repair_max_tokens: int = 3000
     #: reasoning-rewrite pass (problem 1, the durable fix): re-voice annotator/task
     #: narration into genuine first-person thinking, preserving substance. Replaces
     #: the abandoned regenerate-on-annotator-voice gate, which collapsed yield

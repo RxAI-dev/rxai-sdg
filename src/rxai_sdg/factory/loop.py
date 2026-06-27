@@ -210,6 +210,8 @@ class LoopStats:
     holistic_gated: int = 0
     #: conversations dropped by the focused factuality gate (>=1 confident-FALSE claim).
     factuality_gated: int = 0
+    #: conversations whose answers were repaired from the factuality corrections.
+    factuality_repaired: int = 0
     downweighted: list[str] = field(default_factory=list)
 
     def merge(self, other: "LoopStats") -> None:
@@ -222,6 +224,7 @@ class LoopStats:
         self.reasoning_missing += other.reasoning_missing
         self.holistic_gated += other.holistic_gated
         self.factuality_gated += other.factuality_gated
+        self.factuality_repaired += other.factuality_repaired
         for tag in other.downweighted:
             if tag not in self.downweighted:
                 self.downweighted.append(tag)
@@ -239,6 +242,7 @@ class ConversationLoop:
         quality_config: Optional[QualityConfig] = None,
         factuality=None,
         reasoning_rewriter=None,
+        answer_repairer=None,
         rng: Optional[random.Random] = None,
     ):
         self.responder = responder
@@ -249,6 +253,7 @@ class ConversationLoop:
         self.holistic = holistic
         self.factuality = factuality
         self.reasoning_rewriter = reasoning_rewriter
+        self.answer_repairer = answer_repairer
         self.quality_config = quality_config or QualityConfig()
         #: aggregate stats merged from each conversation's per-run stats
         self.stats = LoopStats()
@@ -398,6 +403,14 @@ class ConversationLoop:
         # holistic gate's behaviour.
         if self.factuality is not None and self.config.factuality_gate_enabled:
             fc = self.factuality.check(turns)
+            # repair-then-recheck (problem-2 yield lever): apply the checker's own
+            # corrections to the offending answers and re-verify. Lifts yield on
+            # fixable conversations; the re-check still rejects the unsalvageable.
+            if (fc.available and not fc.passed and self.answer_repairer is not None
+                    and self.config.factuality_repair_enabled):
+                if self.answer_repairer.repair(turns, fc.false_claims):
+                    stats.factuality_repaired += 1
+                    fc = self.factuality.check(turns)
             if record.holistic_score is None:
                 record.holistic_score = {}
             if isinstance(record.holistic_score, dict):

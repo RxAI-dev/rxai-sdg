@@ -28,7 +28,7 @@ from typing import Iterable, Optional
 from .clients import LLMClient
 from .config import FactoryConfig
 from .dataset import FactoryDatasetPostprocessor
-from .factuality import FactChecker
+from .factuality import AnswerRepairer, FactChecker
 from .holistic import HolisticJudge
 from .reasoning_rewrite import ReasoningRewriter
 from .loop import ConversationLoop, LoopStats
@@ -89,6 +89,11 @@ class DataFactory:
         if config.factuality_gate_enabled and holistic_client is not None:
             self.factuality = FactChecker(
                 holistic_client, max_tokens=config.factuality_max_tokens)
+        # repair-then-recheck: the responder applies the checker's corrections.
+        self.answer_repairer = None
+        if (config.factuality_gate_enabled and config.factuality_repair_enabled):
+            self.answer_repairer = AnswerRepairer(
+                responder_client, max_tokens=config.factuality_repair_max_tokens)
         # reasoning-rewrite pass (problem 1): reuses the curator client (fast) to
         # re-voice annotator narration into genuine first-person thinking. Replaces
         # the regenerate-on-annotator-voice gate that collapsed yield.
@@ -100,7 +105,7 @@ class DataFactory:
             self.responder, self.sampler, config,
             simulator_client=simulator_client, holistic=self.holistic,
             factuality=self.factuality, reasoning_rewriter=self.reasoning_rewriter,
-            rng=self.rng)
+            answer_repairer=self.answer_repairer, rng=self.rng)
         self.stats = FactoryRunStats(loop=self.loop.stats)
         self._stats_lock = threading.Lock()
         #: records collected by the most recent ``generate`` call

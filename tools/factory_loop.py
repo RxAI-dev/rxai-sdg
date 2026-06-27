@@ -121,6 +121,7 @@ def build_factory(args):
         # result and is applied post-hoc by analyze_batch since the loop runs gate-OFF
         # for measurement.
         factuality_gate_enabled=args.factuality_gate,
+        factuality_repair_enabled=args.factuality_repair,
         reasoning_rewrite_enabled=args.voice_gate,
         skip_fact_dense_seeds=args.skip_fact_dense,
     )
@@ -294,6 +295,9 @@ def main(argv=None) -> int:
     ap.add_argument("--bias-judge-model", default=None)
     ap.add_argument("--factuality-gate", action="store_true",
                     help="enable the focused decomposed factuality gate (problem 2)")
+    ap.add_argument("--factuality-repair", action="store_true",
+                    help="repair-then-recheck: fix flagged answers from the "
+                         "factuality corrections and re-verify (yield lever)")
     ap.add_argument("--voice-gate", action="store_true",
                     help="enable the reasoning-rewrite pass: re-voice annotator-voice "
                          "reasoning into genuine first-person thinking (problem 1)")
