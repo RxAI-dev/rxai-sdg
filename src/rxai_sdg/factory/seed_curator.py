@@ -86,6 +86,11 @@ class SeedDirective:
     topic: str = "this topic"
     action: str = "keep"            # keep | skip
     sensitivity: str = "none"       # none | sensitive
+    #: "verifiable" - the answer is checkable or doesn't hinge on obscure external
+    #: facts (transforms, code, math, reasoning, advice, recall of stated facts).
+    #: "fact_dense" - the answer hinges on specific external facts the responder
+    #: tends to fabricate (Nth-largest rankings, obscure biographies, exact stats).
+    verifiability: str = "verifiable"
     #: when set, the sampler may only draw intents from this allow-set.
     allowed_intents: Optional[list[str]] = None
     #: per-conversation, topic-grounded personal facts the user might share, each
@@ -97,8 +102,8 @@ class SeedDirective:
     def to_dict(self) -> dict[str, Any]:
         return {
             "domain": self.domain, "topic": self.topic, "action": self.action,
-            "sensitivity": self.sensitivity, "allowed_intents": self.allowed_intents,
-            "facts": self.facts,
+            "sensitivity": self.sensitivity, "verifiability": self.verifiability,
+            "allowed_intents": self.allowed_intents, "facts": self.facts,
         }
 
 
@@ -118,12 +123,18 @@ class SeedCurator:
         client: Any = None,
         classifier_client: Any = None,
         max_tokens: int = 2048,
+        skip_fact_dense: bool = False,
     ):
         self.rng = rng or random.Random()
         self.dedup_threshold = dedup_threshold
         #: the LLM curator (CURATOR_MODEL); ``classifier_client`` kept as an alias.
         self.client = client or classifier_client
         self.max_tokens = max_tokens
+        #: problem-2 fix: drop seeds whose answer hinges on obscure external facts
+        #: (Nth-largest rankings, biographies of little-known people, specific stats/
+        #: citations) where the responder fabricates unavoidably. The factuality gate
+        #: is the backstop for fabrication that still slips into "verifiable" seeds.
+        self.skip_fact_dense = skip_fact_dense
 
     # ------------------------------------------------------------------ public
     def curate(self, seeds: Iterable[SeedInput], lang: str = "en") -> list[CuratedSeed]:
@@ -157,6 +168,9 @@ class SeedCurator:
             if rec.get("category"):
                 directive.domain = rec["category"]
             if directive.action == "skip":
+                continue
+            # problem-2 fix: optionally drop fact-dense seeds at the source.
+            if self.skip_fact_dense and directive.verifiability == "fact_dense":
                 continue
             query = rec["__query"]
             seed = Seed(
@@ -216,6 +230,12 @@ class SeedCurator:
             "greeting / empty / malformed message that cannot start a real conversation,\n"
             "  \"sensitivity\": \"sensitive\" for mental-health, self-harm, crisis, "
             "medical, grief, abuse or minors topics, otherwise \"none\",\n"
+            "  \"verifiability\": \"fact_dense\" if a good answer HINGES on specific "
+            "external facts that are easy to get wrong - an exact ranking ('Nth "
+            "largest/tallest/oldest'), the biography of a not-famous named person, a "
+            "precise statistic/date/citation, or obscure trivia; \"verifiable\" "
+            "otherwise (writing/editing, code, math, reasoning, how-to, advice, "
+            "opinion, well-known general knowledge),\n"
             "  \"facts\": a list of EXACTLY 3 personal details that a real person having "
             "THIS conversation might plausibly mention in passing, used later to test the "
             "assistant's memory. Each item is an object with:\n"
@@ -244,9 +264,11 @@ class SeedCurator:
         action = "skip" if action.startswith("skip") else "keep"
         sens = str(data.get("sensitivity", "none")).strip().lower()
         sensitivity = "sensitive" if sens.startswith("sens") else "none"
+        verif = str(data.get("verifiability", "verifiable")).strip().lower()
+        verifiability = "fact_dense" if verif.startswith("fact") else "verifiable"
         return SeedDirective(
             domain=domain, topic=topic, action=action, sensitivity=sensitivity,
-            facts=_clean_facts(data.get("facts")))
+            verifiability=verifiability, facts=_clean_facts(data.get("facts")))
 
     # ----------------------------------------------------------- heuristic
     def _classify_heuristic(self, query: str) -> SeedDirective:

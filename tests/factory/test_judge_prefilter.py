@@ -46,6 +46,65 @@ def test_judge_transcript_includes_reasoning_and_labels():
     assert "User: hi" in out and "Assistant: hello" in out
 
 
+def test_standing_obligations_render_and_filter():
+    from rxai_sdg.factory.holistic import _standing_obligations
+    from rxai_sdg.factory.schemas import ConstraintSpec
+
+    def cs(intent, typ, ver, scope, frm, **params):
+        return ConstraintSpec(intent=intent, type=typ, params=params, lang="en",
+                              verifier=ver, scope=scope, applies_from_turn=frm)
+
+    turns = [
+        Turn(turn_index=0, segments=[]),
+        Turn(turn_index=4, segments=[],
+             constraint_spec=cs("self_critique", "self_critique", "llm_judge", "standing", 4)),
+        Turn(turn_index=5, segments=[],
+             constraint_spec=cs("restyle", "style", "llm_judge", "standing", 5,
+                                style="the persona of a pirate")),
+        # programmatic standing is already covered by the cross-turn check -> excluded
+        Turn(turn_index=6, segments=[],
+             constraint_spec=cs("reformat", "json_valid", "programmatic", "standing", 6)),
+        # a current-turn semantic constraint is not standing -> excluded
+        Turn(turn_index=7, segments=[],
+             constraint_spec=cs("expand", "expand", "llm_judge", "current_turn", None)),
+    ]
+    obs = _standing_obligations(turns)
+    assert len(obs) == 2
+    assert any("weakness" in o and "turn 4" in o for o in obs)
+    assert any("pirate" in o and "turn 5" in o for o in obs)
+    assert not any("JSON" in o.upper() for o in obs)
+
+
+def test_judge_prompt_includes_standing_obligation_block():
+    import json as _json
+    from rxai_sdg.factory.holistic import HolisticJudge, RUBRIC_AXES
+    from rxai_sdg.factory.schemas import ConstraintSpec
+
+    class _Resp:
+        def __init__(self, text):
+            self.text = text
+
+    class _Capture:
+        def __init__(self):
+            self.prompt = None
+
+        def generate(self, prompt, **kw):
+            self.prompt = prompt
+            return _Resp(_json.dumps({a: 8 for a in RUBRIC_AXES} | {"flagged_turns": []}))
+
+    turns = [
+        _turn(0, "explain X", "r", "X is ..."),
+        _turn(4, "from now on always self-critique", "r", "Y is ..."),
+    ]
+    turns[1].constraint_spec = ConstraintSpec(
+        intent="self_critique", type="self_critique", params={}, lang="en",
+        verifier="llm_judge", scope="standing", applies_from_turn=4)
+    cap = _Capture()
+    HolisticJudge(client=cap).score(turns)
+    assert "<standing_obligations>" in cap.prompt
+    assert "turn 4" in cap.prompt and "weakness" in cap.prompt
+
+
 def test_plain_transcript_unchanged_no_reasoning_no_labels():
     # format_transcript (generation context) must stay user+assistant only.
     turns = [_turn(0, "hi", "secret reasoning", "hello")]
@@ -143,6 +202,55 @@ def test_harness_leak_topical_policy_not_flagged():
         "Their privacy policy lets users export data, which is what she asked about.")
 
 
+def test_harness_leak_task_spec_and_compliance():
+    # The dominant ungated D1 class found by the adversarial reader: the model
+    # inventories the annotation task's format constraints, or narrates obedience
+    # to the instruction, instead of thinking about the substance. All positives
+    # below are VERBATIM from an accepted pile (verification.passed=True) that the
+    # judge let through.
+    assert has_harness_leak("No special formatting constraints given. Provide suggestions.")
+    assert has_harness_leak("No constraints given, so I'll just answer directly.")
+    # paraphrase space the model actually produces (found by reading the pile)
+    assert has_harness_leak("No specific formatting constraints from user. Provide answer.")
+    assert has_harness_leak("Probably no special formatting constraints. Provide clear walk-through.")
+    assert has_harness_leak("No special formatting constraints beyond normal.")
+    assert has_harness_leak("No formatting constraints except normal prose.")
+    assert has_harness_leak("No specific constraints provided, so keep it readable.")
+    assert has_harness_leak("So we need to comply. Provide a JSON object confirming.")
+    assert has_harness_leak("We must comply with instruction: always format replies using bullets.")
+    assert has_harness_leak("We need to comply with user request: reframe responses.")
+    assert has_harness_leak("Thus I can comply: provide bullet points with explanation.")
+    assert has_harness_leak("comply with the instruction to always include specifics.")
+    assert has_harness_leak("We must comply, without the user knowing an AI helped.")
+    # bare-imperative compliance (no "we/I" subject) is the same narration
+    assert has_harness_leak("Need to comply. Provide five bullet points summarizing.")
+    assert has_harness_leak("Must comply: keep it to three sentences.")
+    assert has_harness_leak("Should comply and give the JSON object.")
+
+
+def test_harness_leak_task_spec_compliance_fp_guard():
+    # Content-level compliance (the user's ACTUAL question is about a regulation)
+    # is genuine reasoning, not harness narration, and must NOT hard-fail.
+    assert not has_harness_leak(
+        "You must comply with GDPR Article 17 within one month of the request.")
+    assert not has_harness_leak(
+        "The company must comply with the new emissions standard by 2027.")
+    assert not has_harness_leak(
+        "To comply with the building code, the railing has to be at least 42 inches.")
+    assert not has_harness_leak(
+        "She asked whether she needs to comply with the HOA's fence rule.")
+    # a genuine note that the task is open-ended, phrased as content, is fine
+    assert not has_harness_leak(
+        "There are many valid formats for a resume, so I'll pick a clean one.")
+    # content that happens to mention formatting/constraints must NOT fire
+    assert not has_harness_leak(
+        "The optimization problem has no constraints, so use plain gradient descent.")
+    assert not has_harness_leak(
+        "The CSS has no special formatting for that class, so inherit the parent style.")
+    assert not has_harness_leak(
+        "This recipe has no special requirements for high altitude.")
+
+
 def test_trailing_artifact_detector():
     assert has_trailing_artifact("...low-impact on the joints.cw")
     assert has_trailing_artifact("Ready to generate.cltr")
@@ -182,6 +290,24 @@ def test_sanitize_answer_strips_artifact_only():
     assert sanitize_generated_text("see main.py") == "see main.py"
 
 
+def test_sanitize_strips_pure_delivery_planning():
+    # pure tone/format/output-form planning (D1/D2) is contentless -> stripped,
+    # while task-restatement and any substantive sentence is kept.
+    out = sanitize_reasoning(
+        "We need to answer the question. Should be warm, knowledgeable. "
+        "Provide bullet points. Casa has 4 letters, Fire has 4.")
+    assert "Should be warm" not in out and "Provide bullet points" not in out
+    assert "Casa has 4 letters" in out and "We need to answer the question." in out
+    # a sentence carrying real content must NEVER be stripped (substance guard)
+    assert sanitize_reasoning("We proceed by integrating ln(x) by parts; u=ln x.") == \
+        "We proceed by integrating ln(x) by parts; u=ln x."
+    # never gut the reasoning: a lone delivery sentence is left intact (floor)
+    assert sanitize_reasoning("Should be warm and caring.") == "Should be warm and caring."
+    # recall content is substance, not delivery
+    keep = sanitize_reasoning("The user mentioned Burlington earlier. Keep tone warm.")
+    assert "Burlington" in keep and "Keep tone warm" not in keep
+
+
 # --------------------------------------------------------------- pre-filter
 def test_prefilter_hard_fails_turn_index_in_answer():
     turns = [_turn(0, "q", "clean reasoning about the topic",
@@ -190,6 +316,32 @@ def test_prefilter_hard_fails_turn_index_in_answer():
     assert res.passed is False
     kinds = {h["kind"] for h in res.hard_fails}
     assert "turn_index_in_answer" in kinds
+
+
+def test_prefilter_hard_fails_broken_delayed_recall():
+    from rxai_sdg.factory.schemas import ConstraintSpec
+    # a delayed_recall-scoped turn whose intent is NOT a fact recall has null
+    # fact_id/planted_turn -> broken metadata (the confirmed defect).
+    t = _turn(4, "be more critical of your last answer", "r", "Here is a critique.")
+    t.constraint_spec = ConstraintSpec(
+        intent="self_critique", type="self_critique", params={}, lang="en",
+        verifier="llm_judge", scope="delayed_recall", applies_from_turn=None,
+        planted_turn=None, fact_id=None)
+    res = deterministic_prefilter([t])
+    assert res.passed is False
+    assert "broken_delayed_recall" in {h["kind"] for h in res.hard_fails}
+
+
+def test_prefilter_passes_legit_delayed_recall():
+    from rxai_sdg.factory.schemas import ConstraintSpec
+    # a PROPER delayed_recall fact_recall (fact_id + planted_turn) must NOT flag.
+    t = _turn(6, "what was my dog's name again?", "r", "Your dog is named Rex.")
+    t.constraint_spec = ConstraintSpec(
+        intent="fact_recall", type="fact_recall", params={"value": "Rex"}, lang="en",
+        verifier="programmatic", scope="delayed_recall", applies_from_turn=None,
+        planted_turn=2, fact_id="f1")
+    res = deterministic_prefilter([t])
+    assert "broken_delayed_recall" not in {h["kind"] for h in res.hard_fails}
 
 
 def test_prefilter_hard_fails_harness_in_reasoning():
@@ -219,6 +371,35 @@ def test_prefilter_hard_fails_restart_spiral_and_numbered_flow():
     flow = "1. User: asked about X.\n2. Model: explained X.\n3. User: asked Y."
     turns2 = [_turn(0, "q", flow, "ok.")]
     assert "numbered_flow_in_reasoning" in {h["kind"] for h in deterministic_prefilter(turns2).hard_fails}
+
+
+def test_prefilter_hard_fails_question_anchored_restart_spiral():
+    # The restart-anchor fix: self-corrections that follow a "?" (a thrashing
+    # technical reconstruction) must be counted, not just those after a ".".
+    spiral = ("We need the matrix. Wait, 8 bits? Actually 16? No. Wait, the cube? "
+              "Actually the 4-cube. Wait, let me reconsider. Actually rows. Wait, "
+              "no, try again.")
+    turns = [_turn(0, "q", spiral, "rows are 11110000, 11001100.")]
+    assert "restart_spiral" in {h["kind"] for h in deterministic_prefilter(turns).hard_fails}
+
+
+def test_prefilter_hard_fails_fabricated_citation():
+    turns = [_turn(0, "how many monarchs in history?",
+                   "Genuinely unknowable; I'll give an honest order of magnitude.",
+                   "A 2013 article in *Historical Methods* estimated about 45,000 "
+                   "sovereigns across the last 5,000 years.")]
+    res = deterministic_prefilter(turns)
+    assert res.passed is False
+    assert "fabricated_citation" in {h["kind"] for h in res.hard_fails}
+
+
+def test_prefilter_hard_fails_constraint_corruption():
+    corrupt = ("S The code has length four. S\\;G=\\begin{pmatrix} S\\;1&1&0&0\\\\ "
+               "S\\;1&0&1&0\\\\ S\\;1&0&0&1\\\\ S\\;0&1&1&0 \\end{pmatrix}. S Done.")
+    turns = [_turn(0, "make every sentence start with S", "clean reasoning", corrupt)]
+    res = deterministic_prefilter(turns)
+    assert res.passed is False
+    assert "constraint_corruption" in {h["kind"] for h in res.hard_fails}
 
 
 def test_prefilter_hard_fails_target_answer_leak():

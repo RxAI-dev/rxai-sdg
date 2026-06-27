@@ -9,7 +9,8 @@ these lock in the detector logic and its false-positive guards.
 from rxai_sdg.factory.detectors import (
     detect_confidence_mismatch, detect_fabricated_specifics, detect_code_mismatch,
     detect_format_bookkeeping, detect_reasoning_artifacts, reasoning_specifics,
-    admission_markers, uncertainty_markers,
+    admission_markers, uncertainty_markers, detect_fabricated_citation,
+    fabricated_citations, detect_constraint_corruption,
 )
 
 
@@ -37,6 +38,54 @@ def test_A_ungrounded_premise_ranking_rejects():
                    "per year.")]
     flags = detect_confidence_mismatch(turns, "What about the 37th largest city in Japan?")
     assert flags and "ungrounded_premise" in flags[0].name
+
+
+# --------------------------------------------------------------- A-cite (fabricated citation)
+def test_Acite_dated_article_with_figure_rejects():
+    # The kings/rulers reject: a named dated venue credited with a concrete figure.
+    turns = [_turn(0, "How many monarchs in history?",
+                   "Genuinely unknowable; give an honest order of magnitude.",
+                   "A 2013 article in *Historical Methods* estimated about 45,000 "
+                   "sovereigns across the last 5,000 years.")]
+    flags = detect_fabricated_citation(turns)
+    assert flags and flags[0].severity == 3 and flags[0].name == "fabricated_citation"
+
+
+def test_Acite_according_to_study_with_stat_rejects():
+    turns = [_turn(0, "Are people happier now?",
+                   "I cannot look this up.",
+                   "According to a 2019 survey, 62% of respondents said yes.")]
+    assert detect_fabricated_citation(turns)
+
+
+def test_Acite_does_not_fire_on_hedged_or_common_knowledge():
+    # A hedged, source-free generalisation is NOT a fabricated citation.
+    assert not fabricated_citations(
+        "Studies generally suggest exercise can help mood, though effects vary.")
+    # Naming a famous work without a fake figure/venue-year is fine.
+    assert not fabricated_citations(
+        "Darwin's On the Origin of Species introduced natural selection.")
+    # A clearly-labelled rough estimate (no named source) must not fire.
+    assert not fabricated_citations(
+        "As a rough order-of-magnitude guess, there were perhaps tens of thousands.")
+
+
+# --------------------------------------------------------------- G (constraint corruption)
+def test_G_constraint_corruption_latex_rejects():
+    # first-letter-'S' spliced into every formula line garbles the matrix.
+    corrupt = ("S The code has length four. S\\;G=\\begin{pmatrix} S\\;1&1&0&0\\\\ "
+               "S\\;1&0&1&0\\\\ S\\;1&0&0&1\\\\ S\\;0&1&1&0 \\end{pmatrix}. S Done.")
+    flags = detect_constraint_corruption([_turn(0, "q", "clean reasoning", corrupt)])
+    assert flags and flags[0].severity == 3 and flags[0].name == "constraint_corruption"
+
+
+def test_G_does_not_fire_on_clean_dense_latex():
+    # Legitimate dense LaTeX uses \; and \, after symbols, but never one specific
+    # letter glued repeatedly.
+    clean = ("The garden algebra \\{Q_I,Q_J\\}=2\\delta_{IJ}\\,\\partial_t requires "
+             "each \\(\\Gamma_I\\) to link bosons \\(\\phi_a\\;\\) to fermions. "
+             "\\[ G=\\begin{pmatrix} 1&1&0&0\\\\ 1&0&1&0 \\end{pmatrix} \\]")
+    assert not detect_constraint_corruption([_turn(0, "q", "r", clean)])
 
 
 def test_A_refusal_to_fabricate_is_not_flagged():
@@ -112,3 +161,70 @@ def test_E_filler_and_answer_duplication():
     flags = detect_reasoning_artifacts(turns)
     names = {f.name for f in flags}
     assert "filler_tail" in names
+
+
+# --------------------------------------------------------------- A-disclaim (Tier 2)
+def test_disclaimer_then_finding_rejects():
+    from rxai_sdg.factory.detectors import detect_disclaimer_then_finding
+    turns = [_turn(9, "estimate the burrow volume",
+                   "We can't fabricate a specific documented case here, but we can approximate.",
+                   "Field studies of Marmota monax burrows in the northeastern US, using "
+                   "measuring tapes, found volumes of roughly 30-40 ft³.")]
+    flags = detect_disclaimer_then_finding(turns)
+    assert flags and flags[0].name == "disclaimer_then_finding" and flags[0].severity == 3
+
+
+def test_disclaimer_then_finding_no_fp_on_recommendation_or_real_event():
+    from rxai_sdg.factory.detectors import detect_disclaimer_then_finding
+    # a RECOMMENDATION to run a study is not a claimed finding
+    assert not detect_disclaimer_then_finding([_turn(0, "q",
+        "We can't fabricate a documented study.",
+        "You could run a small survey of purchasers, which found patterns vary by 10%.")])
+    # a real, knowable documented event is fine
+    assert not detect_disclaimer_then_finding([_turn(0, "q",
+        "We cannot fabricate current info.",
+        "Using the well-documented 2020-2021 transition as an example.")])
+
+
+# --------------------------------------------------------------- H-safety (Tier 6)
+def test_harmful_coping_pain_techniques_reject():
+    from rxai_sdg.factory.detectors import detect_harmful_coping
+    cases = [
+        ("I keep having panic attacks, what helps?",
+         "When a panic attack hits, snap the rubber band hard against your wrist — the "
+         "sharp sting will pull you out of the spiral."),
+        ("How do I stop intrusive thoughts?",
+         "Hold an ice cube in your palm until it hurts; the pain interrupts the rumination."),
+        ("I get overwhelmed and anxious a lot.",
+         "When the anxiety spikes, pinch your arm hard to interrupt the feeling."),
+    ]
+    for q, a in cases:
+        flags = detect_harmful_coping([_turn(3, q, "", a)])
+        assert flags and flags[0].name == "harmful_coping_technique" and flags[0].severity == 3
+
+
+def test_harmful_coping_no_fp_on_benign_grounding():
+    from rxai_sdg.factory.detectors import detect_harmful_coping
+    benign = [
+        # sensory ANCHOR: focus on texture, not pain
+        ("How can I ground myself during anxiety?",
+         "Carry a small object — a smooth stone or a rubber band — and when the anxiety "
+         "spikes, focus on its texture, temperature, and weight."),
+        # a band worn as a visual REMINDER cue
+        ("Any grounding tips?",
+         "Some people keep a tiny reminder, like a rubber band on the wrist, that signals "
+         "'time to ground.' When you see it, run your routine."),
+        # evidence-based DBT cold reset with NO pain escalation
+        ("DBT skills for distress?",
+         "The TIPP skill: hold an ice cube in your hand or splash cold water on your face "
+         "to reset your nervous system — no need to cause any pain."),
+        # the answer explicitly DISCOURAGES the technique
+        ("panic coping?",
+         "When you feel a panic urge, don't snap a rubber band against your wrist — that's "
+         "self-punishment; instead try paced breathing."),
+        # unrelated business "shock"
+        ("lumber budget?",
+         "A six-month lumber-price shock raises material cost 35%, so pad the contract."),
+    ]
+    for q, a in benign:
+        assert not detect_harmful_coping([_turn(0, q, "", a)]), a[:50]

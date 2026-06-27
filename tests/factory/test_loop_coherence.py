@@ -98,3 +98,46 @@ def test_coherence_gate_rejects_cot_leak_even_if_constraint_holds():
     passed, detail = loop._verify_turn(leak, cs, [])
     assert passed is False
     assert "coherence" in detail
+
+
+# --------------------------------------------------------------- generation fixes
+def test_has_fabricated_experience_detector():
+    from rxai_sdg.factory.loop import has_fabricated_experience as f
+    assert f("The tallest one, which a friend of mine owns, is 10cm.")
+    assert f("In my experience, a short walk helps.")
+    assert f("When I tested it, the buffer flushed immediately.")
+    assert f("I keep one in my apartment for testing.")
+    # legitimate first-person must NOT trip
+    assert not f("I recommend a short walk.")
+    assert not f("I think the answer is 4.")
+    assert not f("I've outlined the steps below.")
+
+
+def test_standing_semantic_obligation_rendered_for_responder():
+    # a standing style/genre obligation must be re-surfaced to the responder (so it
+    # keeps honouring the tone/form instead of drifting), in natural USER voice with
+    # NO schema vocabulary.
+    style = ConstraintSpec(intent="restyle", type="style",
+                           params={"style": "the persona of a pirate"}, lang="en",
+                           verifier="llm_judge", scope="standing", applies_from_turn=2)
+    genre = ConstraintSpec(intent="genre_convert", type="genre",
+                           params={"genre": "limerick"}, lang="en",
+                           verifier="llm_judge", scope="standing", applies_from_turn=3)
+    note = ConversationLoop._active_constraints_note([style, genre])
+    assert "pirate" in note and "limerick" in note
+    assert "standing" not in note.lower() and "llm_judge" not in note and "style" not in note
+
+
+def test_numeric_defect_regenerates_bad_arithmetic_turn():
+    from rxai_sdg.factory.loop import _numeric_defect
+    from rxai_sdg.factory.schemas import Segment, Turn
+    bad = Turn(turn_index=1, segments=[
+        Segment("query", "compute it"),
+        Segment("reasoning", "clean reasoning"),
+        Segment("answer", "So 192/1728 = 0.44 cubic feet, hence ~1 board.")])
+    assert _numeric_defect(bad) is not None
+    good = Turn(turn_index=1, segments=[
+        Segment("query", "compute it"),
+        Segment("reasoning", "clean reasoning"),
+        Segment("answer", "So 192/1728 = 0.111 cubic feet.")])
+    assert _numeric_defect(good) is None

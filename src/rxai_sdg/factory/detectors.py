@@ -221,6 +221,212 @@ def detect_confidence_mismatch(turns: list[dict], first_query: str = "") -> list
     return flags
 
 
+# ------------------------------------------------------------------------- A-cite
+# Fabricated SCHOLARLY CITATIONS with specifics. With no retrieval in the loop, an
+# answer that attributes a concrete figure to a named study/article/report, or
+# cites a dated publication venue, is fabricated by construction - and the LLM judge
+# is empirically blind to it (it scores such answers factual_grounding 10 because
+# the prose is fluent and the topic is real). These three high-precision patterns
+# each require a publication noun CO-OCCURRING with a checkable specific (a number,
+# a percentage, or a year+venue), so a vague "studies suggest ..." is NOT flagged.
+_CITATION_FIGURE_RE = re.compile(
+    r"\b(?:study|studies|paper|papers|article|report|survey|analysis|meta-?analysis|"
+    r"researchers?|scientists?|authors?|historians?|economists?)\b"
+    r"[^.\n]{0,70}\b(?:estimat\w+|found|reported|concluded|showed|calculated|"
+    r"determined|measured|put (?:it|the (?:number|figure|total|count|rate)) at)\b"
+    r"[^.\n]{0,30}[\d≈~]", re.I)
+_CITATION_VENUE_YEAR_RE = re.compile(
+    r"\b(?:a|an|the)\s+\d{4}\s+(?:article|study|paper|report|survey|analysis|review|"
+    r"meta-?analysis|editorial|essay)\b[^.\n]{0,15}\b(?:in|by|from|published)\b", re.I)
+_CITATION_ACCORDING_RE = re.compile(
+    r"\baccording to\b[^.\n]{0,55}\b(?:study|studies|report|survey|poll|census|article|"
+    r"paper|index|database|dataset)\b[^.\n]{0,40}[\d%]", re.I)
+_CITATION_RES = {
+    "cited_figure": _CITATION_FIGURE_RE,
+    "dated_venue": _CITATION_VENUE_YEAR_RE,
+    "according_to_stat": _CITATION_ACCORDING_RE,
+}
+
+
+def fabricated_citations(answer: str) -> list[tuple[str, str]]:
+    """Return (pattern, matched_span) for each fabricated-citation class in an answer."""
+    out: list[tuple[str, str]] = []
+    for name, rx in _CITATION_RES.items():
+        m = rx.search(answer or "")
+        if m:
+            out.append((name, m.group(0)[:70]))
+    return out
+
+
+def detect_fabricated_citation(turns: list[dict]) -> list[Flag]:
+    """A-cite (PRIMARY, hard reject). An answer attributes a concrete figure to a
+    named study/report, or cites a dated publication venue. With no retrieval such a
+    citation is invented; severity 3 because a confident fake citation is poison the
+    LLM judge cannot see."""
+    flags: list[Flag] = []
+    for t in turns:
+        hits = fabricated_citations(_seg(t, "answer"))
+        if hits:
+            ev = "; ".join(f"{n}:{s}" for n, s in hits[:3])
+            flags.append(Flag("A", "fabricated_citation", 3, _turn_index(t), ev))
+    return flags
+
+
+# ------------------------------------------------------------------- A-disclaim
+# The reasoning-vs-answer contradiction that the reasoning-visibility fix was meant
+# to expose: the REASONING explicitly admits it cannot ground a specific (no
+# documented case, can't fabricate one), yet the ANSWER asserts a concrete empirical
+# FINDING with a figure ("field studies ... found volumes of 30-40 ft³"). Visible
+# only by cross-checking reasoning against answer; the LLM judge passes it. Tightened
+# to a CLAIMED finding-with-number (not a recommendation to run a study, not a real
+# documented event) so it is false-positive-free.
+_DISCLAIM_RE = re.compile(
+    r"can'?t fabricate(?: a| any)?(?: specific| real| actual)?(?: documented| published)?\s*"
+    r"(?:case|study|studies|data|source|measurement|figure|example)"
+    r"|cannot fabricate(?: a| any)?(?: specific| documented)?\s*(?:case|study|data|source|measurement)"
+    r"|no (?:known |real |actual |specific )?(?:documented|published) (?:case|study|studies|data|record|measurement)"
+    r"|(?:can'?t|cannot|couldn'?t) (?:find|locate|document) (?:a |any )?(?:specific|documented|real|published) "
+    r"(?:case|study|data|source|measurement)"
+    r"|there (?:is|are) no (?:known |documented |published |real )(?:study|studies|data|case|measurement)",
+    re.IGNORECASE)
+_FINDING_RE = re.compile(
+    r"\b(?:field stud(?:y|ies)|stud(?:y|ies)|researchers?|surveys?|measurements?)\b"
+    r"[^.\n]{0,90}\b(?:found|measured|recorded|documented|reported|showed|observed|estimated)\b"
+    r"[^.\n]{0,45}[\d]", re.IGNORECASE)
+_FINDING_REC_RE = re.compile(
+    r"\b(?:run|conduct|perform|do|carry out|consider|use|via|through|validat\w+|recommend\w+|future)\s+"
+    r"(?:[a-z]+\s+){0,3}(?:field stud|stud|survey|measurement)", re.IGNORECASE)
+
+
+def detect_disclaimer_then_finding(turns: list[dict]) -> list[Flag]:
+    """A-disclaim (PRIMARY, hard reject). Any turn whose REASONING admits it cannot
+    document/fabricate a specific, while its ANSWER asserts a quantified empirical
+    finding (a study that found/measured a number) - a reasoning<->answer
+    confidence-uncertainty contradiction the LLM judge does not catch."""
+    flags: list[Flag] = []
+    for t in turns:
+        if not _DISCLAIM_RE.search(_seg(t, "reasoning")):
+            continue
+        answer = _seg(t, "answer")
+        m = _FINDING_RE.search(answer)
+        if not m:
+            continue
+        if _FINDING_REC_RE.search(answer[max(0, m.start() - 25):m.end()]):
+            continue  # it's a recommendation to run a study, not a claimed finding
+        flags.append(Flag("A", "disclaimer_then_finding", 3, _turn_index(t),
+                          f"reasoning can't-document but answer claims: {m.group(0)[:60]!r}"))
+    return flags
+
+
+# --------------------------------------------------------------------- H-safety
+# A mental-health / coping answer that recommends DELIBERATELY SELF-INFLICTED PAIN
+# or sensory SHOCK as the coping mechanism (snap a rubber band against your wrist to
+# sting; hold an ice cube UNTIL IT HURTS; pinch/dig your nails to interrupt a panic
+# attack). Modern clinical guidance discourages these as self-punishment, and an
+# assistant should never emit them - so they must not enter training data.
+#
+# NARROW BY DESIGN. A benign sensory ANCHOR (hold a smooth stone / a band and notice
+# its texture, temperature, weight), a band worn as a visual REMINDER cue, or the
+# evidence-based DBT "hold an ice cube" / cold-water-on-the-face reset (no pain
+# escalation) are GOOD advice and must NOT fire. The trigger is an explicit
+# pain/sting/shock action, self/skin-directed, in a coping context, and NOT framed as
+# something to avoid. Verified 0 false positives on the real run data (the benign
+# "rubber band on the wrist" reminder and "smooth stone / rubber band texture anchor"
+# answers all pass).
+_COPING_CTX_RE = re.compile(
+    r"\b(?:anxiet\w+|panic|intrusive thought\w*|ruminat\w+|spiral(?:ing|s|led)?|urge|"
+    r"craving|distress\w*|overwhelm\w*|self[- ]?harm|coping|cope|calm (?:down|yourself)|"
+    r"ground(?:ing|ed)?|flashback|dissociat\w+|emotional|panic attack)\b", re.I)
+_PAIN_TECHNIQUE_RES = [
+    # snap a (rubber/elastic) band ...
+    re.compile(r"\bsnap\w*\b[^.\n]{0,40}\b(?:rubber\s+band|elastic(?:\s+band)?|band)\b", re.I),
+    # ... a (rubber/elastic) band snapped / against the wrist / to sting
+    re.compile(r"\b(?:rubber|elastic)\s+band\b[^.\n]{0,40}\b(?:snap\w*|against (?:your |the )?(?:wrist|skin)|sting\w*)", re.I),
+    # hold ice / an ice cube UNTIL IT HURTS / to cause pain  (not the benign cold reset)
+    re.compile(r"\bice(?:\s+cube)?\b[^.\n]{0,45}\b(?:until it (?:hurts|stings|is painful|burns)|to cause pain|sharp pain|painful (?:cold|jolt))", re.I),
+    # pinch yourself / dig nails to interrupt
+    re.compile(r"\b(?:pinch (?:yourself|your (?:arm|skin|wrist))|dig (?:your )?nails?\s+(?:into|in))\b[^.\n]{0,35}\b(?:hard|sharply|until it (?:hurts|stings)|to (?:interrupt|stop|break|snap out))", re.I),
+]
+# a DISCOURAGING frame - the answer is advising AGAINST the technique, not a defect.
+_DISCOURAGE_RE = re.compile(
+    r"\b(?:instead of|rather than|don'?t|do not|never|avoid\w*|discourag\w*|"
+    r"not recommend\w*|shouldn'?t|harmful|unhealthy|self[- ]?punish\w*|"
+    r"counter[- ]?productive|move away from|no longer|used to (?:be )?(?:suggest|recommend))\b", re.I)
+
+
+def detect_harmful_coping(turns: list[dict]) -> list[Flag]:
+    """H (PRIMARY, hard reject). A coping/mental-health answer recommending a
+    DELIBERATELY self-inflicted pain / sensory-shock technique (rubber-band snap to
+    sting, ice held until it hurts, pinching to interrupt a panic spike). Benign
+    sensory anchoring / a reminder band / the no-pain cold reset are NOT flagged, nor
+    is an answer that explicitly DISCOURAGES the technique."""
+    flags: list[Flag] = []
+    for t in turns:
+        answer = _seg(t, "answer")
+        if not answer:
+            continue
+        if not (_COPING_CTX_RE.search(answer) or _COPING_CTX_RE.search(_seg(t, "query"))):
+            continue
+        for rx in _PAIN_TECHNIQUE_RES:
+            m = rx.search(answer)
+            if not m:
+                continue
+            window = answer[max(0, m.start() - 60):m.end() + 25]
+            if _DISCOURAGE_RE.search(window):
+                continue  # the answer is warning AGAINST the technique
+            flags.append(Flag("H", "harmful_coping_technique", 3, _turn_index(t),
+                              f"pain/shock coping technique: {m.group(0)[:60]!r}"))
+            break
+    return flags
+
+
+# ----------------------------------------------------------------------- G-corrupt
+# A lexical sentence-start / first-letter constraint applied DESTRUCTIVELY to
+# structured content: the model prefixes the target letter onto every line of a
+# LaTeX matrix or code block ("S\;G=\begin{pmatrix} S\;1&1&0&0 ..."), corrupting the
+# math/code. The signature is the SAME single letter glued to a math token (\; \, \[
+# \begin) many times - legitimate dense LaTeX uses these too, but never one specific
+# letter glued repeatedly. Also catches a fenced code block whose lines are all
+# prefixed with the same single letter + space.
+_CORRUPT_GLUE_RE = re.compile(r"\b([A-Za-z])\\[;,](?=[A-Za-z0-9\\])")
+_CORRUPT_DELIM_RE = re.compile(r"\b([A-Za-z])\s{0,2}\\(?:\[|begin\b)")
+_FENCE_RE = re.compile(r"```[^\n]*\n(.*?)```", re.S)
+
+
+def _constraint_corruption(answer: str, glue_threshold: int = 5) -> Optional[str]:
+    from collections import Counter
+    c: Counter = Counter()
+    for m in _CORRUPT_GLUE_RE.finditer(answer or ""):
+        c[m.group(1)] += 1
+    for m in _CORRUPT_DELIM_RE.finditer(answer or ""):
+        c[m.group(1)] += 1
+    if c:
+        letter, n = c.most_common(1)[0]
+        if n >= glue_threshold:
+            return f"letter {letter!r} glued into LaTeX/math {n} times"
+    for block in _FENCE_RE.findall(answer or ""):
+        lines = [ln for ln in block.split("\n") if ln.strip()]
+        if len(lines) >= 4:
+            prefixes = {ln.lstrip()[:2] for ln in lines}
+            if len(prefixes) == 1:
+                p = next(iter(prefixes))
+                if len(p) == 2 and p[0].isalpha() and p[1] == " ":
+                    return f"every code line prefixed with {p[0]!r}"
+    return None
+
+
+def detect_constraint_corruption(turns: list[dict]) -> list[Flag]:
+    """G (hard reject). A lexical constraint mechanically corrupting a LaTeX/code
+    block (the target letter spliced into every formula/code line). The output is
+    garbled training data even though the constraint verifier may report 'satisfied'."""
+    flags: list[Flag] = []
+    for t in turns:
+        ev = _constraint_corruption(_seg(t, "answer"))
+        if ev:
+            flags.append(Flag("G", "constraint_corruption", 3, _turn_index(t), ev))
+    return flags
+
+
 # --------------------------------------------------------------------------- B
 def detect_fabricated_specifics(turns: list[dict]) -> list[Flag]:
     """B. Any fabricated checkable specific in an answer (severity scales with how
@@ -399,6 +605,8 @@ def run_all(record: dict, run_code: bool = True) -> list[Flag]:
     fq = record.get("first_query", "")
     flags: list[Flag] = []
     flags += detect_confidence_mismatch(turns, fq)
+    flags += detect_fabricated_citation(turns)
+    flags += detect_constraint_corruption(turns)
     flags += detect_fabricated_specifics(turns)
     if run_code:
         flags += detect_code_mismatch(turns)

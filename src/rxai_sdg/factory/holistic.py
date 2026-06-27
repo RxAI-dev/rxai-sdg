@@ -30,7 +30,11 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from .clients import LLMClient
-from .detectors import detect_confidence_mismatch, detect_code_mismatch
+from .detectors import (
+    detect_confidence_mismatch, detect_code_mismatch, detect_fabricated_citation,
+    detect_constraint_corruption, detect_disclaimer_then_finding, detect_harmful_coping,
+)
+from .exec_gate import run_exec_gate
 from .responder import (
     HARNESS_REASONING_RES,
     count_restart_markers,
@@ -98,7 +102,12 @@ _JUDGE_SYSTEM = (
     "cite a turn. They are NOT part of the data; do not penalize them.\n\n"
     "Score every axis as an integer 1 (terrible) to 10 (excellent). Anchors:\n"
     "- instruction_following: did each answer do what its user turn asked, including "
-    "format/lexical constraints? 9-10 all followed; 5-6 partial; 1-2 ignored.\n"
+    "format/lexical constraints? 9-10 all followed; 5-6 partial; 1-2 ignored. If a "
+    "<standing_obligations> block is given, a STANDING instruction persists on every "
+    "later turn even though the user states it only once: an answer that silently "
+    "drops one (stops self-critiquing, abandons the agreed tone/form) is a partial "
+    "failure for THAT turn - score it down and add a flagged_turn. Only flag a clear "
+    "drop, not an obligation plausibly met implicitly.\n"
     "- coherence: does the thread hang together and follow from real prior content?\n"
     "- naturalness: do the user+assistant turns read like a real conversation?\n"
     "- role_consistency: does each speaker stay in role (nobody claims the other's "
@@ -112,8 +121,16 @@ _JUDGE_SYSTEM = (
     "would actually have. Score 1-3 if the reasoning leaks ANY harness/meta phrase "
     "above (target-answer matching, 'Tone:'/persona planning, 'as per system "
     "instruction', a 'Thinking Process:' header), references turn numbers, repeats "
-    "itself / spirals ('Wait, ... Wait, ...' many times), or is dominated by "
+    "itself / spirals ('Wait, ... Wait, ...' many times), or is DOMINATED by "
     "format/constraint bookkeeping and word-counting instead of substance.\n"
+    "  CALIBRATION - judge the WHOLE trace, by proportion. A short, incidental "
+    "delivery note inside otherwise substantive problem-thinking ('The user asks X. "
+    "Should be warm. <then several sentences actually working through X>') is a MINOR "
+    "blemish: score it 6-8, not 1-3. Reserve 1-3 for reasoning that is MOSTLY "
+    "task-description / tone-and-format bookkeeping with little real thinking about the "
+    "content, or that contains an outright harness/target-answer/turn-index/spiral leak. "
+    "When most of the trace is genuine reasoning about the substance, do not fail it "
+    "for a passing 'should be concise' aside.\n"
     "- reasoning_answer_consistency: does the reasoning actually produce the answer? "
     "10 = answer follows from the reasoning. Score LOW (1-4) if the reasoning "
     "contradicts the answer, invents 'memory checks' that never happened, or asserts "
@@ -132,7 +149,31 @@ _JUDGE_SYSTEM = (
     "poll numbers, attendance or funding figures - as if verified. A confident answer "
     "built on an ungroundable premise (the biography of an obscure person, an exact "
     "city/population ranking) is fabrication: score 1-2. This is the worst defect - a "
-    "single confidence-uncertainty mismatch makes the whole example unusable.\n\n"
+    "single confidence-uncertainty mismatch makes the whole example unusable. AND - "
+    "crucially - you do NOT need the reasoning to admit doubt: judge fabrication FROM "
+    "THE ANSWER ALONE, because with no retrieval the model cannot know any specific it "
+    "did not already memorise. Even in fluent, confident prose these are fabrication "
+    "(score 1-3, add a severity-3 factual_grounding flag): a named study/article/report "
+    "credited with a figure ('a 2013 article in Historical Methods estimated ~45,000', "
+    "'according to a 2019 survey, 62%'); an invented-sounding named database/tool/org "
+    "presented as real and usable; a precise technical construction asserted as fact in "
+    "a research-level topic the model is clearly RECONSTRUCTING not recalling (a specific "
+    "generator matrix, exact per-edge/coordinate values, exact parameters) - especially "
+    "when the reasoning gropes for it ('let me try', 'example', repeated 'Wait/Actually/"
+    "No', competing candidate values, question marks).\n"
+    "  CALIBRATION - do NOT over-penalise. The test for fabrication is BOTH (i) the claim "
+    "is presented as a precise, verified fact AND (ii) it is genuinely unknowable without "
+    "a lookup (a niche citation, an obscure exact ranking, an invented matrix/parameter, a "
+    "named study+figure). 'Specific' alone is not fabrication. The following are GOOD honest "
+    "answers and must score factual_grounding 8-10, NOT be flagged: a well-hedged approximate "
+    "figure or typical range for everyday things ('robot vacuums are about 7-10 cm tall', "
+    "'roughly 20-30 years per reign'); widely-known common-knowledge facts (the Olympic "
+    "rings were designed around 1913 and debuted in 1920; water boils at 100 C); round "
+    "numbers and ranges clearly marked approximate with 'about/roughly/typically/~/most ... "
+    "are'; standard textbook results, famous works, and basic dates a well-read person knows. "
+    "Reserve the low score and the severity-3 flag for an INVENTED specific dressed as "
+    "verified - when in genuine doubt between 'honest common-knowledge approximation' and "
+    "'fabricated precise specific', do NOT flag.\n\n"
     "IMPORTANT - the USER turns are ALSO machine-generated (by a separate simulator "
     "model), so do NOT assume they are good. Grade them on two more axes:\n"
     "- user_query_quality: are the user messages well-formed, coherent, on-topic and "
@@ -265,6 +306,20 @@ def deterministic_prefilter(turns: list[Turn], regen_threshold: int = 2) -> Pref
                          "evidence": f"{count_restart_markers(reasoning)} restarts: "
                                      + _evidence(reasoning)})
 
+        # broken delayed-recall metadata: a turn tagged delayed_recall scope must
+        # recall a planted ledger fact (non-null fact_id + planted_turn). A
+        # delayed_recall label with null fact_id/planted_turn is an empty recall (the
+        # confirmed metadata defect from pairing delayed_recall with a non-fact
+        # intent). The generator mask now prevents it; this gates any residual.
+        cs = getattr(t, "constraint_spec", None)
+        if cs is not None and getattr(cs, "scope", None) == "delayed_recall" \
+                and (getattr(cs, "fact_id", None) is None
+                     or getattr(cs, "planted_turn", None) is None):
+            hard.append({"turn_index": ti, "kind": "broken_delayed_recall",
+                         "evidence": f"intent={getattr(cs, 'intent', '?')} "
+                                     f"fact_id={getattr(cs, 'fact_id', None)} "
+                                     f"planted_turn={getattr(cs, 'planted_turn', None)}"})
+
         # excess regenerations -> HARD fail (was a soft flag; correlated with
         # degenerate/low-yield turns the judge passed).
         ver = getattr(t, "verification", None)
@@ -282,12 +337,109 @@ def deterministic_prefilter(turns: list[Turn], regen_threshold: int = 2) -> Pref
     for f in detect_confidence_mismatch(turns, first_q):
         hard.append({"turn_index": f.turn_index, "kind": f.name,
                      "evidence": f.evidence})
+    # Fabricated scholarly citation (a named study/report attributed a concrete
+    # figure, or a dated venue). With no retrieval this is invented, and the LLM
+    # judge is empirically blind to it (scores factual_grounding 10), so it must
+    # hard-fail deterministically like the other factuality gates.
+    for f in detect_fabricated_citation(turns):
+        hard.append({"turn_index": f.turn_index, "kind": f.name,
+                     "evidence": f.evidence})
+    # Reasoning admits it can't document a specific, yet the answer asserts a
+    # quantified empirical finding - a reasoning<->answer contradiction visible only
+    # by cross-checking the two segments (the LLM judge passes it).
+    for f in detect_disclaimer_then_finding(turns):
+        hard.append({"turn_index": f.turn_index, "kind": f.name,
+                     "evidence": f.evidence})
+    # Mental-health SAFETY (Tier 6): a coping answer recommending a deliberately
+    # self-inflicted pain / sensory-shock technique (rubber-band snap to sting, ice
+    # held until it hurts, pinching to interrupt). Never appropriate assistant
+    # training data; the LLM judge passes it. Narrow - benign sensory anchoring / the
+    # no-pain cold reset do not fire (verified 0 FP on the real run data).
+    for f in detect_harmful_coping(turns):
+        hard.append({"turn_index": f.turn_index, "kind": f.name,
+                     "evidence": f.evidence})
+    # Lexical constraint corrupting a LaTeX/code block (target letter spliced into
+    # every formula line). Garbled training data; the constraint verifier may still
+    # report "satisfied", so this must hard-fail deterministically.
+    for f in detect_constraint_corruption(turns):
+        hard.append({"turn_index": f.turn_index, "kind": f.name,
+                     "evidence": f.evidence})
     for f in detect_code_mismatch(turns):
         if f.severity >= 3:  # asserted output is provably wrong
             hard.append({"turn_index": f.turn_index, "kind": "code_" + f.name,
                          "evidence": f.evidence})
 
+    # Programmatic execution & arithmetic gate (D5/D4-numeric): runs fenced code and
+    # compares comment-literals + computed values, verifies inline prose arithmetic,
+    # checks non-ASCII JSON keys and 5-7-5 haiku syllables. A confident contradiction
+    # hard-fails; an undecidable runtime-behaviour claim (the stdout buffering demo)
+    # is FLAGGED FOR HUMAN, never silently accepted, so it also blocks the gate. The
+    # LLM judge cannot execute code or do arithmetic, so this MUST precede it.
+    gate = run_exec_gate(turns)
+    for f in gate.hard_fails:
+        hard.append({"turn_index": f.turn_index, "kind": f.kind, "evidence": f.evidence})
+    for f in gate.human_flags:
+        hard.append({"turn_index": f.turn_index, "kind": f.kind,
+                     "evidence": "FLAG_FOR_HUMAN: " + f.evidence})
+    # low-confidence exec-gate signals (e.g. a heuristic-only off-by-1 haiku count
+    # with no cmudict) must NOT gate - record them as audit-only soft flags.
+    for f in gate.soft_flags:
+        soft.append({"turn_index": f.turn_index, "kind": f.kind, "evidence": f.evidence})
+
     return PrefilterResult(passed=(len(hard) == 0), hard_fails=hard, flags=soft)
+
+
+# ---------------------------------------------------------------------------
+# standing semantic obligations -> judge awareness (Tier 4-semantic)
+# ---------------------------------------------------------------------------
+#
+# Standing/cumulative constraints with a SEMANTIC (llm_judge) verifier - "always
+# include a self-critique", "always go deeper with an example", "always keep the
+# pirate persona / limerick form" - are NOT machine-checkable, so the cross-turn
+# adherence check (programmatic, no-LLM) deliberately skips them. The result is a real
+# gap: ~150 such standing obligations in the run data are declared once and never
+# re-verified on later turns. They are not mechanically decidable, so a deterministic
+# 0-FP gate is the wrong tool; the correct layer is the judge - but only if the judge
+# is TOLD the obligation persists. This renders them in plain language (no schema
+# vocabulary) so the judge can grade per-turn adherence on instruction_following.
+
+def _obligation_phrase(cs) -> Optional[str]:
+    intent = getattr(cs, "intent", None)
+    t = getattr(cs, "type", None)
+    p = getattr(cs, "params", None) or {}
+    if intent == "self_critique" or t == "self_critique":
+        return ("every answer must point out a weakness in the assistant's own previous "
+                "answer and improve on it")
+    if intent in ("deepen", "expand") or t in ("deepen", "expand"):
+        return "every answer must go further than the last with more detail and a concrete example"
+    if intent == "chained_compute" or t == "chained_compute":
+        return "every answer must build on the previous one with the next step, showing the work"
+    if t == "style":
+        return f"every answer must stay in {p.get('style', 'the agreed tone')}"
+    if t in ("genre", "limerick_structure"):
+        return f"every answer must stay in {p.get('genre', 'the agreed')} form"
+    return None
+
+
+def _standing_obligations(turns: list[Turn]) -> list[str]:
+    """Plain-language list of the SEMANTIC standing/cumulative obligations in force,
+    each tagged with the turn it starts from, for the judge to check per-turn."""
+    out: list[str] = []
+    for t in turns:
+        cs = getattr(t, "constraint_spec", None)
+        if cs is None:
+            continue
+        if getattr(cs, "scope", None) not in ("standing", "cumulative"):
+            continue
+        if getattr(cs, "verifier", None) != "llm_judge":
+            continue
+        phrase = _obligation_phrase(cs)
+        if phrase is None:
+            continue
+        start = getattr(cs, "applies_from_turn", None)
+        start = getattr(t, "turn_index", 0) if start is None else start
+        out.append(f"From turn {start} on, {phrase}.")
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -300,8 +452,13 @@ class HolisticJudge:
     rng: Optional[random.Random] = None
     sample_rate: float = 1.0
     gate_on_programmatic: bool = False
-    #: headroom for the rubric JSON; the verbose judge appends free-text ramble
-    #: after the object, so give the object itself room to close.
+    #: headroom for the rubric JSON. A verbose judge appends free-text ramble after
+    #: the object, and a REASONING judge (e.g. Qwen3.5-397B-A17B - materially better
+    #: at spotting fabricated citations/figures than the 30B coder judge) spends
+    #: tokens thinking BEFORE the JSON; too small a cap truncates the object to an
+    #: unparseable -> None score, which silently weakens the gate. The factory passes
+    #: ``config.holistic_judge_max_tokens`` (default 12000); 3000 here is only the
+    #: bare-constructor default for a non-reasoning judge.
     max_tokens: int = 3000
 
     def __post_init__(self) -> None:
@@ -316,11 +473,25 @@ class HolisticJudge:
 
     def score(self, turns: list[Turn]) -> Optional[dict[str, object]]:
         transcript = format_transcript_for_judge(turns)
+        obligations = _standing_obligations(turns)
+        ob_block = ""
+        if obligations:
+            ob_block = (
+                "<standing_obligations>\n"
+                "These instructions were set once and remain in force on EVERY later "
+                "turn (the user does not repeat them). On each turn from the stated "
+                "turn onward, check the ANSWER still honours them; a later answer that "
+                "silently drops one is an instruction_following / coherence failure for "
+                "THAT turn. Some (a self-critique, a deeper example) may be satisfied "
+                "implicitly - only flag a CLEAR drop.\n"
+                + "\n".join(f"- {o}" for o in obligations)
+                + "\n</standing_obligations>\n\n")
         prompt = (
             "Grade the ASSISTANT (reasoning AND answer) across the conversation below "
             "and return the rubric JSON. The JSON is YOUR output - the assistant was "
             "never asked to produce any rubric or score.\n\n"
-            "<conversation>\n" + transcript + "\n</conversation>")
+            + ob_block
+            + "<conversation>\n" + transcript + "\n</conversation>")
         try:
             resp = self.client.generate(
                 prompt, system_prompt=_JUDGE_SYSTEM, temperature=0.0,

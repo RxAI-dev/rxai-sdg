@@ -28,20 +28,35 @@ def test_standing_sets_applies_from_turn():
 
 
 def test_lexical_standing_uses_compose_friendly_only():
-    # over many draws, standing lexical never selects positional sub-types
+    # over many draws, standing lexical never selects positional sub-types or the
+    # word-count sub-type (max_words_per_sentence as a standing rule forces per-turn
+    # word-counting bookkeeping, so it is current-turn only now).
     seen = set()
     for s in range(200):
         res = C.build(_ctx("lexical_constraint", "standing", seed=s))
         seen.add(res.constraint_spec.type)
     assert "first_letter" not in seen
     assert "alphabetical_sentence_starts" not in seen
-    assert seen <= {"forbidden_token", "no_gendered_pronouns", "max_words_per_sentence"}
+    assert "max_words_per_sentence" not in seen
+    assert seen <= {"forbidden_token", "no_gendered_pronouns"}
 
 
 def test_lexical_immediate_can_use_first_letter():
     seen = {C.build(_ctx("lexical_constraint", "immediate", seed=s)).constraint_spec.type
             for s in range(200)}
     assert "first_letter" in seen
+    # the word-count sub-type is still represented, just only as a current-turn rewrite
+    assert "max_words_per_sentence" in seen
+
+
+def test_compress_downsamples_word_budget_but_keeps_it():
+    # length_tokens (word budget) must remain represented but be a clear minority,
+    # even for a standing scope (previously it was used on 100% of standing compress).
+    types = [C.build(_ctx("compress", "standing", seed=s)).constraint_spec.type
+             for s in range(400)]
+    n_len = types.count("length_tokens")
+    assert 0 < n_len < len(types) * 0.5          # present, but not dominant
+    assert types.count("n_bullets") > n_len      # bullet budget is the majority
 
 
 def test_fact_recall_delayed_resamples_when_no_fact():
