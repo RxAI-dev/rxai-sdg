@@ -62,20 +62,37 @@ class ReasoningRewriter:
 
     def rewrite(self, reasoning: str) -> Optional[str]:
         """Return the rewritten reasoning, or ``None`` if it should be left as-is
-        (too short, call failed, or the rewrite failed the faithfulness guard)."""
+        (too short, call failed, or the rewrite failed the faithfulness guard).
+
+        Terse delivery-planning traces are the hard case: a first pass tends to
+        balloon (the model elaborates the plan) and gets rejected. A second pass
+        with a hard brevity ceiling salvages most of those, lifting coverage
+        without risking expansion (the faithfulness guard still applies)."""
         r = (reasoning or "").strip()
         if len(r) < self.min_chars:
             return None
+        out = self._one_pass(r, _REWRITE_SYSTEM)
+        if out and self._faithful(r, out):
+            return out
+        # retry once, brief: the usual failure is a ballooned first pass.
+        brief = _REWRITE_SYSTEM + (
+            "\nIMPORTANT: be EXTREMELY brief - your output must be NO LONGER than "
+            "the input. If the input is just a short plan, output a one-line "
+            "first-person version of that same plan. Add nothing.")
+        out = self._one_pass(r, brief)
+        if out and self._faithful(r, out):
+            return out
+        return None
+
+    def _one_pass(self, r: str, system: str) -> Optional[str]:
         try:
             resp = self.client.generate(
-                "REASONING:\n" + r, system_prompt=_REWRITE_SYSTEM,
+                "REASONING:\n" + r, system_prompt=system,
                 temperature=0.2, max_tokens=self.max_tokens)
         except Exception:  # noqa: BLE001 - a failed call leaves the original intact
             return None
         out = (resp.text or "").strip()
         if not out or len(out) < self.min_chars // 2:
-            return None
-        if not self._faithful(r, out):
             return None
         return out
 
