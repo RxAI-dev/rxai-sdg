@@ -33,7 +33,7 @@ from .clients import LLMClient
 from .detectors import (
     detect_confidence_mismatch, detect_code_mismatch, detect_fabricated_citation,
     detect_constraint_corruption, detect_disclaimer_then_finding, detect_harmful_coping,
-    detect_phantom_constraint, detect_value_drift,
+    detect_phantom_constraint, detect_value_drift, detect_count_violation,
 )
 from .exec_gate import run_exec_gate
 from .responder import (
@@ -374,6 +374,11 @@ def deterministic_prefilter(turns: list[Turn], regen_threshold: int = 2) -> Pref
     # Cross-turn value drift: a singular financial instrument with conflicting
     # amounts across turns and no change-verb. The per-turn judge cannot see it.
     for f in detect_value_drift(turns):
+        hard.append({"turn_index": f.turn_index, "kind": f.name,
+                     "evidence": f.evidence})
+    # User-stated count constraint: exact item count not met, or word ceiling
+    # exceeded - deterministic, where the LLM judge is unreliable at counting.
+    for f in detect_count_violation(turns):
         hard.append({"turn_index": f.turn_index, "kind": f.name,
                      "evidence": f.evidence})
     # Fabricated scholarly citation (a named study/report attributed a concrete

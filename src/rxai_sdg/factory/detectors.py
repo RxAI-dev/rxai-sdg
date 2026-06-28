@@ -653,6 +653,65 @@ def detect_phantom_constraint(turns: list[dict]) -> list[Flag]:
     return flags
 
 
+# --------------------------------------------------------------------------- G4
+# Count-constraint violation the user stated in plain words: "exactly five bullet
+# points" answered with four, or "under 50 words" exceeded. Bullet counts are
+# usually honoured, so this is a high-precision guard, not a frequent gate. Only
+# the unambiguous forms are checked: EXACT item counts (must match) and word
+# CEILINGS (must not be exceeded). Soft targets ("a 30-word cheat sheet") are not
+# flagged - a literal word count there is naturally approximate.
+_NUMWORD = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
+            "seven": 7, "eight": 8, "nine": 9, "ten": 10}
+_EXACT_ITEMS_RE = re.compile(
+    r"\bexactly\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+"
+    r"(bullet points?|bullets?|points?|items?|sentences?)\b", re.I)
+_WORD_CEILING_RE = re.compile(
+    r"\b(?:under|within|at most|no more than|fewer than|less than|"
+    r"up to|maximum of|max)\s+(\d+)\s+words?\b", re.I)
+
+
+def _to_int(tok: str) -> int:
+    return int(tok) if tok.isdigit() else _NUMWORD.get(tok.lower(), 0)
+
+
+def _count_bullets(ans: str) -> int:
+    return len(re.findall(r"(?m)^\s*(?:[-*•]|\d+\.)\s+\S", ans or ""))
+
+
+def _count_words(ans: str) -> int:
+    clean = re.sub(r"[*_#>|`]", " ", ans or "")
+    return len(re.findall(r"[A-Za-z0-9][A-Za-z0-9'\-]*", clean))
+
+
+def detect_count_violation(turns: list[dict]) -> list[Flag]:
+    """G4. A user-stated EXACT item count not met, or a word CEILING exceeded."""
+    flags: list[Flag] = []
+    for t in turns:
+        ti = _turn_index(t)
+        q = _seg(t, "query")
+        a = _seg(t, "answer")
+        if not a.strip():
+            continue
+        m = _EXACT_ITEMS_RE.search(q)
+        if m:
+            want = _to_int(m.group(1))
+            got = _count_bullets(a)
+            # only flag when the answer IS a bullet list (got>0) but the count is off;
+            # a prose answer to "exactly five points" is a separate (format) issue.
+            if want and got and got != want:
+                flags.append(Flag("G", "count_violation", 2, ti,
+                                  f"asked exactly {want} {m.group(2)}, answer has {got}"))
+                continue
+        mc = _WORD_CEILING_RE.search(q)
+        if mc:
+            ceiling = int(mc.group(1))
+            got = _count_words(a)
+            if ceiling and got > ceiling * 1.15:
+                flags.append(Flag("G", "count_violation", 2, ti,
+                                  f"asked <= {ceiling} words, answer has {got}"))
+    return flags
+
+
 # --------------------------------------------------------------------------- G3
 # Cross-turn value drift: a SINGULAR financial instrument (a credit facility, a
 # loan) carries conflicting dollar amounts across turns with no change-verb to
@@ -725,4 +784,5 @@ def run_all(record: dict, run_code: bool = True) -> list[Flag]:
     flags += detect_constraint_integrity(turns)
     flags += detect_phantom_constraint(turns)
     flags += detect_value_drift(turns)
+    flags += detect_count_violation(turns)
     return flags

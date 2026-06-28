@@ -11,7 +11,7 @@ from rxai_sdg.factory.detectors import (
     detect_format_bookkeeping, detect_reasoning_artifacts, reasoning_specifics,
     admission_markers, uncertainty_markers, detect_fabricated_citation,
     fabricated_citations, detect_constraint_corruption, detect_phantom_constraint,
-    detect_value_drift,
+    detect_value_drift, detect_count_violation,
 )
 
 
@@ -35,6 +35,18 @@ def test_phantom_constraint_rejects_ungrounded_genre():
     ]
     flags = detect_phantom_constraint(turns)
     assert flags and flags[0].name == "phantom_constraint"
+
+
+def test_count_violation_exact_bullets_and_word_ceiling():
+    bad = [_turn(0, "give me exactly five bullet points", "", "- a\n- b\n- c\n- d")]
+    f = detect_count_violation(bad)
+    assert f and f[0].name == "count_violation"
+    over = [_turn(0, "summarize in under 10 words", "",
+                  "This summary deliberately runs well past the requested ten word ceiling here.")]
+    assert detect_count_violation(over)
+    # honored constraints and ceiling-satisfying answers are clean
+    assert detect_count_violation([_turn(0, "exactly three points", "", "- a\n- b\n- c")]) == []
+    assert detect_count_violation([_turn(0, "in under 50 words", "", "Just six words here, fine.")]) == []
 
 
 def test_value_drift_rejects_conflicting_facility_amount():
