@@ -254,6 +254,25 @@ class PrefilterResult:
         }
 
 
+def detect_truncation(answer: str) -> Optional[str]:
+    """Deterministic structural truncation in an ANSWER (the backstop for the
+    generation-time finish_reason=='length' gate; also catches truncation in
+    already-stored records). High precision: an odd number of code fences means a
+    fence was opened and never closed, and a markdown table row that begins with
+    '|' but does not end with '|' is a row cut mid-cell - both are hallmarks of an
+    answer cut off at the token cap. (Mid-word prose cutoff is left to the exact
+    finish_reason signal - heuristics there false-positive on emoji/heading ends.)"""
+    a = answer or ""
+    if a.count("```") % 2 == 1:
+        return "unclosed code fence"
+    lines = [ln for ln in a.splitlines() if ln.strip()]
+    if lines:
+        last = lines[-1].rstrip()
+        if last.startswith("|") and not last.endswith("|") and last.count("|") >= 1:
+            return f"unclosed table row: ...{last[-40:]!r}"
+    return None
+
+
 def deterministic_prefilter(turns: list[Turn], regen_threshold: int = 2) -> PrefilterResult:
     """Objective, pre-LLM defect filter over a conversation's turns.
 
@@ -294,6 +313,13 @@ def deterministic_prefilter(turns: list[Turn], regen_threshold: int = 2) -> Pref
             if has_trailing_artifact(seg):
                 hard.append({"turn_index": ti, "kind": "trailing_artifact",
                              "evidence": f"{seg_name}: ...{seg.rstrip()[-30:]}"})
+
+        # (C2) structural truncation in the answer (unclosed code fence / table row)
+        # - the answer was cut off; a programmatic pre-judge gate the LLM judge misses.
+        trunc = detect_truncation(answer)
+        if trunc:
+            hard.append({"turn_index": ti, "kind": "truncated_answer",
+                         "evidence": trunc})
 
         # (D) degenerate-loop reasoning - OBJECTIVE (the judge demonstrably misses
         # it), so a HARD fail. Two signals: a high duplicated-unit ratio AND an

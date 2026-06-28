@@ -251,6 +251,28 @@ def test_harness_leak_task_spec_compliance_fp_guard():
         "This recipe has no special requirements for high altitude.")
 
 
+def test_truncation_detector_structural():
+    from rxai_sdg.factory.holistic import detect_truncation
+    # unclosed code fence (odd number of fences) -> truncated
+    assert detect_truncation("Here is code:\n```python\nx = gzip.compress(b)  # defau")
+    # a table row cut mid-cell (starts with | but no closing |)
+    assert detect_truncation("| A | B |\n|---|---|\n| 1 | multipart/fo")
+    # complete answers (closed fence, closed table, emoji/period ends) must NOT fire
+    assert not detect_truncation("```python\nprint('hi')\n```\nDone.")
+    assert not detect_truncation("| A | B |\n|---|---|\n| 1 | 2 |")
+    assert not detect_truncation("Your coconut farm plan is ready. 🌴")
+    assert not detect_truncation("- Bench technique: paused reps, board presses")
+
+
+def test_prefilter_hard_fails_truncated_answer():
+    from rxai_sdg.factory.holistic import deterministic_prefilter
+    turns = [_turn(0, "explain", "I'll walk through it.",
+                   "Here is the script:\n```python\nimport gzip\ngz = gzip.compress(data)  # defau")]
+    res = deterministic_prefilter(turns)
+    assert not res.passed
+    assert any(h["kind"] == "truncated_answer" for h in res.hard_fails)
+
+
 def test_trailing_artifact_detector():
     assert has_trailing_artifact("...low-impact on the joints.cw")
     assert has_trailing_artifact("Ready to generate.cltr")

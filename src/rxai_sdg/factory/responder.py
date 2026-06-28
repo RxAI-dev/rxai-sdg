@@ -92,6 +92,27 @@ class ResponderOutput:
     turn: Turn
     malformed: bool
     reasoning_missing: bool = False
+    #: the endpoint stopped because it hit ``max_tokens`` (finish_reason == "length")
+    #: -> the answer is CUT OFF (mid-word / unclosed code fence / unclosed table).
+    #: A truncated turn must never be accepted; the loop regenerates it.
+    truncated: bool = False
+
+
+def _finish_reason(resp) -> Optional[str]:
+    """Best-effort ``finish_reason`` from the raw OpenAI-style completion on the
+    LLMResponse. ``"length"`` means the answer was cut off at the token cap."""
+    raw = getattr(resp, "raw", None)
+    if raw is None:
+        return None
+    try:
+        choices = raw.choices if hasattr(raw, "choices") else raw.get("choices")
+        first = choices[0]
+        fr = getattr(first, "finish_reason", None)
+        if fr is None and isinstance(first, dict):
+            fr = first.get("finish_reason")
+        return fr
+    except Exception:  # noqa: BLE001 - never let provenance extraction break generation
+        return None
 
 
 def format_transcript(turns: list[Turn]) -> str:
@@ -657,4 +678,5 @@ class Responder:
         )
         return ResponderOutput(
             turn=turn, malformed=not parsed.well_formed,
-            reasoning_missing=reasoning_missing)
+            reasoning_missing=reasoning_missing,
+            truncated=_finish_reason(resp) == "length")

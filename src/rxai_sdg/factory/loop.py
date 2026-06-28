@@ -480,6 +480,8 @@ class ConversationLoop:
             if out.reasoning_missing:
                 stats.reasoning_missing += 1
             ok, detail = self._answer_acceptable(out.turn.answer or "")
+            if ok and out.truncated:
+                ok, detail = False, "coherence: truncated answer (finish_reason=length)"
             if ok and has_spec_leak(out.turn.reasoning or ""):
                 ok, detail = False, "coherence: spec internals in reasoning"
             rdef = _reasoning_defect(out.turn.reasoning or "") if ok else None
@@ -563,9 +565,13 @@ class ConversationLoop:
                 turn = out.turn
                 turn.constraint_spec = sim.constraint_spec
                 prior_answer = prior_turns[-1].answer if prior_turns else None
-                passed, detail = self._verify_turn(
-                    turn, sim.constraint_spec, active_constraints,
-                    intent=sim.draw.intent, prior_answer=prior_answer)
+                if out.truncated:
+                    # cut off at the token cap -> incomplete answer, regenerate.
+                    passed, detail = False, "coherence: truncated answer (finish_reason=length)"
+                else:
+                    passed, detail = self._verify_turn(
+                        turn, sim.constraint_spec, active_constraints,
+                        intent=sim.draw.intent, prior_answer=prior_answer)
                 last_turn = turn
                 last_regen = regenerations
                 if passed:
