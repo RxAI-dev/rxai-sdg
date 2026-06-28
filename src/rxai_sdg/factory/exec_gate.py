@@ -321,6 +321,33 @@ def check_inline_arithmetic(text: str, turn_index: int, segment: str) -> list[Ga
     return flags
 
 
+# Markup / multiplication arithmetic written in PROSE, where the computation and
+# the stated total are not joined by '=' so check_inline_arithmetic misses it:
+# "120 sq ft x $85 + 45% markup -> $18,000" (120*85*1.45 = 14,790, not 18,000).
+_MARKUP_RE = re.compile(
+    r"(\d[\d,]*(?:\.\d+)?)\s*(?:sq\.?\s*ft|sqft|units?|pieces?|items?|hours?|hrs?)?\s*"
+    r"[×x*]\s*\$?\s*(\d[\d,]*(?:\.\d+)?)\s*(?:\+|plus|with|and|,)?\s*"
+    r"(\d+(?:\.\d+)?)\s*%\s*markup\b[^\n$=→]{0,25}?[$=→]+\s*\$?\s*(\d[\d,]*(?:\.\d+)?)",
+    re.IGNORECASE)
+
+
+def _f(s: str) -> float:
+    return float(s.replace(",", ""))
+
+
+def check_markup_arithmetic(text: str, turn_index: int, segment: str) -> list[GateFlag]:
+    """Verify a prose 'quantity x $price + markup% -> $total' computation."""
+    flags: list[GateFlag] = []
+    for m in _MARKUP_RE.finditer(text or ""):
+        qty, price, pct, total = (_f(g) for g in m.groups())
+        computed = qty * price * (1 + pct / 100.0)
+        if abs(computed - total) > max(1.0, 0.02 * computed):
+            flags.append(GateFlag(
+                "markup_arithmetic_mismatch", 3, turn_index, segment,
+                f"'{m.group(0)[:55]}': {qty:g}x{price:g}x(1+{pct:g}%)={computed:.0f} != {total:.0f}"))
+    return flags
+
+
 # ---------------------------------------------------------------------------
 # C. claim-vs-behaviour for code that asserts runtime behaviour (best-effort)
 # ---------------------------------------------------------------------------
@@ -849,6 +876,7 @@ def run_exec_gate(turns: list, run_code: bool = True) -> ExecGateResult:
             if run_code:
                 hard += check_code_arithmetic(text, ti, segment)
             hard += check_inline_arithmetic(text, ti, segment)
+            hard += check_markup_arithmetic(text, ti, segment)
             hard += check_json_keys(text, ti, segment)
             # haiku only on a genre=haiku turn's answer
             if segment == "answer":

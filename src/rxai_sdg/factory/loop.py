@@ -33,6 +33,7 @@ from .detectors import detect_disclaimer_then_finding, detect_harmful_coping
 from .exec_gate import (
     check_code_arithmetic, check_inline_arithmetic, check_json_keys, check_repetition,
     check_table_consistency, check_alpha_sort, check_hamming_weight,
+    check_markup_arithmetic,
 )
 from .holistic import (
     HolisticJudge, RUBRIC_AXES, deterministic_prefilter, _is_degenerate_reasoning,
@@ -104,7 +105,7 @@ def _numeric_defect(turn) -> Optional[str]:
             continue
         for check in (check_repetition, check_table_consistency, check_alpha_sort,
                       check_hamming_weight, check_code_arithmetic, check_inline_arithmetic,
-                      check_json_keys):
+                      check_markup_arithmetic, check_json_keys):
             flags = check(text, ti, seg)
             if flags:
                 return f"{flags[0].kind}: {flags[0].evidence}"

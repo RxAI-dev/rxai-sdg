@@ -13,8 +13,8 @@ These must REJECT with the correct reason. The false-positive guards (correctly
 rounded / scientific / unicode-fraction arithmetic) must PASS.
 """
 from rxai_sdg.factory.exec_gate import (
-    run_exec_gate, disposition, check_inline_arithmetic, verify_haiku,
-    check_json_keys, count_syllables,
+    run_exec_gate, disposition, check_inline_arithmetic, check_markup_arithmetic,
+    verify_haiku, check_json_keys, count_syllables,
 )
 
 
@@ -75,6 +75,14 @@ def test_exec_arithmetic_precision_no_false_positive():
 
 
 # --------------------------------------------------------------- B: inline arithmetic
+def test_markup_arithmetic_catches_wrong_total():
+    # the real D5 defect: prose "qty x $price + markup% -> $total" with a wrong total
+    assert check_markup_arithmetic("Quartz: 120 sq ft × $85 + 45% markup → $18,000", 0, "answer")
+    assert check_markup_arithmetic("Walnut: 200 sq ft × $70 + 50% markup → $14,000", 0, "answer")
+    # a CORRECT markup computation must not fire (100*50*1.2 = 6000)
+    assert not check_markup_arithmetic("Granite: 100 sq ft × $50 + 20% markup → $6,000", 0, "answer")
+
+
 def test_inline_arithmetic_catches_wrong_result():
     f = check_inline_arithmetic("So 192/1728 = 0.44 cubic feet.", 0, "answer")
     assert f and f[0].kind == "inline_arithmetic_mismatch"
