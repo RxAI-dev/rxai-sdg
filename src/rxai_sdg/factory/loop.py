@@ -217,6 +217,9 @@ class LoopStats:
     factuality_gated: int = 0
     #: conversations whose answers were repaired from the factuality corrections.
     factuality_repaired: int = 0
+    #: conversations dropped because synthesized reasoning could not be made GENUINE
+    #: (answer-anchored synthesis failed its faithfulness/voice check).
+    reasoning_voice_gated: int = 0
     downweighted: list[str] = field(default_factory=list)
 
     def merge(self, other: "LoopStats") -> None:
@@ -230,6 +233,7 @@ class LoopStats:
         self.holistic_gated += other.holistic_gated
         self.factuality_gated += other.factuality_gated
         self.factuality_repaired += other.factuality_repaired
+        self.reasoning_voice_gated += other.reasoning_voice_gated
         for tag in other.downweighted:
             if tag not in self.downweighted:
                 self.downweighted.append(tag)
@@ -357,8 +361,20 @@ class ConversationLoop:
         # so every downstream check scores the final reasoning. A no-op when disabled
         # or when a rewrite fails its faithfulness guard (original kept).
         if self.reasoning_rewriter is not None and self.config.reasoning_rewrite_enabled:
+            unclean = False
             for _t in turns:
-                self._apply_reasoning_rewrite(_t)
+                # rewrite EVERY turn (clean what we can, even when one turn fails),
+                # so a measurement run still emits maximally-cleaned reasoning.
+                if not self._apply_reasoning_rewrite(_t):
+                    unclean = True
+            # synthesis mode: a turn whose reasoning could not be made GENUINE drops
+            # the conversation rather than emit annotator-voiced reasoning - but only
+            # under the production gate, mirroring the factuality/holistic gates so a
+            # gate-OFF measurement run keeps the failure inspectable in --out.
+            if (unclean and self.config.reasoning_voice_gate_enabled
+                    and self.config.holistic_gate_enabled):
+                stats.reasoning_voice_gated += 1
+                return None, stats
 
         # -- cross-turn checks --------------------------------------------
         cross = run_cross_turn_checks(turns, ledger, self.verifier)
@@ -426,24 +442,36 @@ class ConversationLoop:
 
         return record, stats
 
-    def _apply_reasoning_rewrite(self, turn) -> None:
+    def _apply_reasoning_rewrite(self, turn) -> bool:
         """Reasoning-rewrite pass (problem 1, the durable fix). Transform the turn's
         reasoning from annotator/task-narration voice into genuine first-person
-        thinking IN PLACE, preserving substance. Unlike the abandoned
-        regenerate-on-annotator-voice gate (which collapsed yield), this never
-        discards a turn: a failed/unfaithful rewrite simply leaves the original."""
+        thinking IN PLACE, preserving substance.
+
+        Returns ``True`` if the reasoning is clean (rewritten, or no reasoning to
+        rewrite), ``False`` if a rewrite was needed but could not be produced.
+        In re-voice mode a failed/unfaithful rewrite simply leaves the original and
+        still reports clean (yield over purity); in synthesis mode (voice gate on)
+        a failure reports ``False`` so the caller can gate the conversation rather
+        than emit annotator-voiced reasoning."""
         if self.reasoning_rewriter is None or not self.config.reasoning_rewrite_enabled:
-            return
+            return True
+        gate = self.config.reasoning_voice_gate_enabled
+        answer = turn.answer if gate else None  # answer anchor -> synthesis path
+        query = turn.query if gate else None
         for seg in (turn.segments or []):
             if seg.segment_type == "reasoning" and (seg.text or "").strip():
-                new = self.reasoning_rewriter.rewrite(seg.text)
+                new = self.reasoning_rewriter.rewrite(
+                    seg.text, answer=answer, user_query=query)
                 # the rewrite runs AFTER the reasoning gate, so it must not slip a
                 # NEW defect past it: a rewrite that introduces an answer-draft
                 # (the model elaborating into a ```block/heading/table) or a harness
-                # leak is discarded, keeping the original (already gate-clean) text.
+                # leak is discarded.
                 if new and not has_reasoning_draft(new) and not has_harness_leak(new):
                     seg.text = new
-                break
+                    return True
+                # synthesis could not clean this trace: signal the caller to gate.
+                return not gate
+        return True
 
     def _holistic_ok(self, score: Optional[dict], prefilter=None) -> bool:
         """Config-driven gate over the deterministic pre-filter + LLM rubric.

@@ -143,6 +143,12 @@ class FactoryConfig:
     #: (per-turn LLM call); enable via --voice-gate.
     reasoning_rewrite_enabled: bool = False
     reasoning_rewrite_max_tokens: int = 2000
+    #: synthesis mode for the reasoning rewrite (the durable D1/D2 fix). When on, the
+    #: rewriter regenerates a fresh first-person CoT anchored to the KNOWN answer
+    #: (deleting bookkeeping rather than re-voicing it) and an independent classifier
+    #: verifies it; a trace that cannot be made GENUINE drops the conversation.
+    #: Implies ``reasoning_rewrite_enabled``. Lower yield, higher purity.
+    reasoning_voice_gate_enabled: bool = False
     #: problem-2 fix: drop fact-dense seeds (obscure rankings/biographies/stats) at
     #: curation, where the responder fabricates unavoidably and the factuality gate
     #: would otherwise zero the yield. The gate stays on as the backstop for

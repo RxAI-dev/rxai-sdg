@@ -146,6 +146,45 @@ def test_rewriter_allows_small_derived_numbers():
     assert rw.rewrite(orig) is not None
 
 
+# ----------------------------------------- ReasoningRewriter: synthesis path
+_DIRTY = ("The user wants five bullet points and no emojis. We need to comply "
+          "with the no-emoji rule. Let's craft the answer covering the trade-offs.")
+
+
+def test_synthesize_with_answer_anchor_and_genuine_classifier():
+    # answer-anchored synthesis verified GENUINE -> returns the clean trace.
+    rw = ReasoningRewriter(
+        ScriptedClient("I weigh latency against accuracy and land on the batched "
+                       "approach since it caps the tail at 1450 ms."),
+        voice_classifier=ReasoningVoiceClassifier(ScriptedClient("GENUINE")))
+    out = rw.rewrite(_DIRTY, answer="Use batching; tail latency stays under 1450 ms.",
+                     user_query="how do I cut latency?")
+    assert out is not None and "1450" in out
+
+
+def test_synthesize_rejected_when_still_annotator():
+    # both passes still read ANNOTATOR -> reject (None) so the caller can gate.
+    rw = ReasoningRewriter(
+        ScriptedClient("Still listing the five bullets and the no-emoji rule."),
+        voice_classifier=ReasoningVoiceClassifier(ScriptedClient("ANNOTATOR")))
+    assert rw.rewrite(_DIRTY, answer="Use batching.", user_query="q") is None
+
+
+def test_synthesize_allows_answer_numbers_but_not_invented():
+    # a 4-digit figure present in the ANSWER is allowed in the synthesized trace ...
+    rw = ReasoningRewriter(ScriptedClient("The 1450 ms ceiling drives the choice."))
+    assert rw.rewrite(_DIRTY, answer="Tail latency stays under 1450 ms.") is not None
+    # ... but a figure absent from BOTH draft and answer is still rejected.
+    rw2 = ReasoningRewriter(ScriptedClient("The 9999 ms ceiling drives the choice."))
+    assert rw2.rewrite(_DIRTY, answer="Tail latency stays under 1450 ms.") is None
+
+
+def test_synthesize_no_classifier_fails_open():
+    # without a classifier the synthesis is accepted on the faithfulness guard alone.
+    rw = ReasoningRewriter(ScriptedClient("I reason about the actual trade-offs here."))
+    assert rw.rewrite(_DIRTY, answer="Use batching for throughput.") is not None
+
+
 # ------------------------------------------------------------- AnswerRepairer
 def _ans_turn(idx, text):
     return Turn(turn_index=idx, segments=[Segment("query", "q"), Segment("answer", text)])

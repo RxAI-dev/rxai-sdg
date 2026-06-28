@@ -31,6 +31,7 @@ from .dataset import FactoryDatasetPostprocessor
 from .factuality import AnswerRepairer, FactChecker
 from .holistic import HolisticJudge
 from .reasoning_rewrite import ReasoningRewriter
+from .reasoning_voice import ReasoningVoiceClassifier
 from .loop import ConversationLoop, LoopStats
 from .responder import Responder
 from .sampler import IntentPolicySampler
@@ -97,10 +98,19 @@ class DataFactory:
         # reasoning-rewrite pass (problem 1): reuses the curator client (fast) to
         # re-voice annotator narration into genuine first-person thinking. Replaces
         # the regenerate-on-annotator-voice gate that collapsed yield.
+        # synthesis mode (the durable D1/D2 fix) regenerates the reasoning anchored
+        # to the answer and VERIFIES it with an independent voice classifier - using
+        # the strong judge model, not the (Mistral) rewriter, so the check is not the
+        # rewriter rubber-stamping its own output.
         self.reasoning_rewriter = None
         if config.reasoning_rewrite_enabled and curator_client is not None:
+            voice_clf = None
+            if config.reasoning_voice_gate_enabled and holistic_client is not None:
+                voice_clf = ReasoningVoiceClassifier(
+                    holistic_client, max_tokens=config.holistic_judge_max_tokens)
             self.reasoning_rewriter = ReasoningRewriter(
-                curator_client, max_tokens=config.reasoning_rewrite_max_tokens)
+                curator_client, max_tokens=config.reasoning_rewrite_max_tokens,
+                voice_classifier=voice_clf)
         self.loop = ConversationLoop(
             self.responder, self.sampler, config,
             simulator_client=simulator_client, holistic=self.holistic,

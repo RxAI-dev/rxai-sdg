@@ -112,9 +112,11 @@ def build_factory(args):
         transform_ratio=args.transform_ratio,
         explore_ratio=1.0 - args.transform_ratio - args.memory_ratio,
         holistic_judge_enabled=True,
-        # gate OFF during the loop so EVERY conversation is emitted with its score
-        # -> we measure the gate pass-rate and inspect failures ourselves.
-        holistic_gate_enabled=False,
+        # gate OFF during the loop (default) so EVERY conversation is emitted with its
+        # score -> we measure the gate pass-rate and inspect failures ourselves.
+        # --gate-on flips to PRODUCTION: drop on the holistic floor, factuality, and
+        # the synthesis voice gate, so --out is clean-by-construction accepted data.
+        holistic_gate_enabled=args.gate_on,
         seed_curator_enabled=True,
         # new mechanisms (problems 1 & 2). The reasoning-rewrite pass transforms
         # annotator-voice reasoning in place (no yield cost); factuality attaches its
@@ -122,7 +124,8 @@ def build_factory(args):
         # for measurement.
         factuality_gate_enabled=args.factuality_gate,
         factuality_repair_enabled=args.factuality_repair,
-        reasoning_rewrite_enabled=args.voice_gate,
+        reasoning_rewrite_enabled=args.voice_gate or args.voice_gate_strict,
+        reasoning_voice_gate_enabled=args.voice_gate_strict,
         skip_fact_dense_seeds=args.skip_fact_dense,
     )
     cfg.length_bands["smoke"] = LengthBand(args.min_turns, args.max_turns)
@@ -301,9 +304,18 @@ def main(argv=None) -> int:
     ap.add_argument("--voice-gate", action="store_true",
                     help="enable the reasoning-rewrite pass: re-voice annotator-voice "
                          "reasoning into genuine first-person thinking (problem 1)")
+    ap.add_argument("--voice-gate-strict", action="store_true",
+                    help="synthesis mode (durable D1/D2 fix): regenerate reasoning "
+                         "anchored to the answer, verify with the judge, and drop "
+                         "conversations whose reasoning cannot be made genuine. "
+                         "Implies --voice-gate.")
     ap.add_argument("--skip-fact-dense", action="store_true",
                     help="drop fact-dense seeds at curation (problem 2): obscure "
                          "rankings/biographies/stats where the responder fabricates")
+    ap.add_argument("--gate-on", action="store_true",
+                    help="PRODUCTION mode: enable the holistic/factuality/voice gates "
+                         "so --out is clean-by-construction accepted data (default is "
+                         "gate-OFF measurement: emit everything with scores).")
     ap.add_argument("--log-raw", action="store_true")
     args = ap.parse_args(argv)
 
