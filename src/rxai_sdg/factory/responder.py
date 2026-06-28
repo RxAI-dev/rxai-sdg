@@ -92,6 +92,27 @@ class ResponderOutput:
     turn: Turn
     malformed: bool
     reasoning_missing: bool = False
+    #: the endpoint stopped because it hit ``max_tokens`` (finish_reason == "length")
+    #: -> the answer is CUT OFF (mid-word / unclosed code fence / unclosed table).
+    #: A truncated turn must never be accepted; the loop regenerates it.
+    truncated: bool = False
+
+
+def _finish_reason(resp) -> Optional[str]:
+    """Best-effort ``finish_reason`` from the raw OpenAI-style completion on the
+    LLMResponse. ``"length"`` means the answer was cut off at the token cap."""
+    raw = getattr(resp, "raw", None)
+    if raw is None:
+        return None
+    try:
+        choices = raw.choices if hasattr(raw, "choices") else raw.get("choices")
+        first = choices[0]
+        fr = getattr(first, "finish_reason", None)
+        if fr is None and isinstance(first, dict):
+            fr = first.get("finish_reason")
+        return fr
+    except Exception:  # noqa: BLE001 - never let provenance extraction break generation
+        return None
 
 
 def format_transcript(turns: list[Turn]) -> str:
@@ -267,6 +288,64 @@ HARNESS_REASONING_RES: list[re.Pattern] = [
     re.compile(r"\bthe\s+user'?s?\s+next\s+(?:message|reply|turn)\b", re.IGNORECASE),
     re.compile(r"\bproduce\s+(?:a|the)\s+user\s+(?:message|reply)\b", re.IGNORECASE),
     re.compile(r"simulate\s+what\s+the\s+user\s+would\s+say", re.IGNORECASE),
+    # --- task-spec checking + compliance narration (the dominant ungated D1
+    #     class, ~37% of an accepted pile per the adversarial reader). The model
+    #     inventories the annotation task's format constraints ("No special
+    #     formatting constraints given") or narrates obedience to the instruction
+    #     ("We need to comply. Provide a JSON object.") instead of thinking about
+    #     the substance. An assistant genuinely working a problem never does this;
+    #     only a harness-aware model checks "are there formatting constraints?" or
+    #     frames its turn as "complying". Anchored to FIRST-PERSON task compliance
+    #     ("we/I/let's comply", "comply with the request/instruction") so a
+    #     content-level "you must comply with GDPR" (the user's actual question)
+    #     does NOT match. Verified high-precision: 16/16 real hits were task
+    #     compliance, 0 were regulatory content. ---
+    # Broadened to the paraphrase space the model actually produces - reading an
+    # accepted pile showed the narrow "given"-anchored form missed most variants
+    # ("No specific formatting constraints from user.", "Probably no special
+    # formatting constraints.", "...beyond normal.", "No formatting constraints
+    # except normal prose."). A format/constraint head is REQUIRED so content like
+    # "the CSS has no special formatting for that class" or an unconstrained-
+    # optimization "the problem has no constraints" stays unflagged.
+    re.compile(r"\bno\s+(?:\w+\s+){0,2}(?:formatting|format)\s+"
+               r"(?:constraints?|requirements?|instructions?|rules?|specs?|guidelines?|"
+               r"given|needed|required|requested|specified|provided|imposed)\b",
+               re.IGNORECASE),
+    re.compile(r"\bno\s+(?:explicit|other|additional|specific|special|particular)?\s*"
+               r"constraints?\s+(?:are\s+)?"
+               r"(?:given|specified|provided|mentioned|stated|imposed)\b",
+               re.IGNORECASE),
+    re.compile(r"\b(?:we|i)\s+(?:must|should|need\s+to|have\s+to|just|can)\s+comply\b",
+               re.IGNORECASE),
+    # bare-imperative compliance ("Need to comply.", "Must comply:") with no
+    # subject - the same task-obedience narration, just without "we/I". The
+    # negative lookahead keeps content-level "comply with GDPR / the code" safe
+    # (those are answered, not narrated, and read as "comply WITH <regulation>").
+    re.compile(r"\b(?:need(?:s)?\s+to|must|should|have\s+to|has\s+to|going\s+to|"
+               r"ready\s+to|just)\s+comply\b(?!\s+with)", re.IGNORECASE),
+    re.compile(r"\blet'?s\s+comply\b", re.IGNORECASE),
+    re.compile(r"\bcompl(?:y|ies|ying)\s+with\s+(?:the\s+|user'?s?\s+|these\s+)?"
+               r"(?:request|instruction)", re.IGNORECASE),
+    re.compile(r"\bwithout\s+(?:anyone|the\s+user|them)\s+knowing\s+"
+               r"(?:that\s+)?(?:an?\s+)?(?:ai|assistant|i\s+helped|ai\s+helped|it\s+was)\b",
+               re.IGNORECASE),
+    # --- (NEW, from a review) reciting an active constraint by name instead of
+    #     thinking - pervasive D1/D2. Forbidden-word recitation ("avoid using the
+    #     word 'actually'"), output-tone bookkeeping ("keep the ELI5 tone"). Anchored
+    #     so "ensure the code does not use a deprecated function" (genuine) does NOT
+    #     fire - the forbidden-word form REQUIRES the literal "word". ---
+    re.compile(r"\b(?:avoid|never|don'?t|do\s+not|must\s+not|cannot|can'?t|"
+               r"refrain\s+from|without|not\s+to)\s+"
+               r"(?:use|using|say|saying|includ\w+|mention\w*)\s+(?:the\s+)?word\b",
+               re.IGNORECASE),
+    re.compile(r"\b(?:keep|maintain|retain|use|stick\s+to|preserve)\s+"
+               r"(?:the\s+|an?\s+)?(?:eli5|warm|formal|friendly|casual|professional|"
+               r"caring|simple|academic|enthusiastic|conversational|playful)\s+tone\b",
+               re.IGNORECASE),
+    # a generic problem-summary template pasted as "reasoning" ("First, the main
+    # cause. Second, the impact. Third, the steps. Finally, the expected outcome.").
+    re.compile(r"\bfirst,?\s+the\b[^.]{1,45}\.\s*second,?\s+the\b[^.]{1,45}\.\s*"
+               r"(?:third|finally)\b", re.IGNORECASE),
 ]
 
 
@@ -276,6 +355,27 @@ def has_harness_leak(reasoning: str) -> Optional[str]:
         m = rx.search(reasoning or "")
         if m:
             return m.group(0)
+    return None
+
+
+# Reasoning-as-draft: the reasoning is not internal working-out but a DRAFT of the
+# answer - it contains the answer's own formatting (a markdown heading, a fenced
+# code/data block the model is composing, a markdown table). The reasoning has
+# "collapsed into the answer's content" (a confirmed D1/D2 defect: "reasoning
+# zawierajacy gotowy draft JSON"). Genuine reasoning describes/plans; it does not
+# render headings, tables, or a finished ```yaml/```python block.
+_DRAFT_HEADING_RE = re.compile(r"(?m)^\s{0,3}#{1,6}\s+\S")
+_DRAFT_TABLE_RE = re.compile(r"(?m)^\s*\|.*\|\s*$")
+
+
+def has_reasoning_draft(reasoning: str) -> Optional[str]:
+    r = reasoning or ""
+    if _DRAFT_HEADING_RE.search(r):
+        return "markdown heading in reasoning (answer draft)"
+    if r.count("```") >= 2:
+        return "fenced code/data block in reasoning (answer draft)"
+    if len(_DRAFT_TABLE_RE.findall(r)) >= 2:
+        return "markdown table in reasoning (answer draft)"
     return None
 
 
@@ -312,7 +412,10 @@ def has_numbered_flow_list(reasoning: str) -> bool:
 
 # (D) restart-spiral signal: the model loops self-correction ("Wait, ...",
 # "Okay, ...", "Hold on, ...", "Actually, ...") many times in one reasoning block.
-_RESTART_RE = re.compile(r"(?im)(?:^|\n|\.)\s*(?:wait|hold on|actually|okay,? so|let me reconsider|on second thought)\b")
+# The anchor must include "?" and "!" - a self-correction routinely follows a
+# rhetorical question ("...need 8 bits? Wait, no...") and anchoring only on "."
+# missed those, letting a thrashing technical reconstruction score as clean.
+_RESTART_RE = re.compile(r"(?im)(?:^|\n|[.?!])\s*(?:wait|hold on|actually|okay,? so|let me reconsider|on second thought)\b")
 
 
 def count_restart_markers(reasoning: str) -> int:
@@ -387,6 +490,58 @@ def _strip_filler_tail(text: str) -> str:
     return out if out else t  # never empty the whole reasoning
 
 
+# (D1/D2) PURE delivery-planning sentences: tone / format / output-form planning that
+# carry ZERO cognition about the problem ("Should be warm, knowledgeable.", "No special
+# formatting constraints.", "Provide bullet points.", "Must be concise."). The gpt-oss
+# teacher emits these pervasively and they are un-promptable; they are the dominant
+# reasoning-hygiene defect (the reasoning narrates the RESPONSE instead of thinking
+# about the problem). Stripping them is mechanical clean-up like the trailing-filler
+# strip - it removes contentless meta, never substance. A substance guard (digits,
+# operators, causal/recall markers) ensures a sentence with any real content is kept,
+# and the whole reasoning is never gutted below a floor. Task-restatement openers
+# ("We need to X", "The user wants Y") are deliberately NOT stripped - they may carry
+# the task's substance and are milder.
+_TONE_ADJ = (r"(?:warm|caring|knowledgeable|expert|friendly|professional|empathetic|"
+             r"supportive|compassionate|gentle|reassuring|formal|casual|conversational|"
+             r"concise|clear|brief|encouraging|polished|thorough|helpful|enthusiastic|"
+             r"accurate|precise|factual)")
+_PURE_DELIVERY_RE = re.compile(
+    r"^(?:"
+    r"(?:keep|make|use|set)?\s*(?:the\s+)?tone\s*[:\-]?\s*" + _TONE_ADJ +
+    r"(?:[,\s/]+(?:and\s+)?" + _TONE_ADJ + r")*"
+    r"|(?:should|must|will|need to|i'?ll|let'?s|keep it)\s+(?:be\s+|keep\s+it\s+|stay\s+)?"
+    r"(?:kept\s+)?" + _TONE_ADJ + r"(?:[,\s/]+(?:and\s+)?" + _TONE_ADJ + r")*"
+    r"|no\s+(?:special\s+)?(?:formatting|format|constraints?)"
+    r"(?:\s+(?:constraints?|requested|needed|given|required|specified))?"
+    r"|(?:provide|use|give|present|include|add|format with|format as)\s+(?:(?:a|the|some)\s+)?"
+    r"(?:bullet\s*points?|bulleted\s+list|(?:a\s+)?list|markdown(?:\s+\w+)*|headings?|numbered\s+list)"
+    r"(?:\s+\w+){0,3}"
+    r"|(?:must|should)\s+be\s+concise"
+    r"|keep\s+(?:it|the\s+(?:answer|response|tone))\s+" + _TONE_ADJ +
+    r"(?:[,\s/]+(?:and\s+)?" + _TONE_ADJ + r")*"
+    r"|ensure\s+(?:accuracy|clarity|accurate|clear|valid|it'?s?\s+(?:accurate|clear|valid))"
+    r")\s*\.?\s*$", re.IGNORECASE)
+_DELIVERY_SUBSTANCE_RE = re.compile(
+    r"\d|[=+\-*/×÷]|\b(because|since|so that|therefore|thus|recall|earlier|prior|means|"
+    r"implies|equals|user (?:said|asked|mentioned|wants|set|gave|reiterat\w+))\b", re.IGNORECASE)
+_SENT_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+
+
+def _strip_delivery_planning(text: str) -> str:
+    """Remove pure tone/format/output-form planning sentences (no cognition). Keeps any
+    sentence with real content (substance guard) and never guts the reasoning."""
+    if not text or not text.strip():
+        return text
+    sents = _SENT_SPLIT_RE.split(text.strip())
+    if len(sents) < 2:
+        return text  # a single sentence: leave it (avoid emptying short reasoning)
+    kept = [s for s in sents
+            if not (_PURE_DELIVERY_RE.match(s.strip())
+                    and not _DELIVERY_SUBSTANCE_RE.search(s))]
+    new = " ".join(kept).strip()
+    return new if len(new) >= 15 else text   # never gut below the floor
+
+
 # "standing instruction" is reserved schema vocabulary in this system (it named
 # the old raw-spec note). A native-reasoning model occasionally uses it as plain
 # English when an active standing constraint exists. That is not a schema leak,
@@ -407,17 +562,19 @@ def sanitize_reasoning(text: Optional[str]) -> Optional[str]:
     """THIN, mechanical clean-up of a generated reasoning segment (safety net only).
 
     Strips the glued trailing decoding artifact (mode C), a trailing filler signpost
-    ("Proceed.", "Will produce final answer.") and normalizes the reserved "standing
-    instruction" token. It deliberately does NOT scrub harness leakage, turn-index
-    references, or restart spirals - those are real defects the deterministic
-    pre-filter must HARD-FAIL (an earlier scrubbing version hid them from the
-    pre-filter and left broken artifacts). The real fix is in generation.
+    ("Proceed.", "Will produce final answer."), pure tone/format/output-form planning
+    sentences (the D1/D2 reasoning-hygiene defect: contentless narration of the
+    RESPONSE), and normalizes the reserved "standing instruction" token. It deliberately
+    does NOT scrub harness leakage, turn-index references, or restart spirals - those
+    are real defects the deterministic pre-filter must HARD-FAIL (an earlier scrubbing
+    version hid them from the pre-filter and left broken artifacts).
     """
     if not text:
         return text
     text = _normalize_reasoning(text) or ""
     text = _strip_trailing_artifact(text)
     text = _strip_filler_tail(text)
+    text = _strip_delivery_planning(text)
     return text.strip()
 
 
@@ -559,4 +716,5 @@ class Responder:
         )
         return ResponderOutput(
             turn=turn, malformed=not parsed.well_formed,
-            reasoning_missing=reasoning_missing)
+            reasoning_missing=reasoning_missing,
+            truncated=_finish_reason(resp) == "length")

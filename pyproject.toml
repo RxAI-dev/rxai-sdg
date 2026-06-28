@@ -29,6 +29,11 @@ huggingface-hub = "^0.30.0"
 openai = '^1.82.1'
 nltk = '^3.9.1'
 ollama = '^0.5.1'
+# cmudict gives accurate syllable counts for the 5-7-5 haiku verifier. Without it the
+# verifier falls back to a heuristic that miscounts silent-e plurals (e.g. "hides"),
+# which can wrongly flag a correct haiku - so the heuristic-only off-by-1 path is
+# non-gating (audit-only). Install cmudict for the confident, gating check.
+cmudict = '^1.0'
 
 # PyYAML is optional: only required for YAML FactoryConfig files and the
 # yaml_valid constraint checker. JSON configs work without it.

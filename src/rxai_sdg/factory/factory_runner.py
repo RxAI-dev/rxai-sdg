@@ -28,7 +28,10 @@ from typing import Iterable, Optional
 from .clients import LLMClient
 from .config import FactoryConfig
 from .dataset import FactoryDatasetPostprocessor
+from .factuality import AnswerRepairer, FactChecker
 from .holistic import HolisticJudge
+from .reasoning_rewrite import ReasoningRewriter
+from .reasoning_voice import ReasoningVoiceClassifier
 from .loop import ConversationLoop, LoopStats
 from .responder import Responder
 from .sampler import IntentPolicySampler
@@ -70,15 +73,49 @@ class DataFactory:
         # whenever a (non-Qwen) judge client is supplied.
         self.holistic = None
         if config.holistic_judge_enabled and holistic_client is not None:
-            self.holistic = HolisticJudge(holistic_client, rng=self.rng)
+            self.holistic = HolisticJudge(
+                holistic_client, rng=self.rng,
+                max_tokens=config.holistic_judge_max_tokens)
         # LLM seed curator (fix A) when a curator client is supplied and enabled;
         # otherwise a transparent heuristic fallback is used.
         cur_client = curator_client if config.seed_curator_enabled else None
-        self.curator = SeedCurator(rng=self.rng, client=cur_client)
+        self.curator = SeedCurator(
+            rng=self.rng, client=cur_client,
+            skip_fact_dense=config.skip_fact_dense_seeds)
         self.writer = SegmentWriter()
+        # focused factuality gate (problem 2): reuses the judge client - a decomposed
+        # claim-verification pass that catches named-specific fabrication the holistic
+        # rubric is blind to. Only built when enabled and a judge client is supplied.
+        self.factuality = None
+        if config.factuality_gate_enabled and holistic_client is not None:
+            self.factuality = FactChecker(
+                holistic_client, max_tokens=config.factuality_max_tokens)
+        # repair-then-recheck: the responder applies the checker's corrections.
+        self.answer_repairer = None
+        if (config.factuality_gate_enabled and config.factuality_repair_enabled):
+            self.answer_repairer = AnswerRepairer(
+                responder_client, max_tokens=config.factuality_repair_max_tokens)
+        # reasoning-rewrite pass (problem 1): reuses the curator client (fast) to
+        # re-voice annotator narration into genuine first-person thinking. Replaces
+        # the regenerate-on-annotator-voice gate that collapsed yield.
+        # synthesis mode (the durable D1/D2 fix) regenerates the reasoning anchored
+        # to the answer and VERIFIES it with an independent voice classifier - using
+        # the strong judge model, not the (Mistral) rewriter, so the check is not the
+        # rewriter rubber-stamping its own output.
+        self.reasoning_rewriter = None
+        if config.reasoning_rewrite_enabled and curator_client is not None:
+            voice_clf = None
+            if config.reasoning_voice_gate_enabled and holistic_client is not None:
+                voice_clf = ReasoningVoiceClassifier(
+                    holistic_client, max_tokens=config.holistic_judge_max_tokens)
+            self.reasoning_rewriter = ReasoningRewriter(
+                curator_client, max_tokens=config.reasoning_rewrite_max_tokens,
+                voice_classifier=voice_clf)
         self.loop = ConversationLoop(
             self.responder, self.sampler, config,
-            simulator_client=simulator_client, holistic=self.holistic, rng=self.rng)
+            simulator_client=simulator_client, holistic=self.holistic,
+            factuality=self.factuality, reasoning_rewriter=self.reasoning_rewriter,
+            answer_repairer=self.answer_repairer, rng=self.rng)
         self.stats = FactoryRunStats(loop=self.loop.stats)
         self._stats_lock = threading.Lock()
         #: records collected by the most recent ``generate`` call

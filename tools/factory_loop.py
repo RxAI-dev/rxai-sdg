@@ -84,11 +84,16 @@ def build_factory(args):
     curator = OpenAILLMClient(
         model_name=_env("RXAI_CURATOR_MODEL", default="Mistral-Small-3.2-24B-Instruct-2506"),
         api_url=base, api_key=key, timeout=t, max_retries=rt)
-    # FROZEN judge model = Qwen3-Coder-30B (the task's specified judge): the most
-    # discriminating of the candidates (Mistral scored only 9-10 and never let the
-    # gate reject clean-ish data -> pass-rate pinned at 1.0). The judge<->simulator
-    # self-eval concern was checked empirically (iter1 bias probe: Qwen 9.89 vs
-    # Mistral 10 on user_query_quality - NOT inflated, slightly stricter).
+    # Judge model. Default Qwen3-Coder-30B (fast, the task's specified judge). NOTE
+    # (validated empirically this iteration): the 30B judge is BLIND to confident
+    # fabrication - it scores fabricated citations and made-up technical constructs
+    # factual_grounding 10. The deterministic detectors (fabricated_citation,
+    # restart_spiral, confidence_mismatch) are the robust gate for that class. For a
+    # materially STRONGER semantic judge, set RXAI_JUDGE_MODEL=Qwen3.5-397B-A17B: it
+    # scores those same fabrications factual_grounding 1-2 with a severity-3 flag,
+    # while keeping genuinely-good conversations high. It is a reasoning model, so it
+    # needs the generous judge token budget (config.holistic_judge_max_tokens=12000)
+    # or it truncates the rubric JSON to None.
     judge = OpenAILLMClient(
         model_name=_env("RXAI_JUDGE_MODEL", default="Qwen3-Coder-30B-A3B-Instruct"),
         api_url=base, api_key=key, timeout=t, max_retries=rt)
@@ -107,10 +112,21 @@ def build_factory(args):
         transform_ratio=args.transform_ratio,
         explore_ratio=1.0 - args.transform_ratio - args.memory_ratio,
         holistic_judge_enabled=True,
-        # gate OFF during the loop so EVERY conversation is emitted with its score
-        # -> we measure the gate pass-rate and inspect failures ourselves.
-        holistic_gate_enabled=False,
+        # gate OFF during the loop (default) so EVERY conversation is emitted with its
+        # score -> we measure the gate pass-rate and inspect failures ourselves.
+        # --gate-on flips to PRODUCTION: drop on the holistic floor, factuality, and
+        # the synthesis voice gate, so --out is clean-by-construction accepted data.
+        holistic_gate_enabled=args.gate_on,
         seed_curator_enabled=True,
+        # new mechanisms (problems 1 & 2). The reasoning-rewrite pass transforms
+        # annotator-voice reasoning in place (no yield cost); factuality attaches its
+        # result and is applied post-hoc by analyze_batch since the loop runs gate-OFF
+        # for measurement.
+        factuality_gate_enabled=args.factuality_gate,
+        factuality_repair_enabled=args.factuality_repair,
+        reasoning_rewrite_enabled=args.voice_gate or args.voice_gate_strict,
+        reasoning_voice_gate_enabled=args.voice_gate_strict,
+        skip_fact_dense_seeds=args.skip_fact_dense,
     )
     cfg.length_bands["smoke"] = LengthBand(args.min_turns, args.max_turns)
     factory = DataFactory(
@@ -157,12 +173,20 @@ def analyze_batch(records, cfg):
             r = getattr(getattr(t, "verification", None), "regenerations", 0) or 0
             max_regen = max(max_regen, r)
         passed = ConversationLoop._holistic_ok(loop, score, pf)
+        # focused factuality gate (problem 2): a conversation the decomposed
+        # claim-check found a confident-FALSE claim in fails the gate too. Attached
+        # by the loop as score["factuality"]; only gate when the check was available.
+        fact = score.get("factuality") if isinstance(score, dict) else None
+        fact_false = bool(fact and fact.get("available") and not fact.get("passed"))
+        if fact_false:
+            passed = False
         gate_pass += int(passed)
         per_conv.append({
             "conversation_id": rec.conversation_id,
             "seed": (rec.source_seed.first_query or "")[:80],
             "n_turns": len(turns),
             "gate_pass": passed,
+            "factuality_false_claims": (fact or {}).get("false_claims", []) if fact else [],
             "prefilter_hard_fails": pf.hard_fails,
             "prefilter_flags": pf.flags,
             "scores": {k: score.get(k) for k in RUBRIC_AXES},
@@ -174,20 +198,41 @@ def analyze_batch(records, cfg):
     means = {k: _mean(v) for k, v in axis_values.items()}
     pass_rate = round(gate_pass / n, 3) if n else None
 
+    # Deterministic hard-fails that survive INTO the emitted (gate-passing) set. By
+    # construction a gate-passing conversation has prefilter.passed=True, so this
+    # should be empty - it is the "emitted dataset is clean" invariant. (The batch is
+    # generated gate-OFF for measurement, so the raw hard_counts above include the
+    # rejected conversations and are expected to be non-zero - that is the defect the
+    # gate catches, not an acceptance failure.)
+    emitted_hard: dict[str, int] = {}
+    for c in per_conv:
+        if c["gate_pass"]:
+            for h in c["prefilter_hard_fails"]:
+                emitted_hard[h["kind"]] = emitted_hard.get(h["kind"], 0) + 1
+
+    # Acceptance is the MEASUREMENT being healthy, not the judge scoring high. A judge
+    # pinned near 10 is BLIND (the failure this whole effort fixes), so we do NOT
+    # require high means - we require the opposite: the judge must DISCRIMINATE, and
+    # the gate pass-rate must sit in the 0.65-0.80 band (near 1.0 is suspicious).
+    rq_mean = means.get("reasoning_quality")
+    fg_mean = means.get("factual_grounding")
     acceptance = {
-        "turn_index_in_answer": hard_counts.get("turn_index_in_answer", 0) == 0,
-        "harness_in_reasoning": hard_counts.get("harness_in_reasoning", 0) == 0,
-        "trailing_artifact": hard_counts.get("trailing_artifact", 0) == 0,
-        "degenerate_reasoning": (hard_counts.get("degenerate_reasoning", 0)
-                                 + flag_counts.get("degenerate_reasoning", 0)) == 0,
-        "no_regen_gt_2": max_regen <= cfg.prefilter_regen_threshold,
-        "mean_reasoning_quality_ge_8": (means.get("reasoning_quality") or 0) >= 8,
-        "mean_rac_ge_8": (means.get("reasoning_answer_consistency") or 0) >= 8,
-        "gate_pass_rate_in_band": (pass_rate is not None and 0.65 <= pass_rate <= 0.95),
+        # the emitted (gate-passing) dataset carries none of the objective defects
+        # (this already covers excess_regenerations, which is itself a hard-fail kind)
+        "emitted_no_hard_fails": sum(emitted_hard.values()) == 0,
+        # judge is not blind: a discriminating judge does not pin reasoning_quality /
+        # factual_grounding at the ceiling across a real, mixed batch.
+        "judge_discriminating": (
+            (rq_mean is not None and rq_mean < 9.5)
+            or (fg_mean is not None and fg_mean < 9.5)
+            or (pass_rate is not None and pass_rate < 0.95)),
+        # convergence band (task §3 Phase E): scores track isolated review here.
+        "gate_pass_rate_in_band": (pass_rate is not None and 0.65 <= pass_rate <= 0.80),
     }
     return {
         "n": n,
         "hard_counts": hard_counts,
+        "emitted_hard_counts": emitted_hard,
         "flag_counts": flag_counts,
         "flagged_by_dimension": flagged_by_dim,
         "judge_means": means,
@@ -220,6 +265,10 @@ def main(argv=None) -> int:
     ap.add_argument("--iter", type=int, default=0)
     ap.add_argument("--seeds", default=str(ROOT / "tools" / "seeds.jsonl"))
     ap.add_argument("--out", default=None)
+    ap.add_argument("--rejected-out", default=None,
+                    help="path for conversations that FAIL the gate (with reasons), so "
+                         "the rejected pile can be inspected for false negatives. "
+                         "Defaults to '<out>.rejected.jsonl'.")
     ap.add_argument("--audit", default=None)
     ap.add_argument("--hypothesis", default="", help="hypothesis/diff note for the audit")
     ap.add_argument("--n", type=int, default=10)
@@ -247,6 +296,26 @@ def main(argv=None) -> int:
     ap.add_argument("--transform-ratio", type=float, default=0.3)
     ap.add_argument("--min-recall-distance", type=int, default=4)
     ap.add_argument("--bias-judge-model", default=None)
+    ap.add_argument("--factuality-gate", action="store_true",
+                    help="enable the focused decomposed factuality gate (problem 2)")
+    ap.add_argument("--factuality-repair", action="store_true",
+                    help="repair-then-recheck: fix flagged answers from the "
+                         "factuality corrections and re-verify (yield lever)")
+    ap.add_argument("--voice-gate", action="store_true",
+                    help="enable the reasoning-rewrite pass: re-voice annotator-voice "
+                         "reasoning into genuine first-person thinking (problem 1)")
+    ap.add_argument("--voice-gate-strict", action="store_true",
+                    help="synthesis mode (durable D1/D2 fix): regenerate reasoning "
+                         "anchored to the answer, verify with the judge, and drop "
+                         "conversations whose reasoning cannot be made genuine. "
+                         "Implies --voice-gate.")
+    ap.add_argument("--skip-fact-dense", action="store_true",
+                    help="drop fact-dense seeds at curation (problem 2): obscure "
+                         "rankings/biographies/stats where the responder fabricates")
+    ap.add_argument("--gate-on", action="store_true",
+                    help="PRODUCTION mode: enable the holistic/factuality/voice gates "
+                         "so --out is clean-by-construction accepted data (default is "
+                         "gate-OFF measurement: emit everything with scores).")
     ap.add_argument("--log-raw", action="store_true")
     args = ap.parse_args(argv)
 
@@ -266,6 +335,29 @@ def main(argv=None) -> int:
     factory.writer.write_jsonl(records, out)
 
     result = analyze_batch(records, cfg)
+
+    # Persist the REJECTED pile separately (the runner generates gate-OFF, so every
+    # completed conversation is in --out; here we split out the ones that FAIL the gate,
+    # annotated with their rejection reasons, so false negatives can be eyeballed).
+    rejected_out = args.rejected_out or (str(Path(out).with_suffix("")) + ".rejected.jsonl")
+    gate_by_id = {c["conversation_id"]: c for c in result["per_conversation"]}
+    n_rejected = 0
+    Path(rejected_out).parent.mkdir(parents=True, exist_ok=True)
+    with open(rejected_out, "w", encoding="utf-8") as fh:
+        for rec in records:
+            info = gate_by_id.get(rec.conversation_id, {})
+            if info.get("gate_pass", True):
+                continue
+            n_rejected += 1
+            d = rec.to_dict()
+            d["_rejection"] = {
+                "prefilter_hard_fails": info.get("prefilter_hard_fails", []),
+                "flagged_turns": info.get("flagged_turns", []),
+                "scores": info.get("scores", {}),
+                "notes": info.get("notes", ""),
+            }
+            fh.write(json.dumps(d, default=str) + "\n")
+
     usage = {name: c.usage() for name, c in clients.items()}
     total_tokens = sum(u.get("total_tokens", 0) for u in usage.values())
 
@@ -331,6 +423,7 @@ def main(argv=None) -> int:
         print(f"    {k:28s} {result['judge_means'].get(k)}")
     print(f"max regen across turns: {result['max_regen']}")
     print(f"gate pass: {result['gate_pass']}/{result['n']}  rate={result['gate_pass_rate']}")
+    print(f"rejected pile: {n_rejected} -> {rejected_out}")
     if bias:
         print("bias probe (user_query_quality mean):")
         print(f"    frozen  {bias['frozen_judge']['model']}: "

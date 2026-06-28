@@ -29,6 +29,12 @@ from typing import Optional
 
 from .config import FactoryConfig
 from .cross_turn import run_cross_turn_checks, cross_turn_pass_rate
+from .detectors import detect_disclaimer_then_finding, detect_harmful_coping
+from .exec_gate import (
+    check_code_arithmetic, check_inline_arithmetic, check_json_keys, check_repetition,
+    check_table_consistency, check_alpha_sort, check_hamming_weight,
+    check_markup_arithmetic,
+)
 from .holistic import (
     HolisticJudge, RUBRIC_AXES, deterministic_prefilter, _is_degenerate_reasoning,
     _RESTART_HARD_FAIL,
@@ -44,6 +50,9 @@ def _reasoning_defect(reasoning: str) -> Optional[str]:
     leak = has_harness_leak(r)
     if leak:
         return f"harness leak in reasoning ({leak!r})"
+    draft = has_reasoning_draft(r)
+    if draft:
+        return draft
     if has_turn_index_leak(r):
         return "turn-index reference in reasoning"
     if has_numbered_flow_list(r):
@@ -59,7 +68,8 @@ from .prompts import PromptPack
 from .quality import QualityConfig, check_quality
 from .responder import (
     Responder, count_restart_markers, has_cot_leak, has_harness_leak,
-    has_numbered_flow_list, has_turn_index_leak, is_memory_disclaimer,
+    has_numbered_flow_list, has_reasoning_draft, has_turn_index_leak,
+    is_memory_disclaimer,
 )
 from .sampler import IntentPolicySampler
 from .schemas import ConstraintSpec, ConversationRecord, Seed, Turn, VerifyResult
@@ -86,22 +96,74 @@ def has_spec_leak(text: str) -> bool:
     return bool(_SPEC_LEAK_RE.search(text or ""))
 
 
+def _numeric_defect(turn) -> Optional[str]:
+    """A PROVABLE numeric/encoding contradiction in this turn (the exec-gate's
+    confident hard checks: code comment-vs-computed, inline prose arithmetic, and
+    confusable JSON keys). Used to REGENERATE the turn at the source rather than emit
+    a defect and drop the whole conversation at the gate. Excludes the conversation-
+    level / human-review checks (haiku, buffering runtime claims)."""
+    ti = getattr(turn, "turn_index", 0)
+    for seg in ("answer", "reasoning"):
+        text = getattr(turn, seg, "") or ""
+        if not text:
+            continue
+        for check in (check_repetition, check_table_consistency, check_alpha_sort,
+                      check_hamming_weight, check_code_arithmetic, check_inline_arithmetic,
+                      check_markup_arithmetic, check_json_keys):
+            flags = check(text, ti, seg)
+            if flags:
+                return f"{flags[0].kind}: {flags[0].evidence}"
+    # reasoning<->answer contradiction (disclaims grounding, asserts a finding)
+    df = detect_disclaimer_then_finding([turn])
+    if df:
+        return f"{df[0].name}: {df[0].evidence}"
+    return None
+
+
+# Fabricated FIRST-PERSON / lived experience: an assistant has no senses, home, or
+# life history, so these are hallucinated ("a friend of mine", "in my experience",
+# "when I tested it", "I once visited", "in my apartment"). Scoped to unambiguous
+# lived-experience tells so ordinary "I recommend / I think / I've outlined" is NOT
+# flagged. A match -> regenerate the turn (the prompt forbids it but gpt-oss leaks it).
+_FABRICATED_EXPERIENCE_RE = re.compile(
+    r"\b(?:a (?:friend|colleague|coworker|neighbou?r|relative|buddy) of mine"
+    r"|a friend'?s (?:apartment|home|house|place|car|kitchen)"
+    r"|in my (?:own )?experience\b"
+    r"|in my (?:apartment|home|house|kitchen|garage|office|car|neighbou?rhood)\b"
+    r"|when I (?:tested|tried|used|visited|measured|built|ran|installed|bought)\b"
+    r"|I once (?:saw|tried|tested|used|visited|built|ran|bought|installed|measured)\b"
+    r"|I (?:have |'?ve )?personally (?:saw|seen|tried|tested|use|used|own|owned|visited|measured|installed)\b"
+    r"|I remember (?:when|seeing|trying|using|visiting)\b)", re.IGNORECASE)
+
+
+def has_fabricated_experience(answer: str) -> bool:
+    return bool(_FABRICATED_EXPERIENCE_RE.search(answer or ""))
+
+
+def _cross_turn_hard_fails(cross: dict) -> list[dict]:
+    """Cross-turn checks that the loop COMPUTES but historically only recorded:
+    a standing constraint dropped in a later turn (drift), a planted fact recalled
+    wrongly, or a stale value returned after an update. These are objective training-
+    data defects (the model learning it may silently abandon a standing instruction),
+    so they now HARD-FAIL the gate. Standing checks are already supersession-aware."""
+    out: list[dict] = []
+    for kind in ("standing", "delayed_recall", "update_overwrite"):
+        for e in cross.get(kind, []) or []:
+            if not e.get("passed", True):
+                out.append({
+                    "kind": "cross_turn_" + kind,
+                    "turn_index": e.get("checked_turn", e.get("turn_index", 0)),
+                    "evidence": str(e.get("detail", ""))[:120],
+                })
+    return out
+
+
 # Mutually-exclusive constraint groups: at most one member of a group can hold
 # for a given answer, so when a new turn imposes one member it supersedes any
-# active member of the same group (spec §4.3 - cumulative/standing stacking only
-# makes sense for compatible constraints).
-_CONFLICT_GROUPS: list[frozenset[str]] = [
-    frozenset({"json_valid", "yaml_valid", "markdown_table", "markdown_format",
-               "limerick_structure"}),  # answer "form"
-    frozenset({"first_letter", "alphabetical_sentence_starts"}),  # sentence starts
-]
-
-
-def constraints_conflict(type_a: str, type_b: str) -> bool:
-    """True when two constraint types cannot both hold on the same answer."""
-    if type_a == type_b:
-        return False
-    return any(type_a in g and type_b in g for g in _CONFLICT_GROUPS)
+# active member of the same group (spec §4.3). The grouping + ``constraints_conflict``
+# now live in constraints.py so cross_turn can reuse them for supersession without a
+# circular import.
+from .constraints import constraints_conflict  # noqa: E402  (re-exported below)
 
 
 def render_constraint_nl(cs: ConstraintSpec) -> str:
@@ -151,6 +213,13 @@ class LoopStats:
     reasoning_missing: int = 0
     #: conversations dropped by the holistic quality gate (below the score floor).
     holistic_gated: int = 0
+    #: conversations dropped by the focused factuality gate (>=1 confident-FALSE claim).
+    factuality_gated: int = 0
+    #: conversations whose answers were repaired from the factuality corrections.
+    factuality_repaired: int = 0
+    #: conversations dropped because synthesized reasoning could not be made GENUINE
+    #: (answer-anchored synthesis failed its faithfulness/voice check).
+    reasoning_voice_gated: int = 0
     downweighted: list[str] = field(default_factory=list)
 
     def merge(self, other: "LoopStats") -> None:
@@ -162,6 +231,9 @@ class LoopStats:
         self.coherence_failures += other.coherence_failures
         self.reasoning_missing += other.reasoning_missing
         self.holistic_gated += other.holistic_gated
+        self.factuality_gated += other.factuality_gated
+        self.factuality_repaired += other.factuality_repaired
+        self.reasoning_voice_gated += other.reasoning_voice_gated
         for tag in other.downweighted:
             if tag not in self.downweighted:
                 self.downweighted.append(tag)
@@ -177,6 +249,9 @@ class ConversationLoop:
         simulator_client=None,
         holistic: Optional[HolisticJudge] = None,
         quality_config: Optional[QualityConfig] = None,
+        factuality=None,
+        reasoning_rewriter=None,
+        answer_repairer=None,
         rng: Optional[random.Random] = None,
     ):
         self.responder = responder
@@ -185,6 +260,9 @@ class ConversationLoop:
         self.verifier = verifier or ConstraintVerifier()
         self.simulator_client = simulator_client
         self.holistic = holistic
+        self.factuality = factuality
+        self.reasoning_rewriter = reasoning_rewriter
+        self.answer_repairer = answer_repairer
         self.quality_config = quality_config or QualityConfig()
         #: aggregate stats merged from each conversation's per-run stats
         self.stats = LoopStats()
@@ -236,6 +314,12 @@ class ConversationLoop:
 
         turns: list[Turn] = []
         active_constraints: list[ConstraintSpec] = []
+        # Realistic SEMANTIC standing obligations (style/genre tone) that are checked by
+        # the judge but cannot be verified programmatically. They are re-surfaced to the
+        # responder each turn (via the note) so it actually maintains them - otherwise it
+        # silently drops them and the judge rejects the conversation for drift. Kept
+        # SEPARATE from active_constraints, which drives programmatic verification.
+        active_obligations: list[ConstraintSpec] = []
 
         # -- turn 0: seed --------------------------------------------------
         first = self._first_turn(seed, prompt_pack, stats)
@@ -249,7 +333,8 @@ class ConversationLoop:
             turn_plan = plan[idx - 1] if idx - 1 < len(plan) else None
             turn = self._followup_turn(
                 simulator, prompt_pack, turns, idx, active_constraints, stats,
-                ledger, turn_plan=turn_plan, target_length=target_length)
+                ledger, turn_plan=turn_plan, target_length=target_length,
+                active_obligations=active_obligations)
             turns.append(turn)
             cs = turn.constraint_spec
             if cs is not None and cs.scope in ("standing", "cumulative") \
@@ -263,6 +348,33 @@ class ConversationLoop:
                     if not constraints_conflict(a.type, cs.type)
                 ]
                 active_constraints.append(cs)
+            elif cs is not None and cs.scope in ("standing", "cumulative") \
+                    and cs.verifier == "llm_judge" and cs.type in ("style", "genre", "limerick_structure"):
+                # realistic semantic standing obligation (always-pirate-tone /
+                # always-a-limerick): re-surface it to the responder so it keeps
+                # honoring it. A newer one of the same type replaces the older.
+                active_obligations = [a for a in active_obligations if a.type != cs.type]
+                active_obligations.append(cs)
+
+        # -- reasoning-rewrite pass (problem 1): re-voice annotator-narration into
+        # genuine first-person thinking BEFORE the prefilter/judge/factuality see it,
+        # so every downstream check scores the final reasoning. A no-op when disabled
+        # or when a rewrite fails its faithfulness guard (original kept).
+        if self.reasoning_rewriter is not None and self.config.reasoning_rewrite_enabled:
+            unclean = False
+            for _t in turns:
+                # rewrite EVERY turn (clean what we can, even when one turn fails),
+                # so a measurement run still emits maximally-cleaned reasoning.
+                if not self._apply_reasoning_rewrite(_t):
+                    unclean = True
+            # synthesis mode: a turn whose reasoning could not be made GENUINE drops
+            # the conversation rather than emit annotator-voiced reasoning - but only
+            # under the production gate, mirroring the factuality/holistic gates so a
+            # gate-OFF measurement run keeps the failure inspectable in --out.
+            if (unclean and self.config.reasoning_voice_gate_enabled
+                    and self.config.holistic_gate_enabled):
+                stats.reasoning_voice_gated += 1
+                return None, stats
 
         # -- cross-turn checks --------------------------------------------
         cross = run_cross_turn_checks(turns, ledger, self.verifier)
@@ -284,18 +396,82 @@ class ConversationLoop:
         # defects); the LLM judge then scores the 9-axis rubric over the reasoning
         # AND answer. Both feed the gate, which drops conversations so the emitted
         # dataset is clean by construction.
+        cross_hard = _cross_turn_hard_fails(cross)
         if self.holistic is not None:
             prefilter = deterministic_prefilter(
                 turns, regen_threshold=self.config.prefilter_regen_threshold)
+            pfd = prefilter.to_dict()
+            # fold the cross-turn hard-fails into the pre-filter record so they are
+            # both VISIBLE in the emitted score and gate the conversation.
+            if cross_hard:
+                pfd["hard_fails"] = pfd.get("hard_fails", []) + cross_hard
+                pfd["passed"] = False
+                pfd["reasons"] = pfd.get("reasons", []) + [
+                    f"{h['kind']}@t{h['turn_index']}: {h['evidence']}" for h in cross_hard]
             score = self.holistic.score(turns) or {}
-            score["prefilter"] = prefilter.to_dict()
+            score["prefilter"] = pfd
             record.holistic_score = score or None
-            if self.config.holistic_gate_enabled and not self._holistic_ok(
-                    score, prefilter):
+            if self.config.holistic_gate_enabled and (
+                    cross_hard or not self._holistic_ok(score, prefilter)):
                 stats.holistic_gated += 1
                 return None, stats
 
+        # -- focused factuality gate (problem 2): decomposed claim verification --
+        # catches confident-but-wrong named specifics the holistic rubric is blind
+        # to. The result is ALWAYS attached to the record (so a gate-off measurement
+        # run keeps factuality failures inspectable in --out); it only DROPS the
+        # conversation when the master gate is on (production), mirroring the
+        # holistic gate's behaviour.
+        if self.factuality is not None and self.config.factuality_gate_enabled:
+            fc = self.factuality.check(turns)
+            # repair-then-recheck (problem-2 yield lever): apply the checker's own
+            # corrections to the offending answers and re-verify. Lifts yield on
+            # fixable conversations; the re-check still rejects the unsalvageable.
+            if (fc.available and not fc.passed and self.answer_repairer is not None
+                    and self.config.factuality_repair_enabled):
+                if self.answer_repairer.repair(turns, fc.false_claims):
+                    stats.factuality_repaired += 1
+                    fc = self.factuality.check(turns)
+            if record.holistic_score is None:
+                record.holistic_score = {}
+            if isinstance(record.holistic_score, dict):
+                record.holistic_score["factuality"] = fc.to_dict()
+            if (self.config.holistic_gate_enabled and fc.available and not fc.passed):
+                stats.factuality_gated += 1
+                return None, stats
+
         return record, stats
+
+    def _apply_reasoning_rewrite(self, turn) -> bool:
+        """Reasoning-rewrite pass (problem 1, the durable fix). Transform the turn's
+        reasoning from annotator/task-narration voice into genuine first-person
+        thinking IN PLACE, preserving substance.
+
+        Returns ``True`` if the reasoning is clean (rewritten, or no reasoning to
+        rewrite), ``False`` if a rewrite was needed but could not be produced.
+        In re-voice mode a failed/unfaithful rewrite simply leaves the original and
+        still reports clean (yield over purity); in synthesis mode (voice gate on)
+        a failure reports ``False`` so the caller can gate the conversation rather
+        than emit annotator-voiced reasoning."""
+        if self.reasoning_rewriter is None or not self.config.reasoning_rewrite_enabled:
+            return True
+        gate = self.config.reasoning_voice_gate_enabled
+        answer = turn.answer if gate else None  # answer anchor -> synthesis path
+        query = turn.query if gate else None
+        for seg in (turn.segments or []):
+            if seg.segment_type == "reasoning" and (seg.text or "").strip():
+                new = self.reasoning_rewriter.rewrite(
+                    seg.text, answer=answer, user_query=query)
+                # the rewrite runs AFTER the reasoning gate, so it must not slip a
+                # NEW defect past it: a rewrite that introduces an answer-draft
+                # (the model elaborating into a ```block/heading/table) or a harness
+                # leak is discarded.
+                if new and not has_reasoning_draft(new) and not has_harness_leak(new):
+                    seg.text = new
+                    return True
+                # synthesis could not clean this trace: signal the caller to gate.
+                return not gate
+        return True
 
     def _holistic_ok(self, score: Optional[dict], prefilter=None) -> bool:
         """Config-driven gate over the deterministic pre-filter + LLM rubric.
@@ -341,11 +517,16 @@ class ConversationLoop:
             if out.reasoning_missing:
                 stats.reasoning_missing += 1
             ok, detail = self._answer_acceptable(out.turn.answer or "")
+            if ok and out.truncated:
+                ok, detail = False, "coherence: truncated answer (finish_reason=length)"
             if ok and has_spec_leak(out.turn.reasoning or ""):
                 ok, detail = False, "coherence: spec internals in reasoning"
             rdef = _reasoning_defect(out.turn.reasoning or "") if ok else None
             if ok and rdef:
                 ok, detail = False, f"coherence: {rdef}"
+            ndef = _numeric_defect(out.turn) if ok else None
+            if ok and ndef:
+                ok, detail = False, f"coherence: {ndef}"
             if ok:
                 out.turn.verification = VerifyResult(True, "first answer ok", regenerations)
                 return out.turn
@@ -366,6 +547,7 @@ class ConversationLoop:
         ledger: Optional[FactLedger] = None,
         turn_plan=None,
         target_length: Optional[int] = None,
+        active_obligations: Optional[list[ConstraintSpec]] = None,
     ) -> Turn:
         budget = self.config.max_responder_calls_per_turn
         avoid: set[str] = set()
@@ -392,6 +574,15 @@ class ConversationLoop:
                 a for a in active_constraints
                 if not (own_type and constraints_conflict(a.type, own_type))
             ]
+            # also remind the responder of any realistic SEMANTIC standing obligation
+            # (style/genre tone) still in force, unless THIS turn supersedes it (same
+            # type or a conflicting form). The judge checks these; the responder must be
+            # told to keep honoring them or it drifts and the conversation is rejected.
+            applicable += [
+                o for o in (active_obligations or [])
+                if own_type != o.type
+                and not (own_type and constraints_conflict(o.type, own_type))
+            ]
             note = self._active_constraints_note(applicable)
 
             attempts = 0
@@ -411,9 +602,13 @@ class ConversationLoop:
                 turn = out.turn
                 turn.constraint_spec = sim.constraint_spec
                 prior_answer = prior_turns[-1].answer if prior_turns else None
-                passed, detail = self._verify_turn(
-                    turn, sim.constraint_spec, active_constraints,
-                    intent=sim.draw.intent, prior_answer=prior_answer)
+                if out.truncated:
+                    # cut off at the token cap -> incomplete answer, regenerate.
+                    passed, detail = False, "coherence: truncated answer (finish_reason=length)"
+                else:
+                    passed, detail = self._verify_turn(
+                        turn, sim.constraint_spec, active_constraints,
+                        intent=sim.draw.intent, prior_answer=prior_answer)
                 last_turn = turn
                 last_regen = regenerations
                 if passed:
@@ -465,6 +660,8 @@ class ConversationLoop:
             return False, "coherence: memory disclaimer present"
         if has_cot_leak(answer):
             return False, "coherence: chain-of-thought leaked into answer"
+        if has_fabricated_experience(answer):
+            return False, "coherence: fabricated first-person/lived experience"
         return True, "ok"
 
     def _verify_turn(
@@ -509,6 +706,19 @@ class ConversationLoop:
         rdef = _reasoning_defect(turn.reasoning or "")
         if rdef:
             return False, f"coherence: {rdef}"
+
+        # a PROVABLE numeric/encoding contradiction (exec gate: code comment-vs-computed,
+        # inline arithmetic, confusable JSON keys) -> regenerate at the source instead of
+        # emitting it and dropping the whole conversation downstream.
+        ndef = _numeric_defect(turn)
+        if ndef:
+            return False, f"coherence: {ndef}"
+
+        # mental-health SAFETY (Tier 6): a coping answer recommending a deliberately
+        # self-inflicted pain / sensory-shock technique -> regenerate at the source.
+        sdef = detect_harmful_coping([turn])
+        if sdef:
+            return False, f"coherence: {sdef[0].name}: {sdef[0].evidence}"
 
         # this turn's own constraint (the recall/transform "reference prior content"
         # check: for recall the value-presence checker enforces it directly)

@@ -85,6 +85,15 @@ def test_first_letter():
     assert V.verify(bad, _spec("first_letter", {"letter": "A"})).passed is False
 
 
+def test_first_letter_prose_only_ignores_latex_and_code():
+    # The rule applies to PROSE: a clean answer with intact LaTeX/code passes (the
+    # model must NOT prefix the target letter onto formula/code lines to satisfy it).
+    ans = ("Such codes are doubly-even. \\[ G=\\begin{pmatrix} 1&1&0&0 \\end{pmatrix} \\] "
+           "So every codeword has even weight. ```python\nx = compute()\n``` "
+           "Stacking the rows shows the pattern.")
+    assert V.verify(ans, _spec("first_letter", {"letter": "S"})).passed is True
+
+
 def test_max_words_per_sentence():
     assert V.verify("Short one. Tiny two.", _spec("max_words_per_sentence", {"max_words": 3})).passed is True
     assert V.verify("This sentence has clearly more than three words.",

@@ -112,8 +112,48 @@ class FactoryConfig:
         "instruction_following": 6, "user_query_quality": 6})
     #: reject if any ``flagged_turns`` entry has severity >= this cutoff.
     hard_fail_on_flagged_severity: int = 3
+    #: completion-token cap for the holistic judge call. Generous by default so a
+    #: REASONING judge model (e.g. Qwen3.5-397B-A17B, which is materially stronger at
+    #: spotting fabricated citations/figures than the 30B coder judge) does not spend
+    #: its budget "thinking" and truncate the rubric JSON to an unparseable -> None
+    #: score (a None score silently weakens the gate, i.e. effectively skips the guard
+    #: on that example). A non-reasoning judge stops at its natural EOS well before this
+    #: cap, so the high value is harmless for it. Set to 16000: at 12000 the 397B judge
+    #: still truncated ~2/27 very long (code-heavy) transcripts to None.
+    holistic_judge_max_tokens: int = 16000
     #: deterministic pre-filter: flag a turn whose ``regenerations`` exceeds this.
     prefilter_regen_threshold: int = 2
+    #: focused factuality gate (problem 2): a SEPARATE decomposed claim-verification
+    #: call that catches confident-but-wrong named specifics the holistic rubric is
+    #: blind to (validated: flags a wrong actor name the rubric scored fg=9). A
+    #: conversation with >=1 confident-FALSE claim is rejected. Off by default
+    #: (extra LLM call per conversation); enable via --factuality-gate.
+    factuality_gate_enabled: bool = False
+    factuality_max_tokens: int = 12000
+    #: repair-then-recheck (problem-2 yield lever): when the factuality check fails,
+    #: feed its own corrections back to fix the offending answers and re-verify.
+    #: Lifts yield on fixable conversations; the re-check still rejects the rest.
+    factuality_repair_enabled: bool = False
+    factuality_repair_max_tokens: int = 3000
+    #: reasoning-rewrite pass (problem 1, the durable fix): re-voice annotator/task
+    #: narration into genuine first-person thinking, preserving substance. Replaces
+    #: the abandoned regenerate-on-annotator-voice gate, which collapsed yield
+    #: (gpt-oss is annotator-voiced at ~100% base rate, so it discarded half the
+    #: batch). A failed/unfaithful rewrite leaves the original. Off by default
+    #: (per-turn LLM call); enable via --voice-gate.
+    reasoning_rewrite_enabled: bool = False
+    reasoning_rewrite_max_tokens: int = 2000
+    #: synthesis mode for the reasoning rewrite (the durable D1/D2 fix). When on, the
+    #: rewriter regenerates a fresh first-person CoT anchored to the KNOWN answer
+    #: (deleting bookkeeping rather than re-voicing it) and an independent classifier
+    #: verifies it; a trace that cannot be made GENUINE drops the conversation.
+    #: Implies ``reasoning_rewrite_enabled``. Lower yield, higher purity.
+    reasoning_voice_gate_enabled: bool = False
+    #: problem-2 fix: drop fact-dense seeds (obscure rankings/biographies/stats) at
+    #: curation, where the responder fabricates unavoidably and the factuality gate
+    #: would otherwise zero the yield. The gate stays on as the backstop for
+    #: fabrication that still slips into a "verifiable" seed's later turns.
+    skip_fact_dense_seeds: bool = False
     #: legacy two-field gate thresholds (kept for back-compat of existing JSON/YAML
     #: configs; no longer used by the gate, which reads ``holistic_gate`` above).
     holistic_min_coherence: int = 6
