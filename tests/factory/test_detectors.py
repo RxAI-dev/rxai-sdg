@@ -10,15 +10,44 @@ from rxai_sdg.factory.detectors import (
     detect_confidence_mismatch, detect_fabricated_specifics, detect_code_mismatch,
     detect_format_bookkeeping, detect_reasoning_artifacts, reasoning_specifics,
     admission_markers, uncertainty_markers, detect_fabricated_citation,
-    fabricated_citations, detect_constraint_corruption,
+    fabricated_citations, detect_constraint_corruption, detect_phantom_constraint,
 )
 
 
-def _turn(i, q="", r="", a=""):
-    return {"turn_index": i, "segments": [
+def _turn(i, q="", r="", a="", constraint_spec=None):
+    t = {"turn_index": i, "segments": [
         {"segment_type": "query", "text": q},
         {"segment_type": "reasoning", "text": r},
         {"segment_type": "answer", "text": a}]}
+    if constraint_spec is not None:
+        t["constraint_spec"] = constraint_spec
+    return t
+
+
+def test_phantom_constraint_rejects_ungrounded_genre():
+    # user only ever asked for ELI5; spec claims genre="code comment" -> phantom.
+    turns = [
+        _turn(0, "What are the risks of AI-written code?", "", "..."),
+        _turn(1, "From now on, always explain like I'm five.", "", "...",
+              constraint_spec={"params": {"genre": "code comment"}, "scope": "standing",
+                               "applies_from_turn": 1}),
+    ]
+    flags = detect_phantom_constraint(turns)
+    assert flags and flags[0].name == "phantom_constraint"
+
+
+def test_phantom_constraint_grounded_is_clean():
+    # the user DID ask for code comments -> grounded, no flag. And a normalised
+    # style label ("ELI5 tone") the user expressed as "like I'm five" must NOT fire.
+    turns = [
+        _turn(0, "Please phrase replies as code comments from now on.", "", "...",
+              constraint_spec={"params": {"genre": "code comment"}, "scope": "standing",
+                               "applies_from_turn": 0}),
+        _turn(1, "Also explain like I'm five.", "", "...",
+              constraint_spec={"params": {"style": "a friendly ELI5 tone"},
+                               "scope": "standing", "applies_from_turn": 1}),
+    ]
+    assert detect_phantom_constraint(turns) == []
 
 
 # ----------------------------------------------------------------- A (primary)

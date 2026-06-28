@@ -592,6 +592,67 @@ def detect_constraint_integrity(turns: list[dict]) -> list[Flag]:
     return flags
 
 
+# --------------------------------------------------------------------------- G2
+# Phantom constraint: the constraint_spec assigns a user-requested FORMAT/STYLE
+# whose content never appears in the user message it is attributed to (e.g. a
+# spec with genre="code comment" on a turn where the user only asked to "explain
+# like I'm five"). The judge checks "does the answer satisfy the spec", never
+# "does the spec come from the user turn", so an ungrounded spec teaches the model
+# to switch format unprompted. Deterministic: the param's content words must
+# appear in the introducing user query.
+# Only LITERAL params: genre ("code comment", "pirate", "haiku"), format ("table",
+# "JSON", "bullet points") and forbidden token ("thing") are stated in the user's
+# own words and so can be grounded by substring. ``style`` is excluded: it is a
+# NORMALISED label ("a friendly ELI5 tone") that the user expresses differently
+# ("explain like I'm five"), so a literal check false-positives on it.
+_GROUNDABLE_PARAMS = ("genre", "format", "token")
+_PARAM_STOPWORDS = {
+    "a", "an", "the", "tone", "style", "format", "in", "of", "as", "with", "and",
+    "to", "use", "using", "make", "more", "very", "please", "response", "reply",
+    "points", "point", "text", "form", "way", "version",
+}
+
+
+def _param_content_words(value: str) -> list[str]:
+    return [w for w in re.findall(r"[a-z]+", (value or "").lower())
+            if len(w) >= 3 and w not in _PARAM_STOPWORDS]
+
+
+def detect_phantom_constraint(turns: list[dict]) -> list[Flag]:
+    """G2. A constraint_spec param (genre/format/forbidden-token) whose content
+    words appear in NO user query up to and including the turn it is attributed to
+    (e.g. genre="code comment" when the user only ever asked to "explain like I'm
+    five"). Checking all prior queries - not just the current one - keeps a
+    legitimately-standing constraint, requested earlier, from being flagged."""
+    flags: list[Flag] = []
+    queries_so_far: list[str] = []
+    for t in turns:
+        queries_so_far.append(_seg(t, "query").lower())
+        cs = _constraint_spec(t)
+        if not cs:
+            continue
+        ti = _turn_index(t)
+        params = cs.get("params") or {}
+        history = " ".join(queries_so_far)
+        if not history.strip():
+            continue
+        for key in _GROUNDABLE_PARAMS:
+            val = params.get(key)
+            if not isinstance(val, str) or not val.strip():
+                continue
+            words = _param_content_words(val)
+            # require the HEAD noun (last content word) of the format/genre - the
+            # format-defining term - to appear. "code comment" is grounded by "a
+            # comment in a Python script" (head "comment" present) but NOT by a
+            # conversation that only mentions "code"; ELI5-only with no "comment"
+            # anywhere is the true phantom.
+            if words and words[-1] not in history:
+                flags.append(Flag("G", "phantom_constraint", 2, ti,
+                                  f"{key}={val!r} not requested (no {words[-1]!r} in any user turn)"))
+                break
+    return flags
+
+
 # --------------------------------------------------------------------------- run
 RUN_ORDER = ["A", "B", "C", "D", "E", "F"]
 
@@ -613,4 +674,5 @@ def run_all(record: dict, run_code: bool = True) -> list[Flag]:
     flags += detect_format_bookkeeping(turns)
     flags += detect_reasoning_artifacts(turns)
     flags += detect_constraint_integrity(turns)
+    flags += detect_phantom_constraint(turns)
     return flags

@@ -33,6 +33,7 @@ from .clients import LLMClient
 from .detectors import (
     detect_confidence_mismatch, detect_code_mismatch, detect_fabricated_citation,
     detect_constraint_corruption, detect_disclaimer_then_finding, detect_harmful_coping,
+    detect_phantom_constraint,
 )
 from .exec_gate import run_exec_gate
 from .responder import (
@@ -361,6 +362,13 @@ def deterministic_prefilter(turns: list[Turn], regen_threshold: int = 2) -> Pref
     # being left to the stochastic judge.
     first_q = turns[0].query if turns else ""
     for f in detect_confidence_mismatch(turns, first_q):
+        hard.append({"turn_index": f.turn_index, "kind": f.name,
+                     "evidence": f.evidence})
+    # Phantom constraint: a constraint_spec param (genre/format/forbidden-token)
+    # the user never actually requested. Ungrounded metadata that teaches the model
+    # to switch format unprompted; the judge only checks answer<->spec, never
+    # spec<->user, so it is deterministic-gate territory.
+    for f in detect_phantom_constraint(turns):
         hard.append({"turn_index": f.turn_index, "kind": f.name,
                      "evidence": f.evidence})
     # Fabricated scholarly citation (a named study/report attributed a concrete
