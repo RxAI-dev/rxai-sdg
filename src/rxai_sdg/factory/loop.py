@@ -437,7 +437,11 @@ class ConversationLoop:
         for seg in (turn.segments or []):
             if seg.segment_type == "reasoning" and (seg.text or "").strip():
                 new = self.reasoning_rewriter.rewrite(seg.text)
-                if new:
+                # the rewrite runs AFTER the reasoning gate, so it must not slip a
+                # NEW defect past it: a rewrite that introduces an answer-draft
+                # (the model elaborating into a ```block/heading/table) or a harness
+                # leak is discarded, keeping the original (already gate-clean) text.
+                if new and not has_reasoning_draft(new) and not has_harness_leak(new):
                     seg.text = new
                 break
 

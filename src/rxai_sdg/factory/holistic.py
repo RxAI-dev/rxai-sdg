@@ -42,6 +42,7 @@ from .responder import (
     format_transcript_for_judge,
     has_harness_leak,
     has_numbered_flow_list,
+    has_reasoning_draft,
     has_trailing_artifact,
     has_turn_index_leak,
 )
@@ -308,6 +309,15 @@ def deterministic_prefilter(turns: list[Turn], regen_threshold: int = 2) -> Pref
         if leak:
             hard.append({"turn_index": ti, "kind": "harness_in_reasoning",
                          "evidence": leak})
+
+        # (A2) reasoning-as-draft: the FINAL reasoning (after any rewrite pass)
+        # renders answer formatting - a ```block/heading/table it is composing -
+        # instead of thinking. Checked here too so a rewrite-introduced draft can
+        # never slip past the per-turn gate that ran before the rewrite.
+        draft = has_reasoning_draft(reasoning)
+        if draft:
+            hard.append({"turn_index": ti, "kind": "reasoning_as_draft",
+                         "evidence": draft})
 
         # (C) trailing generation artifact on any segment.
         for seg_name, seg in (("query", query), ("reasoning", reasoning), ("answer", answer)):
