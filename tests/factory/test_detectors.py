@@ -11,8 +11,9 @@ from rxai_sdg.factory.detectors import (
     detect_format_bookkeeping, detect_reasoning_artifacts, reasoning_specifics,
     admission_markers, uncertainty_markers, detect_fabricated_citation,
     fabricated_citations, detect_constraint_corruption, detect_phantom_constraint,
-    detect_value_drift, detect_count_violation,
+    detect_value_drift, detect_count_violation, detect_scale_mismatch,
 )
+from rxai_sdg.factory.binary_gate import check_encoded_artifact_metadata, png_dimensions
 
 
 def _turn(i, q="", r="", a="", constraint_spec=None):
@@ -35,6 +36,39 @@ def test_phantom_constraint_rejects_ungrounded_genre():
     ]
     flags = detect_phantom_constraint(turns)
     assert flags and flags[0].name == "phantom_constraint"
+
+
+def test_scale_mismatch_reasoning_vs_answer():
+    bad = [_turn(0, "", "I'll use a scale from 1 to 5 where 1 is very bad.",
+                 "Rate your mood on a scale from 0 to 10 each morning.")]
+    f = detect_scale_mismatch(bad)
+    assert f and f[0].name == "reasoning_answer_scale_mismatch"
+    ok = [_turn(0, "", "I'll use a scale from 1 to 5.", "Use a scale from 1 to 5.")]
+    assert detect_scale_mismatch(ok) == []
+
+
+def test_encoded_artifact_png_dimension_mismatch():
+    import base64
+    import struct
+    import zlib
+
+    def make_png(w, h):
+        def chunk(typ, data):
+            c = typ + data
+            return struct.pack(">I", len(data)) + c + struct.pack(">I", zlib.crc32(c) & 0xffffffff)
+        sig = b"\x89PNG\r\n\x1a\n"
+        ihdr = struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0)
+        raw = b"".join(b"\x00" + b"\x00\x00\x00" * w for _ in range(h))
+        return sig + chunk(b"IHDR", ihdr) + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b"")
+
+    b64 = base64.b64encode(make_png(64, 64)).decode()
+    assert png_dimensions(make_png(64, 64)) == (64, 64)
+    # the report's defect: text asserts 64x128 but the PNG decodes to 64x64
+    bad = "Image size: (64, 128). Base64 output:\n" + b64[:200] + "..."
+    assert check_encoded_artifact_metadata(bad)
+    # matching dimensions, and no-base64 text, are both clean
+    assert check_encoded_artifact_metadata("A 64x64 image. Base64: " + b64[:200]) == []
+    assert check_encoded_artifact_metadata("The image is 64x128 pixels.") == []
 
 
 def test_count_violation_exact_bullets_and_word_ceiling():

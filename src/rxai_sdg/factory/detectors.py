@@ -653,6 +653,33 @@ def detect_phantom_constraint(turns: list[dict]) -> list[Flag]:
     return flags
 
 
+# --------------------------------------------------------------------------- G5
+# Reasoning<->answer scale mismatch: the reasoning PLANS one numeric scale and the
+# answer DELIVERS a different one (confirmed: reasoning "a scale from 1 to 5", the
+# answer hands the user a 0-10 scale). A deterministic reasoning<->answer
+# cross-check the judge does not perform.
+_SCALE_RE = re.compile(
+    r"\bscale\s+(?:from\s+|of\s+|going\s+from\s+)?(\d{1,2})\s*(?:to|\-|–|through)\s*(\d{1,3})\b",
+    re.I)
+
+
+def _scales(text: str) -> set:
+    return {(int(a), int(b)) for a, b in _SCALE_RE.findall(text or "")}
+
+
+def detect_scale_mismatch(turns: list[dict]) -> list[Flag]:
+    """G5. A numeric scale named in the reasoning that the same turn's answer
+    contradicts with a different scale."""
+    flags: list[Flag] = []
+    for t in turns:
+        rs = _scales(_seg(t, "reasoning"))
+        ans = _scales(_seg(t, "answer"))
+        if rs and ans and rs.isdisjoint(ans):
+            flags.append(Flag("G", "reasoning_answer_scale_mismatch", 2, _turn_index(t),
+                              f"reasoning scale {sorted(rs)} != answer scale {sorted(ans)}"))
+    return flags
+
+
 # --------------------------------------------------------------------------- G4
 # Count-constraint violation the user stated in plain words: "exactly five bullet
 # points" answered with four, or "under 50 words" exceeded. Bullet counts are
@@ -785,4 +812,5 @@ def run_all(record: dict, run_code: bool = True) -> list[Flag]:
     flags += detect_phantom_constraint(turns)
     flags += detect_value_drift(turns)
     flags += detect_count_violation(turns)
+    flags += detect_scale_mismatch(turns)
     return flags

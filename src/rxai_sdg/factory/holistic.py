@@ -34,7 +34,9 @@ from .detectors import (
     detect_confidence_mismatch, detect_code_mismatch, detect_fabricated_citation,
     detect_constraint_corruption, detect_disclaimer_then_finding, detect_harmful_coping,
     detect_phantom_constraint, detect_value_drift, detect_count_violation,
+    detect_scale_mismatch,
 )
+from .binary_gate import check_encoded_artifact_metadata
 from .exec_gate import run_exec_gate
 from .responder import (
     HARNESS_REASONING_RES,
@@ -332,6 +334,13 @@ def deterministic_prefilter(turns: list[Turn], regen_threshold: int = 2) -> Pref
             hard.append({"turn_index": ti, "kind": "truncated_answer",
                          "evidence": trunc})
 
+        # (C3) encoded-artifact metadata contradiction: a Base64 PNG pasted as the
+        # script's output whose IHDR dimensions contradict the asserted size (the
+        # judge cannot decode it; deterministic in one second).
+        for art in check_encoded_artifact_metadata(answer):
+            hard.append({"turn_index": ti, "kind": "encoded_artifact_mismatch",
+                         "evidence": art})
+
         # (D) degenerate-loop reasoning - OBJECTIVE (the judge demonstrably misses
         # it), so a HARD fail. Two signals: a high duplicated-unit ratio AND an
         # excessive self-correction restart count ("Wait, ... Wait, ...").
@@ -389,6 +398,10 @@ def deterministic_prefilter(turns: list[Turn], regen_threshold: int = 2) -> Pref
     # User-stated count constraint: exact item count not met, or word ceiling
     # exceeded - deterministic, where the LLM judge is unreliable at counting.
     for f in detect_count_violation(turns):
+        hard.append({"turn_index": f.turn_index, "kind": f.name,
+                     "evidence": f.evidence})
+    # reasoning<->answer scale mismatch (reasoning plans 1-5, answer gives 0-10).
+    for f in detect_scale_mismatch(turns):
         hard.append({"turn_index": f.turn_index, "kind": f.name,
                      "evidence": f.evidence})
     # Fabricated scholarly citation (a named study/report attributed a concrete

@@ -329,6 +329,23 @@ HARNESS_REASONING_RES: list[re.Pattern] = [
     re.compile(r"\bwithout\s+(?:anyone|the\s+user|them)\s+knowing\s+"
                r"(?:that\s+)?(?:an?\s+)?(?:ai|assistant|i\s+helped|ai\s+helped|it\s+was)\b",
                re.IGNORECASE),
+    # --- (NEW, from a review) reciting an active constraint by name instead of
+    #     thinking - pervasive D1/D2. Forbidden-word recitation ("avoid using the
+    #     word 'actually'"), output-tone bookkeeping ("keep the ELI5 tone"). Anchored
+    #     so "ensure the code does not use a deprecated function" (genuine) does NOT
+    #     fire - the forbidden-word form REQUIRES the literal "word". ---
+    re.compile(r"\b(?:avoid|never|don'?t|do\s+not|must\s+not|cannot|can'?t|"
+               r"refrain\s+from|without|not\s+to)\s+"
+               r"(?:use|using|say|saying|includ\w+|mention\w*)\s+(?:the\s+)?word\b",
+               re.IGNORECASE),
+    re.compile(r"\b(?:keep|maintain|retain|use|stick\s+to|preserve)\s+"
+               r"(?:the\s+|an?\s+)?(?:eli5|warm|formal|friendly|casual|professional|"
+               r"caring|simple|academic|enthusiastic|conversational|playful)\s+tone\b",
+               re.IGNORECASE),
+    # a generic problem-summary template pasted as "reasoning" ("First, the main
+    # cause. Second, the impact. Third, the steps. Finally, the expected outcome.").
+    re.compile(r"\bfirst,?\s+the\b[^.]{1,45}\.\s*second,?\s+the\b[^.]{1,45}\.\s*"
+               r"(?:third|finally)\b", re.IGNORECASE),
 ]
 
 
