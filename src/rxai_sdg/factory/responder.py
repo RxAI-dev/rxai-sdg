@@ -341,6 +341,27 @@ def has_harness_leak(reasoning: str) -> Optional[str]:
     return None
 
 
+# Reasoning-as-draft: the reasoning is not internal working-out but a DRAFT of the
+# answer - it contains the answer's own formatting (a markdown heading, a fenced
+# code/data block the model is composing, a markdown table). The reasoning has
+# "collapsed into the answer's content" (a confirmed D1/D2 defect: "reasoning
+# zawierajacy gotowy draft JSON"). Genuine reasoning describes/plans; it does not
+# render headings, tables, or a finished ```yaml/```python block.
+_DRAFT_HEADING_RE = re.compile(r"(?m)^\s{0,3}#{1,6}\s+\S")
+_DRAFT_TABLE_RE = re.compile(r"(?m)^\s*\|.*\|\s*$")
+
+
+def has_reasoning_draft(reasoning: str) -> Optional[str]:
+    r = reasoning or ""
+    if _DRAFT_HEADING_RE.search(r):
+        return "markdown heading in reasoning (answer draft)"
+    if r.count("```") >= 2:
+        return "fenced code/data block in reasoning (answer draft)"
+    if len(_DRAFT_TABLE_RE.findall(r)) >= 2:
+        return "markdown table in reasoning (answer draft)"
+    return None
+
+
 # (B) Turn-index references. FATAL inside an *answer* (corrupts the training
 # target) and illegitimate anywhere. Capital-T "Turn N" / "reference_turn_N" are
 # the canonical leaks; lowercase "turn N" requires an explicit positional cue so

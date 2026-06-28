@@ -50,6 +50,9 @@ def _reasoning_defect(reasoning: str) -> Optional[str]:
     leak = has_harness_leak(r)
     if leak:
         return f"harness leak in reasoning ({leak!r})"
+    draft = has_reasoning_draft(r)
+    if draft:
+        return draft
     if has_turn_index_leak(r):
         return "turn-index reference in reasoning"
     if has_numbered_flow_list(r):
@@ -65,7 +68,8 @@ from .prompts import PromptPack
 from .quality import QualityConfig, check_quality
 from .responder import (
     Responder, count_restart_markers, has_cot_leak, has_harness_leak,
-    has_numbered_flow_list, has_turn_index_leak, is_memory_disclaimer,
+    has_numbered_flow_list, has_reasoning_draft, has_turn_index_leak,
+    is_memory_disclaimer,
 )
 from .sampler import IntentPolicySampler
 from .schemas import ConstraintSpec, ConversationRecord, Seed, Turn, VerifyResult

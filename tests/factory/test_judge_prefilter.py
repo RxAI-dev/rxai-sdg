@@ -251,6 +251,19 @@ def test_harness_leak_task_spec_compliance_fp_guard():
         "This recipe has no special requirements for high altitude.")
 
 
+def test_reasoning_as_draft_detector():
+    from rxai_sdg.factory.responder import has_reasoning_draft
+    # answer-formatting inside reasoning = a draft, not thinking
+    assert has_reasoning_draft("I'll explain.\n## Overview\nFirst point, then second.")
+    assert has_reasoning_draft("Here's the YAML:\n```yaml\nN: 10\nK: 6\n```")
+    assert has_reasoning_draft("| Step | What |\n|---|---|\n| 1 | go |")
+    # genuine planning prose must NOT fire (mentions code/tables without rendering them)
+    assert not has_reasoning_draft(
+        "I need to compute 3/8 times 2/7: numerator 6, denominator 56, so 3/28.")
+    assert not has_reasoning_draft(
+        "I'll write a Python function and present the result in a table for clarity.")
+
+
 def test_truncation_detector_structural():
     from rxai_sdg.factory.holistic import detect_truncation
     # unclosed code fence (odd number of fences) -> truncated
