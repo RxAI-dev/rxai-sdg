@@ -11,6 +11,7 @@ from rxai_sdg.factory.detectors import (
     detect_format_bookkeeping, detect_reasoning_artifacts, reasoning_specifics,
     admission_markers, uncertainty_markers, detect_fabricated_citation,
     fabricated_citations, detect_constraint_corruption, detect_phantom_constraint,
+    detect_value_drift,
 )
 
 
@@ -34,6 +35,29 @@ def test_phantom_constraint_rejects_ungrounded_genre():
     ]
     flags = detect_phantom_constraint(turns)
     assert flags and flags[0].name == "phantom_constraint"
+
+
+def test_value_drift_rejects_conflicting_facility_amount():
+    turns = [
+        _turn(0, "", "", "We set up a total credit facility of $150,000 to fund the work."),
+        _turn(1, "", "", "Drawing $80,000 against the credit facility leaves room."),
+        _turn(2, "", "", "The total credit facility of $200,000 gives you flexibility."),
+    ]
+    flags = detect_value_drift(turns)
+    assert flags and flags[0].name == "cross_turn_value_drift"
+
+
+def test_value_drift_clean_on_intended_change_and_lineitems():
+    # an explicit change-verb licenses the new value -> not drift
+    ok_change = [
+        _turn(0, "", "", "The credit facility is $150,000."),
+        _turn(1, "", "", "We later increased the facility to $200,000 for expansion."),
+    ]
+    assert detect_value_drift(ok_change) == []
+    # different budget line items legitimately differ; only singular instruments
+    # (facility/loan) are checked, so this must not fire.
+    lineitems = [_turn(0, "", "", "Materials budget $150,000; labor budget $200,000.")]
+    assert detect_value_drift(lineitems) == []
 
 
 def test_phantom_constraint_grounded_is_clean():

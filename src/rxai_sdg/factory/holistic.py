@@ -33,7 +33,7 @@ from .clients import LLMClient
 from .detectors import (
     detect_confidence_mismatch, detect_code_mismatch, detect_fabricated_citation,
     detect_constraint_corruption, detect_disclaimer_then_finding, detect_harmful_coping,
-    detect_phantom_constraint,
+    detect_phantom_constraint, detect_value_drift,
 )
 from .exec_gate import run_exec_gate
 from .responder import (
@@ -369,6 +369,11 @@ def deterministic_prefilter(turns: list[Turn], regen_threshold: int = 2) -> Pref
     # to switch format unprompted; the judge only checks answer<->spec, never
     # spec<->user, so it is deterministic-gate territory.
     for f in detect_phantom_constraint(turns):
+        hard.append({"turn_index": f.turn_index, "kind": f.name,
+                     "evidence": f.evidence})
+    # Cross-turn value drift: a singular financial instrument with conflicting
+    # amounts across turns and no change-verb. The per-turn judge cannot see it.
+    for f in detect_value_drift(turns):
         hard.append({"turn_index": f.turn_index, "kind": f.name,
                      "evidence": f.evidence})
     # Fabricated scholarly citation (a named study/report attributed a concrete

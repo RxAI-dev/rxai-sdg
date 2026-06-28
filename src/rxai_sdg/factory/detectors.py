@@ -653,6 +653,55 @@ def detect_phantom_constraint(turns: list[dict]) -> list[Flag]:
     return flags
 
 
+# --------------------------------------------------------------------------- G3
+# Cross-turn value drift: a SINGULAR financial instrument (a credit facility, a
+# loan) carries conflicting dollar amounts across turns with no change-verb to
+# license it ("$150,000 credit facility" through the conversation, then "$200,000
+# total credit facility" later). The per-turn judge never catches it - each turn
+# is locally consistent. Restricted to singular instruments (a facility/loan has
+# ONE size; budget/revenue/cost legitimately vary by line item) for precision.
+_AMT_RE = re.compile(
+    r"([a-zA-Z][a-zA-Z\- ]{2,28}?)\s+(?:of|is|:|=|at|,)?\s*\$\s*"
+    r"(\d[\d,]*(?:\.\d+)?)\s*([KMB]|thousand|million|billion)?\b", re.I)
+_CHANGE_VERB_RE = re.compile(
+    r"\b(increased?|raised?|grew|grow|expand\w*|revised?|updated?|bumped?|"
+    r"reduced?|dropped?|lowered?|now)\b", re.I)
+_AMT_SCALE = {"k": 1e3, "thousand": 1e3, "m": 1e6, "million": 1e6, "b": 1e9, "billion": 1e9}
+_DRIFT_KEYNOUNS = {"facility", "loan"}
+
+
+def _amt_value(amount: str, unit: Optional[str]) -> float:
+    return float(amount.replace(",", "")) * _AMT_SCALE.get((unit or "").lower(), 1.0)
+
+
+def detect_value_drift(turns: list[dict]) -> list[Flag]:
+    """G3. Conflicting dollar amounts for the same singular financial instrument
+    across the conversation, with no change-verb licensing the change."""
+    by_key: dict[str, list[tuple[int, float, bool]]] = {}
+    for t in turns:
+        ti = _turn_index(t)
+        ans = _seg(t, "answer")
+        for sent in re.split(r"(?<=[.!?])\s+", ans):
+            changed = bool(_CHANGE_VERB_RE.search(sent))
+            for m in _AMT_RE.finditer(sent):
+                words = re.findall(r"[a-z]+", m.group(1).lower())
+                key = next((w for w in reversed(words) if w in _DRIFT_KEYNOUNS), None)
+                if not key:
+                    continue
+                by_key.setdefault(key, []).append(
+                    (ti, _amt_value(m.group(2), m.group(3)), changed))
+    flags: list[Flag] = []
+    for key, occ in by_key.items():
+        vals = sorted({round(v, 2) for _, v, _ in occ})
+        if len(vals) >= 2 and max(vals) > 1.05 * min(vals) \
+                and not any(c for _, _, c in occ):
+            turns_seen = sorted({ti for ti, _, _ in occ})
+            flags.append(Flag("G", "cross_turn_value_drift", 2, turns_seen[-1],
+                              f"{key!r} has conflicting values {vals} across turns "
+                              f"{turns_seen} with no change-verb"))
+    return flags
+
+
 # --------------------------------------------------------------------------- run
 RUN_ORDER = ["A", "B", "C", "D", "E", "F"]
 
@@ -675,4 +724,5 @@ def run_all(record: dict, run_code: bool = True) -> list[Flag]:
     flags += detect_reasoning_artifacts(turns)
     flags += detect_constraint_integrity(turns)
     flags += detect_phantom_constraint(turns)
+    flags += detect_value_drift(turns)
     return flags
