@@ -26,13 +26,19 @@ from .schemas import Turn
 _FACTCHECK_SYSTEM = (
     "You are a meticulous fact-checker. You are given assistant ANSWERS from a "
     "conversation. Extract every CHECKABLE factual claim about named people, "
-    "places, works, organisations, dates, attributions (who said/wrote what), and "
-    "specific quantities. IGNORE opinions, advice, hypotheticals, and anything the "
+    "places, works, organisations, dates, attributions (who said/wrote what), "
+    "specific quantities, AND technical claims about how a named standard-library "
+    "function, API, or algorithm works (which algorithm/data-structure it uses, its "
+    "complexity, stability, or guarantees - e.g. 'Vec::sort() uses quicksort'). "
+    "IGNORE opinions, advice, hypotheticals, and anything the "
     "answer explicitly labels an estimate, example, or sample. Judge each claim "
     "TRUE / FALSE / UNVERIFIABLE using only your own knowledge. Mark a claim FALSE "
     "ONLY when you are confident it is wrong (e.g. a plausible but incorrect actor "
-    "name, a wrong date, a misattributed quote). When unsure, use UNVERIFIABLE - "
-    "never guess FALSE. Output ONLY a JSON object, no prose:\n"
+    "name, a wrong date, a misattributed quote, or a function described as using the "
+    "WRONG algorithm). When unsure, use UNVERIFIABLE - never guess FALSE. Do NOT "
+    "flag a technical claim that is essentially correct but merely imprecisely or "
+    "informally phrased; flag it only when it is SUBSTANTIVELY wrong. Output ONLY a "
+    "JSON object, no prose:\n"
     '{"false_claims":[{"claim":"<verbatim claim>","correction":"<the truth>"}],'
     '"any_false":true|false}'
 )
