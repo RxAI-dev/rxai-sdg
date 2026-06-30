@@ -8,10 +8,10 @@ from typing import Any
 import pandas as pd
 import yaml
 
-from utils import read_jsonl, safe_filename
+from .utils import read_jsonl, safe_filename
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parent
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "configs" / "config.yaml"
 DEFAULT_OUT_DIR = PROJECT_ROOT / "data" / "results" / "subset_quality_report"
 SCORE_COLUMNS = ["memory_score", "instruction_score", "freshness_score", "overall_score"]

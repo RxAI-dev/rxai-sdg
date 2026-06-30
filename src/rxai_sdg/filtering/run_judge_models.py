@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -9,8 +10,12 @@ from typing import Any
 import yaml
 
 
-DEFAULT_CONFIG_PATH = Path("configs/config.yaml")
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parent
+DEFAULT_CONFIG_PATH = PROJECT_ROOT / "configs" / "config.yaml"
+# Directory that contains the top-level ``rxai_sdg`` package, so spawned
+# subprocesses can import the evaluator even without an editable install.
+SRC_ROOT = Path(__file__).resolve().parents[2]
+EVALUATOR_MODULE = "rxai_sdg.filtering.evaluator"
 
 
 def load_models(config_path: Path) -> list[str]:
@@ -40,7 +45,8 @@ def main() -> None:
     for model in models:
         command = [
             sys.executable,
-            str(PROJECT_ROOT / "src" / "evaluator.py"),
+            "-m",
+            EVALUATOR_MODULE,
             "--config",
             str(config_path),
             "--model",
@@ -60,7 +66,10 @@ def main() -> None:
             command.append("--rerun-ok")
 
         print(f"\n=== Running judge model: {model} ===", flush=True)
-        completed = subprocess.run(command, cwd=PROJECT_ROOT, check=False)
+        env = dict(os.environ)
+        existing_pythonpath = env.get("PYTHONPATH", "")
+        env["PYTHONPATH"] = os.pathsep.join(filter(None, [str(SRC_ROOT), existing_pythonpath]))
+        completed = subprocess.run(command, cwd=PROJECT_ROOT, env=env, check=False)
         if completed.returncode != 0:
             failures.append((model, completed.returncode))
             print(f"Model failed but runner will continue: {model} (exit={completed.returncode})", flush=True)
