@@ -106,11 +106,12 @@ class ScoringResult:
     n_ok: int
     n_error: int
     errors: list[dict[str, Any]] = field(default_factory=list)
+    uploaded: bool = False
 
     def __repr__(self) -> str:  # pragma: no cover - cosmetic
         return (
             f"ScoringResult(n_total={self.n_total}, n_ok={self.n_ok}, "
-            f"n_error={self.n_error}, scores_field={self.scores_field!r})"
+            f"n_error={self.n_error}, uploaded={self.uploaded}, scores_field={self.scores_field!r})"
         )
 
 
@@ -203,14 +204,7 @@ def _attach_scores(dataset: Dataset, scores_column: list[Any], scores_field: str
     return base.add_column(scores_field, list(scores_column))
 
 
-def _push_scores(
-    dataset: Dataset,
-    scores_snapshot: list[Any],
-    upload: UploadSettings,
-    completed: int,
-    total: int,
-) -> None:
-    scored = _attach_scores(dataset, scores_snapshot, upload.scores_field)
+def _push_built(scored: Dataset, upload: UploadSettings, completed: int, total: int) -> None:
     kwargs: dict[str, Any] = {
         "repo_id": upload.dataset_name,
         "config_name": upload.config_name,
@@ -221,6 +215,22 @@ def _push_scores(
     if upload.private is not None:
         kwargs["private"] = upload.private
     scored.push_to_hub(**kwargs)
+
+
+def _safe_push(scored: Dataset, upload: UploadSettings, completed: int, total: int, verbose: bool) -> bool:
+    """Push to the Hub, returning success. A failed upload is logged but never
+    raised: in-memory scores are preserved so a transient Hub/network error
+    cannot discard a long run's progress (the next upload simply retries)."""
+    try:
+        _push_built(scored, upload, completed, total)
+        return True
+    except Exception as exc:  # noqa: BLE001 - upload must not crash scoring
+        if verbose:
+            print(
+                f"  ! upload to '{upload.dataset_name}' ({completed}/{total}) failed: "
+                f"{type(exc).__name__}: {exc}. Scores are kept in memory; will retry on the next upload."
+            )
+        return False
 
 
 class _ScoresBuffer:
@@ -340,29 +350,24 @@ def score_conversational_dataset(
             if upload and upload_every and completed % upload_every == 0 and completed < total:
                 if verbose:
                     print(f"\nUploading partial scores to '{upload.dataset_name}' ({completed}/{total})...")
-                _push_scores(dataset, scores_buffer.snapshot(), upload, completed, total)
+                partial = _attach_scores(dataset, scores_buffer.snapshot(), scores_field)
+                _safe_push(partial, upload, completed, total, verbose)
 
     if progress is not None:
         progress.close()
 
     scored_dataset = _attach_scores(dataset, scores_buffer.snapshot(), scores_field)
 
+    uploaded = False
     if upload:
         if verbose:
             print(f"\nUploading final scores to '{upload.dataset_name}' (config '{upload.config_name}', split '{upload.split}')...")
-        kwargs: dict[str, Any] = {
-            "repo_id": upload.dataset_name,
-            "config_name": upload.config_name,
-            "split": upload.split,
-            "token": upload.hf_token,
-            "commit_message": f"Add '{scores_field}' judge scores ({total}/{total} examples)",
-        }
-        if upload.private is not None:
-            kwargs["private"] = upload.private
-        scored_dataset.push_to_hub(**kwargs)
+        uploaded = _safe_push(scored_dataset, upload, total, total, verbose)
+        if verbose and uploaded:
+            print(f"Uploaded scored dataset to '{upload.dataset_name}' (config '{upload.config_name}').")
 
     if verbose:
-        print(f"\nDone. ok={counts['ok']}, errors={counts['error']}, total={total}.")
+        print(f"\nDone. ok={counts['ok']}, errors={counts['error']}, total={total}, uploaded={uploaded}.")
 
     return ScoringResult(
         dataset=scored_dataset,
@@ -371,4 +376,5 @@ def score_conversational_dataset(
         n_ok=counts["ok"],
         n_error=counts["error"],
         errors=errors,
+        uploaded=uploaded,
     )
