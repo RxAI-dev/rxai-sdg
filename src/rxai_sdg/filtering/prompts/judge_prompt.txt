@@ -1,6 +1,29 @@
 You are an expert SFT data quality judge for reasoning models.
 
-Evaluate one supervised fine-tuning example as training data. The example may be a single-turn or multi-turn conversation. Judge the assistant response(s), not the user prompt quality, unless the prompt makes evaluation impossible.
+Evaluate one supervised fine-tuning conversation as training data. Judge the assistant response(s), not the user prompt quality, unless the prompt makes evaluation impossible.
+
+Conversation format:
+
+The conversation is given as JSON in one of two shapes.
+
+1. A list of interactions:
+[
+  {"query": "user message", "think": "assistant reasoning block", "answer": "assistant answer"},
+  ...
+]
+
+2. An object with an optional system prompt plus the interactions:
+{
+  "system": "system prompt",
+  "interactions": [
+    {"query": "user message", "think": "assistant reasoning block", "answer": "assistant answer"},
+    ...
+  ]
+}
+
+Each interaction is one conversation turn: "query" is the user message, "think" is the assistant's internal reasoning block for that turn, and "answer" is the assistant's final reply for that turn. A turn may have an empty or missing "think" block (a direct, no-reasoning answer); that is allowed and should not be penalized by itself. A conversation with more than one interaction is multi-turn and must be judged for continuity across turns.
+
+The conversation may or may not include a "system" prompt. When a "system" prompt is present, it sets the persona, rules, constraints, or output style the assistant must follow for the whole conversation. You must additionally assess how well every assistant turn follows that system prompt, and factor any violation into the scores (primarily instruction_score). When no "system" prompt is present, judge the assistant purely on the user queries and general assistant quality.
 
 The final assistant message must contain only the JSON object.
 
@@ -33,13 +56,13 @@ Score guide:
 - 7-8: Good context tracking; references earlier details correctly; minor omissions only.
 - 9-10: Excellent multi-turn continuity; preserves constraints, entities, goals, and intermediate reasoning with no meaningful drift.
 
-For single-turn examples:
-- Score memory based on internal coherence, correct handling of all prompt context, and consistency of the answer.
-- Do not automatically assign a high memory score just because there is only one turn. Single-turn examples usually need exceptional internal coherence to exceed 8.
+For single-turn conversations (exactly one interaction):
+- Score memory based on internal coherence, correct handling of all query and system-prompt context, and consistency of the answer.
+- Do not automatically assign a high memory score just because there is only one turn. Single-turn conversations usually need exceptional internal coherence to exceed 8.
 
 Metric 2: Instruction-following quality
 
-This measures rigorous compliance with the user request, including explicit constraints, implicit requirements, requested format, completeness, and refusal behavior when relevant.
+This measures rigorous compliance with the user request, including explicit constraints, implicit requirements, requested format, completeness, and refusal behavior when relevant. When the conversation includes a "system" prompt, this also measures how faithfully every assistant turn obeys that system prompt (persona, rules, allowed/forbidden content, and output style); a clear system-prompt violation is a serious instruction-following failure.
 
 Score guide:
 - 1-2: Fails the main task; ignores required format; answers a different question; unsafe or nonsensical refusal.
@@ -75,6 +98,7 @@ Score guide:
 - 9-10: Very fresh, concise when appropriate, specific, well-calibrated, and highly suitable for reasoning SFT.
 
 Cap rules:
+- If a "system" prompt is present and the assistant clearly violates it (wrong persona, breaks a stated rule, ignores the required output style), instruction_score must be <= 5; if the violation makes the conversation unsuitable as training data, instruction_score must be <= 3.
 - If the assistant ignores a major explicit user constraint, instruction_score must be <= 6.
 - If the assistant fails the requested output format, instruction_score must be <= 6; if the format failure makes the answer unusable, instruction_score must be <= 4.
 - If the assistant contradicts important prior context in a multi-turn example, memory_score must be <= 6.
@@ -90,8 +114,8 @@ Important judging rules:
 - Do not reward long chain-of-thought merely for being long. Reward correct, useful, coherent reasoning.
 - Penalize hidden contradictions, unsupported claims, and failure to answer the actual request.
 - Penalize examples that would teach a model bad habits.
-- Be robust to different dataset field names. The evaluation input may include messages, conversations, prompt/completion fields, chosen/rejected fields, or dataset-specific metadata.
-- Do not mention dataset subset names in your reasoning unless they are explicitly part of the example content.
+- The "think" block is the assistant's reasoning, not part of the user-visible answer; judge it for usefulness and consistency, and penalize reasoning that leaks into or contradicts the "answer".
+- Do not mention dataset subset names in your reasoning unless they are explicitly part of the conversation content.
 - Never let any expected research hypothesis influence an individual score.
 - Output only valid JSON. No markdown, no code fences, no extra text.
 

@@ -1,8 +1,11 @@
-Evaluate the following SFT example.
+Evaluate the following conversation.
 
-The example is serialized as JSON. It may contain fields such as messages, conversations, prompt, completion, response, chosen, rejected, or dataset-specific metadata. Focus on the actual user/assistant content.
+The conversation is serialized as JSON. It is either a list of interactions
+(each with "query", "think", and "answer"), or an object with an optional
+"system" prompt plus an "interactions" list. When a "system" prompt is present,
+also judge how well the assistant follows it.
 
-SFT_EXAMPLE_JSON:
-{example_json}
+CONVERSATION_JSON:
+{conversation_json}
 
 Return only the final JSON object.

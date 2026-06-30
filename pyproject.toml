@@ -30,8 +30,17 @@ openai = '^1.82.1'
 nltk = '^3.9.1'
 ollama = '^0.5.1'
 
-# PyYAML is optional: only required for YAML FactoryConfig files and the
-# yaml_valid constraint checker. JSON configs work without it.
+# Dataset quality filtering (rxai_sdg.filtering) dependencies. These power the
+# LLM-as-a-judge scoring pipeline and its analysis/reporting helpers.
+jsonschema = "^4.22.0"
+pandas = "^2.2.0"
+pyarrow = "^15.0.0"
+python-dotenv = "^1.0.1"
+tqdm = "^4.66.0"
+
+# PyYAML is optional: only required for YAML FactoryConfig files, the
+# yaml_valid constraint checker, and the filtering CLI (config.yaml). JSON
+# configs and the notebook-facing score_conversational_dataset work without it.
 pyyaml = { version = "^6.0", optional = true }
 
 [tool.poetry.group.dev.dependencies]
