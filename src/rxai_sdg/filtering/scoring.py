@@ -30,8 +30,6 @@ Example
 
 from __future__ import annotations
 
-import contextlib
-import importlib
 import random
 import textwrap
 import threading
@@ -208,54 +206,99 @@ def _attach_scores(dataset: Dataset, scores_column: list[Any], scores_field: str
     return base.add_column(scores_field, list(scores_column))
 
 
-@contextlib.contextmanager
-def _tolerant_existing_card_reads():
-    """Work around ``datasets.push_to_hub`` aborting on a non-UTF-8 existing card.
+def _data_dir_for(config_name: str) -> str:
+    # Mirrors datasets.push_to_hub: the default config lives under data/, named
+    # configs live under a directory named after the config.
+    return config_name if config_name != "default" else "data"
 
-    When updating an existing repo, ``datasets`` reads that repo's current
-    ``README.md`` / ``dataset_infos.json`` as strict UTF-8 and only catches
-    ``FileNotFoundError``. A single stray non-UTF-8 byte in an existing card
-    (e.g. a CP1252 ``…`` = 0x85) therefore raises ``UnicodeDecodeError`` and
-    blocks the whole upload, even though the new parquet data is fine.
 
-    Those reads go through ``fsspec.AbstractFileSystem.read_text``, so we scope a
-    lenient version around our own ``push_to_hub`` call (retry the failed read
-    with ``errors="replace"``; treat a broken legacy ``dataset_infos.json`` as
-    empty) and restore it afterwards. Patching fsspec here is version-agnostic:
-    it does not depend on any ``datasets`` internal symbol. It only ever changes
-    behaviour when a read would otherwise raise ``UnicodeDecodeError``.
+def _existing_split_parquet_files(api, repo_id: str, data_dir: str, split: str) -> list[str] | None:
+    """Return existing parquet shard paths for ``{data_dir}/{split}-*`` on the
+    Hub, or ``None`` if the repo/config does not exist yet."""
+    from huggingface_hub.utils import RepositoryNotFoundError
+
+    try:
+        files = api.list_repo_files(repo_id, repo_type="dataset")
+    except RepositoryNotFoundError:
+        return None
+    prefix = f"{data_dir}/{split}-"
+    shards = [f for f in files if f.startswith(prefix) and f.endswith(".parquet")]
+    return shards if shards else None
+
+
+def _commit_data_only(scored: Dataset, upload: UploadSettings, existing_shards: list[str], completed: int, total: int) -> None:
+    """Upload the scored data for an existing config by committing parquet shards
+    directly, WITHOUT rewriting the dataset card.
+
+    ``datasets.push_to_hub`` regenerates ``README.md`` on every push; if the
+    existing card is not clean UTF-8 that regeneration can drop other configs and
+    write a garbled body. For a config that already exists we only need to
+    refresh its parquet, so we commit the shards to ``{data_dir}/{split}-*`` and
+    delete stale shards, leaving the human-written card and every other config
+    untouched. (The card's cached row/byte stats for this split may read stale
+    until the Hub reindexes; the parquet itself carries the new ``scores``.)
     """
+    import math
+    import os
+    import shutil
+    import tempfile
+
+    from huggingface_hub import CommitOperationAdd, CommitOperationDelete, HfApi
+
+    api = HfApi(token=upload.hf_token)
+    data_dir = _data_dir_for(upload.config_name)
+    split = upload.split
+
     try:
-        fsspec = importlib.import_module("fsspec")
-        base = fsspec.AbstractFileSystem
-    except Exception:  # pragma: no cover - fsspec ships with datasets
-        yield
-        return
+        nbytes = int(scored._estimate_nbytes())
+    except Exception:
+        nbytes = int(getattr(scored.data, "nbytes", 0) or 0)
+    max_shard = 500 * 1024 * 1024  # 500 MB, matching datasets' default target
+    num_shards = max(1, math.ceil(nbytes / max_shard)) if nbytes else 1
 
-    original_read_text = base.read_text
-
-    def lenient_read_text(self, path, encoding=None, errors=None, newline=None, **kwargs):
-        try:
-            return original_read_text(
-                self, path, encoding=encoding, errors=errors, newline=newline, **kwargs
-            )
-        except UnicodeDecodeError:
-            # A broken legacy dataset_infos.json can't be salvaged as JSON;
-            # treat it as empty so README metadata is used instead.
-            if str(path).endswith("dataset_infos.json"):
-                return "{}"
-            return original_read_text(
-                self, path, encoding=encoding, errors="replace", newline=newline, **kwargs
-            )
-
-    base.read_text = lenient_read_text
+    tmpdir = tempfile.mkdtemp(prefix="rxai_scores_")
     try:
-        yield
+        additions = []
+        for index in range(num_shards):
+            shard = scored.shard(num_shards=num_shards, index=index, contiguous=True)
+            name = f"{split}-{index:05d}-of-{num_shards:05d}.parquet"
+            local_path = os.path.join(tmpdir, name)
+            shard.to_parquet(local_path)
+            additions.append(
+                CommitOperationAdd(path_in_repo=f"{data_dir}/{name}", path_or_fileobj=local_path)
+            )
+
+        new_paths = {addition.path_in_repo for addition in additions}
+        deletions = [
+            CommitOperationDelete(path_in_repo=path) for path in existing_shards if path not in new_paths
+        ]
+
+        api.create_commit(
+            repo_id=upload.dataset_name,
+            repo_type="dataset",
+            operations=additions + deletions,
+            commit_message=f"Add '{upload.scores_field}' judge scores ({completed}/{total} examples)",
+        )
     finally:
-        base.read_text = original_read_text
+        shutil.rmtree(tmpdir, ignore_errors=True)
 
 
 def _push_built(scored: Dataset, upload: UploadSettings, completed: int, total: int) -> None:
+    from huggingface_hub import HfApi
+
+    api = HfApi(token=upload.hf_token)
+    data_dir = _data_dir_for(upload.config_name)
+    existing_shards = _existing_split_parquet_files(api, upload.dataset_name, data_dir, upload.split)
+
+    if existing_shards is not None:
+        # Config/split already exists: refresh its parquet only, never touch the
+        # card (avoids dropping other configs / corrupting the README body).
+        _commit_data_only(scored, upload, existing_shards, completed, total)
+        return
+
+    # New repo or new config: let datasets register the config in the card. We do
+    # NOT patch its card reads here, so a non-UTF-8 existing card fails safe
+    # (aborts and preserves the card) rather than being silently rewritten.
     kwargs: dict[str, Any] = {
         "repo_id": upload.dataset_name,
         "config_name": upload.config_name,
@@ -265,8 +308,7 @@ def _push_built(scored: Dataset, upload: UploadSettings, completed: int, total: 
     }
     if upload.private is not None:
         kwargs["private"] = upload.private
-    with _tolerant_existing_card_reads():
-        scored.push_to_hub(**kwargs)
+    scored.push_to_hub(**kwargs)
 
 
 def _safe_push(scored: Dataset, upload: UploadSettings, completed: int, total: int, verbose: bool) -> bool:
