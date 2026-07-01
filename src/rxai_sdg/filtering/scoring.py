@@ -30,6 +30,8 @@ Example
 
 from __future__ import annotations
 
+import contextlib
+import importlib
 import random
 import threading
 import time
@@ -204,6 +206,53 @@ def _attach_scores(dataset: Dataset, scores_column: list[Any], scores_field: str
     return base.add_column(scores_field, list(scores_column))
 
 
+@contextlib.contextmanager
+def _tolerant_existing_card_reads():
+    """Work around ``datasets.push_to_hub`` aborting on a non-UTF-8 existing card.
+
+    When updating an existing repo, ``datasets`` reads that repo's current
+    ``README.md`` / ``dataset_infos.json`` as strict UTF-8 and only catches
+    ``FileNotFoundError``. A single stray non-UTF-8 byte in an existing card
+    (e.g. a CP1252 ``…`` = 0x85) therefore raises ``UnicodeDecodeError`` and
+    blocks the whole upload, even though the new parquet data is fine.
+
+    Those reads go through ``fsspec.AbstractFileSystem.read_text``, so we scope a
+    lenient version around our own ``push_to_hub`` call (retry the failed read
+    with ``errors="replace"``; treat a broken legacy ``dataset_infos.json`` as
+    empty) and restore it afterwards. Patching fsspec here is version-agnostic:
+    it does not depend on any ``datasets`` internal symbol. It only ever changes
+    behaviour when a read would otherwise raise ``UnicodeDecodeError``.
+    """
+    try:
+        fsspec = importlib.import_module("fsspec")
+        base = fsspec.AbstractFileSystem
+    except Exception:  # pragma: no cover - fsspec ships with datasets
+        yield
+        return
+
+    original_read_text = base.read_text
+
+    def lenient_read_text(self, path, encoding=None, errors=None, newline=None, **kwargs):
+        try:
+            return original_read_text(
+                self, path, encoding=encoding, errors=errors, newline=newline, **kwargs
+            )
+        except UnicodeDecodeError:
+            # A broken legacy dataset_infos.json can't be salvaged as JSON;
+            # treat it as empty so README metadata is used instead.
+            if str(path).endswith("dataset_infos.json"):
+                return "{}"
+            return original_read_text(
+                self, path, encoding=encoding, errors="replace", newline=newline, **kwargs
+            )
+
+    base.read_text = lenient_read_text
+    try:
+        yield
+    finally:
+        base.read_text = original_read_text
+
+
 def _push_built(scored: Dataset, upload: UploadSettings, completed: int, total: int) -> None:
     kwargs: dict[str, Any] = {
         "repo_id": upload.dataset_name,
@@ -214,7 +263,8 @@ def _push_built(scored: Dataset, upload: UploadSettings, completed: int, total: 
     }
     if upload.private is not None:
         kwargs["private"] = upload.private
-    scored.push_to_hub(**kwargs)
+    with _tolerant_existing_card_reads():
+        scored.push_to_hub(**kwargs)
 
 
 def _safe_push(scored: Dataset, upload: UploadSettings, completed: int, total: int, verbose: bool) -> bool:
