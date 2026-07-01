@@ -33,8 +33,10 @@ from __future__ import annotations
 import contextlib
 import importlib
 import random
+import textwrap
 import threading
 import time
+import traceback
 from dataclasses import dataclass, field
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -280,6 +282,9 @@ def _safe_push(scored: Dataset, upload: UploadSettings, completed: int, total: i
                 f"  ! upload to '{upload.dataset_name}' ({completed}/{total}) failed: "
                 f"{type(exc).__name__}: {exc}. Scores are kept in memory; will retry on the next upload."
             )
+            # Full traceback so the failing frame (card read vs. data/commit) is
+            # diagnosable rather than hidden behind the one-line message.
+            print(textwrap.indent(traceback.format_exc().rstrip(), "    "))
         return False
 
 
